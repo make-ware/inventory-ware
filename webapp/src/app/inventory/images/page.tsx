@@ -138,7 +138,7 @@ export default function ImagesPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getUrl(image, image.file);
+    return pb.files.getURL(image, image.file);
   };
 
   // Pagination

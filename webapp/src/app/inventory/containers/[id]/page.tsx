@@ -171,7 +171,7 @@ export default function ContainerDetailPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getUrl(image, image.file);
+    return pb.files.getURL(image, image.file);
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
@@ -179,7 +179,7 @@ export default function ContainerDetailPage() {
     if (item.primary_image) {
       const image = itemImages.get(item.primary_image);
       if (image) {
-        return pb.files.getUrl(image, image.file);
+        return pb.files.getURL(image, image.file);
       }
     }
 
@@ -189,7 +189,7 @@ export default function ContainerDetailPage() {
         (img) => img.id === container.primary_image
       );
       if (containerImage) {
-        return pb.files.getUrl(containerImage, containerImage.file);
+        return pb.files.getURL(containerImage, containerImage.file);
       }
     }
 
@@ -369,6 +369,7 @@ export default function ContainerDetailPage() {
                         alt="Container image"
                         fill
                         className="object-cover"
+                        unoptimized
                       />
                     </div>
                   ))}

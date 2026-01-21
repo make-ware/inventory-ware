@@ -73,6 +73,7 @@ export function ContainerCard({
               alt={container.container_label}
               fill
               className="object-cover"
+              unoptimized
             />
           </div>
         ) : (

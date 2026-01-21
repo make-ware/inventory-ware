@@ -66,6 +66,7 @@ export function ItemCard({
               alt={item.item_label}
               fill
               className="object-cover"
+              unoptimized
             />
           </div>
         ) : (

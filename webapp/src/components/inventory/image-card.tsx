@@ -157,6 +157,7 @@ export function ImageCard({
               alt="Image"
               fill
               className="object-cover"
+              unoptimized
             />
           </div>
         ) : (

@@ -238,7 +238,7 @@ export default function InventoryPage() {
     if (!imageId) return undefined;
     const image = images.get(imageId);
     if (!image) return undefined;
-    return pb.files.getUrl(image, image.file);
+    return pb.files.getURL(image, image.file);
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {

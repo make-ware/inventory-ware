@@ -155,7 +155,7 @@ export default function ImageDetailPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getUrl(image, image.file);
+    return pb.files.getURL(image, image.file);
   };
 
   const getStatusColor = (status: string) => {
@@ -303,6 +303,7 @@ export default function ImageDetailPage() {
                   alt="Image"
                   fill
                   className="object-contain"
+                  unoptimized
                 />
               </div>
             </CardContent>

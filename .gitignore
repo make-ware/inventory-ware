@@ -14,10 +14,10 @@
 .pnp.*
 
 # PocketBase
-pb/pocketbase*
-pb/pb_data/
-pb/*.zip
-pb/*.tar.gz
+pocketbase/pocketbase*
+pocketbase/pb_data/
+pocketbase/*.zip
+pocketbase/*.tar.gz
 
 # Next.js
 app/.next/
@@ -69,6 +69,6 @@ dist/
 .cursor/
 
 # pocketbase
-/pb/CHANGELOG.md
-/pb/LICENSE.md
-/pb/pocketbase
+pocketbase/CHANGELOG.md
+pocketbase/LICENSE.md
+pocketbase/pocketbase

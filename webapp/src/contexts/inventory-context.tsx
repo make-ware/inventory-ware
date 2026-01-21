@@ -410,7 +410,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       if (!imageId) return undefined;
       const image = state.images.get(imageId);
       if (!image) return undefined;
-      return pb.files.getUrl(image, image.file as string);
+      return pb.files.getURL(image, image.file as string);
     },
     [state.images]
   );

@@ -100,7 +100,7 @@ export default function ItemDetailPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getUrl(image, image.file);
+    return pb.files.getURL(image, image.file);
   };
 
   if (isLoading) {
@@ -248,6 +248,7 @@ export default function ItemDetailPage() {
                         alt="Item image"
                         fill
                         className="object-cover"
+                        unoptimized
                       />
                       {image.id === item.primary_image && (
                         <Badge className="absolute top-2 right-2 z-10">

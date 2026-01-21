@@ -128,7 +128,7 @@ export default function ContainersPage() {
     if (!imageId) return undefined;
     const image = images.get(imageId);
     if (!image) return undefined;
-    return pb.files.getUrl(image, image.file);
+    return pb.files.getURL(image, image.file);
   };
 
   const getContainerItemCount = (containerId: string): number => {

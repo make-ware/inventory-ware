@@ -22,6 +22,16 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   transpilePackages: ['@project/shared'],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '8090',
+        pathname: '/api/files/**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;
