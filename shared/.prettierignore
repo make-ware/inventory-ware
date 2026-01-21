@@ -1,0 +1,14 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+
+# Yarn
+.yarn
+.pnp.*
+
+# Other
+*.log
+*.md
+
