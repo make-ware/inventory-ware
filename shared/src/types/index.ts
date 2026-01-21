@@ -61,7 +61,9 @@ export interface TypedPocketBase extends PocketBase {
   collection(idOrName: 'items'): RecordService<Item>;
   collection(idOrName: 'containers'): RecordService<Container>;
   collection(idOrName: 'item_image_mappings'): RecordService<ItemImageMapping>;
-  collection(idOrName: 'container_image_mappings'): RecordService<ContainerImageMapping>;
+  collection(
+    idOrName: 'container_image_mappings'
+  ): RecordService<ContainerImageMapping>;
   collection(idOrName: 'ItemRecords'): RecordService<ItemRecord>;
   collection(idOrName: 'ContainerRecords'): RecordService<ContainerRecord>;
 }

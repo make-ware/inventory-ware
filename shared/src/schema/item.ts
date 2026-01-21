@@ -37,7 +37,7 @@ export const ItemInputSchema = z.object({
 
 // Define the Zod schema for item updates (all fields optional except validation rules)
 // Internal update schema
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export const ItemUpdateSchema = z.object({
   item_label: z.string().min(1, 'Item label is required').optional(),
   item_notes: z.string().optional(),

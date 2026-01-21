@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator, ItemMutator, ImageMutator } from '@project/shared';
 import type { Container, Item, Image } from '@project/shared';
@@ -69,15 +69,9 @@ export default function ContainerDetailPage() {
       );
       setAllItems(availableItems);
 
-      // Load container images
-      const containerImages = await imageMutator.getByContainerId(containerId);
-
-      // Also ensure container's primary image is loaded (for item fallback)
-      const allContainerImages = [...containerImages];
-      if (
-        containerData.primary_image &&
-        !containerImages.find((img) => img.id === containerData.primary_image)
-      ) {
+      // Load container images - get primary image if it exists
+      const allContainerImages: Image[] = [];
+      if (containerData.primary_image) {
         try {
           const containerPrimaryImage = await imageMutator.getById(
             containerData.primary_image
@@ -370,7 +364,7 @@ export default function ContainerDetailPage() {
                       key={image.id}
                       className="relative aspect-square rounded-lg overflow-hidden border"
                     >
-                      <Image
+                      <NextImage
                         src={getImageUrl(image)}
                         alt="Container image"
                         fill

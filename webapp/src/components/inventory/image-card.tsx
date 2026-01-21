@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import NextImage from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -152,7 +152,7 @@ export function ImageCard({
       <CardContent>
         {imageUrl ? (
           <div className="relative w-full h-32 rounded mb-3 overflow-hidden">
-            <Image
+            <NextImage
               src={imageUrl}
               alt="Image"
               fill

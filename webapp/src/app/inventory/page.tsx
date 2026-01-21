@@ -54,37 +54,39 @@ export default function InventoryPage() {
   const containerMutator = new ContainerMutator(pb);
   const imageMutator = new ImageMutator(pb);
 
-  const loadImages = useCallback(async (imageIds: string[]) => {
-    try {
-      const currentImages = images;
-      const newImages = new Map(currentImages);
-      const imagesToLoad: string[] = [];
-      
-      for (const imageId of imageIds) {
-        if (!newImages.has(imageId)) {
-          imagesToLoad.push(imageId);
-        }
-      }
-      
-      for (const imageId of imagesToLoad) {
-        try {
-          const image = await imageMutator.getById(imageId);
-          if (image) {
-            newImages.set(imageId, image);
+  const loadImages = useCallback(
+    async (imageIds: string[]) => {
+      try {
+        const currentImages = images;
+        const newImages = new Map(currentImages);
+        const imagesToLoad: string[] = [];
+
+        for (const imageId of imageIds) {
+          if (!newImages.has(imageId)) {
+            imagesToLoad.push(imageId);
           }
-        } catch {
-          // Ignore errors for individual images
         }
+
+        for (const imageId of imagesToLoad) {
+          try {
+            const image = await imageMutator.getById(imageId);
+            if (image) {
+              newImages.set(imageId, image);
+            }
+          } catch {
+            // Ignore errors for individual images
+          }
+        }
+
+        if (imagesToLoad.length > 0) {
+          setImages(newImages);
+        }
+      } catch (error) {
+        console.error('Failed to load images:', error);
       }
-      
-      if (imagesToLoad.length > 0) {
-        setImages(newImages);
-      }
-    } catch (error) {
-      console.error('Failed to load images:', error);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [images]);
+    },
+    [images]
+  );
 
   const loadItems = useCallback(async () => {
     try {
@@ -321,7 +323,10 @@ export default function InventoryPage() {
         />
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'items' | 'containers')}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as 'items' | 'containers')}
+      >
         <TabsList>
           <TabsTrigger value="items">Items ({items.length})</TabsTrigger>
           <TabsTrigger value="containers">

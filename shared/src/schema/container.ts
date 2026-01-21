@@ -16,7 +16,7 @@ export const ContainerInputSchema = z.object({
 
 // Define the Zod schema for container updates (all fields optional except validation rules)
 // Internal update schema
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export const ContainerUpdateSchema = z.object({
   container_label: z.string().min(1, 'Container label is required').optional(),
   container_notes: z.string().optional(),

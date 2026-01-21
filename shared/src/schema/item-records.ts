@@ -1,36 +1,35 @@
 import {
-    RelationField,
-    baseSchema,
-    defineCollection,
+  RelationField,
+  baseSchema,
+  defineCollection,
 } from 'pocketbase-zod-schema/schema';
 import { z } from 'zod';
 
 // Schema for tracking snapshots of Item history
 export const ItemRecordSchema = z
-    .object({
-        Item: RelationField({ collection: 'Items' }),
-        User: RelationField({ collection: 'Users' }).optional(),
-        transaction: z.enum(['create', 'update', 'delete']),
-        fieldName: z.string().nullish().describe('Name of the field that changed'),
-        newValue: z.string().describe('New value of the changed field'),
-        previousValue: z.string().describe('Previous value of the changed field'),
-    })
-    .extend(baseSchema);
+  .object({
+    Item: RelationField({ collection: 'Items' }),
+    User: RelationField({ collection: 'Users' }).optional(),
+    transaction: z.enum(['create', 'update', 'delete']),
+    fieldName: z.string().nullish().describe('Name of the field that changed'),
+    newValue: z.string().describe('New value of the changed field'),
+    previousValue: z.string().describe('Previous value of the changed field'),
+  })
+  .extend(baseSchema);
 
 export const ItemRecordCollection = defineCollection({
-    schema: ItemRecordSchema,
-    collectionName: 'ItemRecords',
-    type: 'base',
-    permissions: {
-        listRule: '@request.auth.id != ""',
-        viewRule: '@request.auth.id != ""',
-        createRule: '@request.auth.id != ""',
-        updateRule: '@request.auth.id != ""',
-        deleteRule: '@request.auth.id != ""',
-    },
-    indexes: [
-        'CREATE INDEX `idx_item_item_records` ON `item_records` (`item`)',
-        'CREATE INDEX `idx_created_item_records` ON `item_records` (`created`)',
-    ],
+  schema: ItemRecordSchema,
+  collectionName: 'ItemRecords',
+  type: 'base',
+  permissions: {
+    listRule: '@request.auth.id != ""',
+    viewRule: '@request.auth.id != ""',
+    createRule: '@request.auth.id != ""',
+    updateRule: '@request.auth.id != ""',
+    deleteRule: '@request.auth.id != ""',
+  },
+  indexes: [
+    'CREATE INDEX `idx_item_item_records` ON `item_records` (`item`)',
+    'CREATE INDEX `idx_created_item_records` ON `item_records` (`created`)',
+  ],
 });
-

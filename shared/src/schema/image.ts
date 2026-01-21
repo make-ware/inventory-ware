@@ -1,6 +1,5 @@
 import {
   FileField,
-  RelationField,
   baseSchema,
   defineCollection,
 } from 'pocketbase-zod-schema/schema';

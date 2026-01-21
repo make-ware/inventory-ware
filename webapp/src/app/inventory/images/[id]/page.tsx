@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
 import type { Image, Item, Container } from '@project/shared';
@@ -51,30 +51,32 @@ export default function ImageDetailPage() {
       }
       setImage(imageData);
 
-      // Load associated item if exists
-      if (imageData.item) {
-        try {
-          const itemData = await itemMutator.getById(imageData.item);
-          if (itemData) {
-            setItem(itemData);
-          }
-        } catch (error) {
-          console.error('Failed to load item:', error);
+      // Find associated item by querying items with this image as primary_image
+      try {
+        const items = await itemMutator.getList(
+          1,
+          100,
+          `primary_image="${imageId}"`
+        );
+        if (items.items.length > 0) {
+          setItem(items.items[0]);
         }
+      } catch (error) {
+        console.error('Failed to load item:', error);
       }
 
-      // Load associated container if exists
-      if (imageData.container) {
-        try {
-          const containerData = await containerMutator.getById(
-            imageData.container
-          );
-          if (containerData) {
-            setContainer(containerData);
-          }
-        } catch (error) {
-          console.error('Failed to load container:', error);
+      // Find associated container by querying containers with this image as primary_image
+      try {
+        const containers = await containerMutator.getList(
+          1,
+          100,
+          `primary_image="${imageId}"`
+        );
+        if (containers.items.length > 0) {
+          setContainer(containers.items[0]);
         }
+      } catch (error) {
+        console.error('Failed to load container:', error);
       }
     } catch (error) {
       console.error('Failed to load image details:', error);
@@ -296,7 +298,7 @@ export default function ImageDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="relative aspect-square rounded-lg overflow-hidden border">
-                <Image
+                <NextImage
                   src={getImageUrl(image)}
                   alt="Image"
                   fill

@@ -74,4 +74,50 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
       return this.errorWrapper(error);
     }
   }
+
+  /**
+   * Get images by item ID (images that are primary_image for items with this itemId)
+   * @param itemId The item ID to filter by
+   * @returns Array of Image records
+   */
+  async getByItemId(itemId: string): Promise<Image[]> {
+    try {
+      // Get the item to find its primary_image
+      const item = await this.pb.collection('items').getOne(itemId);
+
+      if (!item || !item.primary_image) {
+        return [];
+      }
+
+      // Get the primary image
+      const image = await this.getById(item.primary_image);
+      return image ? [image] : [];
+    } catch (error) {
+      return this.errorWrapper(error);
+    }
+  }
+
+  /**
+   * Get images by container ID (images that are primary_image for containers with this containerId)
+   * @param containerId The container ID to filter by
+   * @returns Array of Image records
+   */
+  async getByContainerId(containerId: string): Promise<Image[]> {
+    try {
+      // Get the container to find its primary_image
+      const container = await this.pb
+        .collection('containers')
+        .getOne(containerId);
+
+      if (!container || !container.primary_image) {
+        return [];
+      }
+
+      // Get the primary image
+      const image = await this.getById(container.primary_image);
+      return image ? [image] : [];
+    } catch (error) {
+      return this.errorWrapper(error);
+    }
+  }
 }

@@ -162,11 +162,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           const item = await itemMutator.create(itemData);
           items.push(item);
 
-          // Update image with item reference and mark as completed
+          // Update image type and mark as completed
           await imageMutator.update(image.id, {
             image_type: 'item',
             analysis_status: 'completed',
-            item: item.id,
           });
         } else {
           // Create container
@@ -193,11 +192,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             items.push(item);
           }
 
-          // Update image with container reference and mark as completed
+          // Update image type and mark as completed
           await imageMutator.update(image.id, {
             image_type: 'container',
             analysis_status: 'completed',
-            container: container.id,
           });
         }
 
@@ -291,35 +289,27 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
         let container: Container | undefined;
 
         if (result.type === 'item') {
-          // Check if item already exists for this image
+          // Check if item already exists for this image by querying items with this image as primary_image
           let item: Item;
-          if (image.item) {
+          const existingItems = await itemMutator.getList(
+            1,
+            1,
+            `primary_image="${image.id}"`
+          );
+
+          if (existingItems.items.length > 0) {
             // Update existing item
-            const existingItem = await itemMutator.getById(image.item);
-            if (existingItem) {
-              item = await itemMutator.update(image.item, {
-                item_label: result.data.item.item_label,
-                item_notes: result.data.item.item_notes,
-                category_functional: result.data.item.category_functional,
-                category_specific: result.data.item.category_specific,
-                item_type: result.data.item.item_type,
-                item_manufacturer: result.data.item.item_manufacturer,
-                item_attributes: result.data.item.item_attributes,
-                primary_image: image.id,
-              });
-            } else {
-              // Create new item if existing one was deleted
-              item = await itemMutator.create({
-                item_label: result.data.item.item_label,
-                item_notes: result.data.item.item_notes,
-                category_functional: result.data.item.category_functional,
-                category_specific: result.data.item.category_specific,
-                item_type: result.data.item.item_type,
-                item_manufacturer: result.data.item.item_manufacturer,
-                item_attributes: result.data.item.item_attributes,
-                primary_image: image.id,
-              });
-            }
+            const existingItem = existingItems.items[0];
+            item = await itemMutator.update(existingItem.id, {
+              item_label: result.data.item.item_label,
+              item_notes: result.data.item.item_notes,
+              category_functional: result.data.item.category_functional,
+              category_specific: result.data.item.category_specific,
+              item_type: result.data.item.item_type,
+              item_manufacturer: result.data.item.item_manufacturer,
+              item_attributes: result.data.item.item_attributes,
+              primary_image: image.id,
+            });
           } else {
             // Create new item
             item = await itemMutator.create({
@@ -335,33 +325,27 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           }
           items.push(item);
 
-          // Update image with item reference and mark as completed
+          // Update image type and mark as completed
           await imageMutator.update(image.id, {
             image_type: 'item',
             analysis_status: 'completed',
-            item: item.id,
           });
         } else {
-          // Create container
-          if (image.container) {
+          // Create container - check if one already exists for this image
+          const existingContainers = await containerMutator.getList(
+            1,
+            1,
+            `primary_image="${image.id}"`
+          );
+
+          if (existingContainers.items.length > 0) {
             // Update existing container
-            const existingContainer = await containerMutator.getById(
-              image.container
-            );
-            if (existingContainer) {
-              container = await containerMutator.update(image.container, {
-                container_label: result.data.container.container_label,
-                container_notes: result.data.container.container_notes,
-                primary_image: image.id,
-              });
-            } else {
-              // Create new container if existing one was deleted
-              container = await containerMutator.create({
-                container_label: result.data.container.container_label,
-                container_notes: result.data.container.container_notes,
-                primary_image: image.id,
-              });
-            }
+            const existingContainer = existingContainers.items[0];
+            container = await containerMutator.update(existingContainer.id, {
+              container_label: result.data.container.container_label,
+              container_notes: result.data.container.container_notes,
+              primary_image: image.id,
+            });
           } else {
             // Create new container
             container = await containerMutator.create({
@@ -388,11 +372,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             items.push(item);
           }
 
-          // Update image with container reference and mark as completed
+          // Update image type and mark as completed
           await imageMutator.update(image.id, {
             image_type: 'container',
             analysis_status: 'completed',
-            container: container.id,
           });
         }
 
