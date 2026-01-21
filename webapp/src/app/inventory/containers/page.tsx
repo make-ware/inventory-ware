@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
@@ -17,9 +17,9 @@ export default function ContainersPage() {
   const [images, setImages] = useState<Map<string, Image>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
-  const itemMutator = new ItemMutator(pb);
-  const containerMutator = new ContainerMutator(pb);
-  const imageMutator = new ImageMutator(pb);
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
+  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+  const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
   const loadImages = useCallback(
     async (imageIds: string[]) => {
