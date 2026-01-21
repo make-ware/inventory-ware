@@ -1,11 +1,13 @@
 {
   "packages": {
     ".": {
-      "release-type": "node"
+      "release-type": "node",
+      "component": "inventory-ware"
     },
     "shared": {
       "package-name": "@project/shared",
-      "release-type": "node"
+      "release-type": "node",
+      "component": "shared"
     }
   },
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json"
