@@ -45,22 +45,8 @@ export default function ItemDetailPage() {
       }
       setItem(itemData);
 
-      // Load associated images - get primary image if it exists
-      const itemImages: Image[] = [];
-      if (itemData.primary_image) {
-        try {
-          const primaryImage = await imageMutator.getById(
-            itemData.primary_image
-          );
-          if (primaryImage) {
-            itemImages.push(primaryImage);
-          }
-        } catch {
-          console.error(
-            `Failed to load primary image ${itemData.primary_image}`
-          );
-        }
-      }
+      // Load associated images (primary + historical)
+      const itemImages = await imageMutator.getByItemId(itemId);
       setImages(itemImages);
 
       // Load container if item is in one

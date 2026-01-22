@@ -15,6 +15,7 @@ import { ItemImageMappingSchema } from '../schema/item-mapping.js';
 import { ItemRecordSchema } from '../schema/item-records.js';
 import { ContainerRecordSchema } from '../schema/container-record.js';
 import { ContainerImageMappingSchema } from '../schema/container-mapping.js';
+import { ImageMetadataSchema, ImageMetadataInputSchema } from '../schema.js';
 
 // Auth Schemas (moved from schema/user.ts)
 export const LoginSchema = z.object({
@@ -40,6 +41,9 @@ export type Image = z.infer<typeof ImageSchema>;
 export type ImageInput = z.infer<typeof ImageInputSchema>;
 export type ImageUpdate = Partial<ImageInput>;
 
+export type ImageMetadata = z.infer<typeof ImageMetadataSchema>;
+export type ImageMetadataInput = z.infer<typeof ImageMetadataInputSchema>;
+
 export type Item = z.infer<typeof ItemSchema>;
 export type ItemInput = z.infer<typeof ItemInputSchema>;
 export type ItemUpdate = Partial<ItemInput>;
@@ -57,12 +61,13 @@ export type ContainerRecord = z.infer<typeof ContainerRecordSchema>;
 // Typed PocketBase interface
 export interface TypedPocketBase extends PocketBase {
   collection(idOrName: 'Users'): RecordService<User>;
-  collection(idOrName: 'images'): RecordService<Image>;
-  collection(idOrName: 'items'): RecordService<Item>;
-  collection(idOrName: 'containers'): RecordService<Container>;
-  collection(idOrName: 'item_image_mappings'): RecordService<ItemImageMapping>;
+  collection(idOrName: 'ImageMetadata'): RecordService<ImageMetadata>;
+  collection(idOrName: 'Images'): RecordService<Image>;
+  collection(idOrName: 'Items'): RecordService<Item>;
+  collection(idOrName: 'Containers'): RecordService<Container>;
+  collection(idOrName: 'ItemImageMappings'): RecordService<ItemImageMapping>;
   collection(
-    idOrName: 'container_image_mappings'
+    idOrName: 'ContainerImageMappings'
   ): RecordService<ContainerImageMapping>;
   collection(idOrName: 'ItemRecords'): RecordService<ItemRecord>;
   collection(idOrName: 'ContainerRecords'): RecordService<ContainerRecord>;

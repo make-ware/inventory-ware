@@ -1,8 +1,10 @@
 import {
   type TypedPocketBase,
   ImageMutator,
+  ImageMetadataMutator,
   ItemMutator,
   ContainerMutator,
+  computeFileHash,
 } from '@project/shared';
 import { createAIAnalysisService, type CategoryLibrary } from './ai-analysis';
 import type {
@@ -111,6 +113,7 @@ export interface InventoryService {
  */
 export function createInventoryService(pb: TypedPocketBase): InventoryService {
   const imageMutator = new ImageMutator(pb);
+  const imageMetadataMutator = new ImageMetadataMutator(pb);
   const itemMutator = new ItemMutator(pb);
   const containerMutator = new ContainerMutator(pb);
 
@@ -126,23 +129,51 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
   return {
     async processImageUpload(file: File): Promise<ProcessImageResult> {
-      // 1. Upload image to PocketBase
+      // 1. Compute file hash for deduplication/caching
+      const fileHash = await computeFileHash(file);
+
+      // 2. Check for cached metadata with same hash
+      const cachedEntry = await imageMetadataMutator.findByHash(fileHash);
+      const cachedMetadata = cachedEntry?.metadata;
+
+      // 3. Upload the new image (always create a new record for this user)
       const image = await imageMutator.uploadImage(file);
 
-      // Convert file to base64 for AI analysis (OpenAI cannot access localhost URLs)
+      // Convert file to base64 for AI analysis (if needed)
       const imageData = await fileToBase64(file);
 
       try {
-        // 2. Get existing categories for AI context
-        const categories = await this.getCategoryLibrary();
+        let result: AnalysisResult;
 
-        // 3. Update status to processing
-        await imageMutator.updateAnalysisStatus(image.id, 'processing');
+        if (cachedMetadata) {
+          // Cache hit: reuse cached AI metadata
+          console.log(`Cache hit for file hash ${fileHash.substring(0, 8)}...`);
+          result = cachedMetadata as AnalysisResult;
+        } else {
+          // Cache miss: call AI API
+          console.log(
+            `Cache miss for file hash ${fileHash.substring(0, 8)}..., calling AI API`
+          );
 
-        // 4. Analyze with AI
-        const result = await getAIService().analyzeImage(imageData, categories);
+          // Get existing categories for AI context
+          const categories = await this.getCategoryLibrary();
 
-        // 5. Create records based on result type
+          // Update status to processing
+          await imageMutator.updateAnalysisStatus(image.id, 'processing');
+
+          // Analyze with AI
+          result = await getAIService().analyzeImage(imageData, categories);
+
+          // Save AI metadata to ImageMetadata collection for future cache hits
+          await imageMetadataMutator.saveMetadata(
+            image.id,
+            fileHash,
+            result,
+            result.type
+          );
+        }
+
+        // 4. Create records based on result type
         const items: Item[] = [];
         let container: Container | undefined;
 
@@ -186,6 +217,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               item_manufacturer: itemMetadata.item_manufacturer,
               item_attributes: itemMetadata.item_attributes,
               container: container.id,
+              primary_image: image.id,
             };
 
             const item = await itemMutator.create(itemData);
@@ -260,29 +292,58 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
       const imageData = await downloadImageAsBase64(pb, image);
 
       try {
-        // 1. Get existing categories for AI context
-        const categories = await this.getCategoryLibrary();
+        let result: AnalysisResult;
 
-        // 2. Update status to processing
-        // Wrap in try-catch to handle 404 errors gracefully
-        try {
-          await imageMutator.updateAnalysisStatus(image.id, 'processing');
-        } catch (updateError) {
-          if (
-            updateError &&
-            typeof updateError === 'object' &&
-            'status' in updateError &&
-            updateError.status === 404
-          ) {
-            throw new Error(
-              `Image with ID ${imageId} not found.It may have been deleted.`
-            );
+        // Check if there's cached metadata for this image
+        const cachedEntry = await imageMetadataMutator.getByImageId(imageId);
+        if (cachedEntry?.metadata) {
+          // Cache hit: reuse cached AI metadata
+          console.log(`Using cached AI metadata for image ${imageId}`);
+          result = cachedEntry.metadata as AnalysisResult;
+        } else {
+          // Cache miss: call AI API
+          console.log(
+            `No cached AI metadata for image ${imageId}, calling AI API`
+          );
+
+          // Get existing categories for AI context
+          const categories = await this.getCategoryLibrary();
+
+          // Update status to processing
+          // Wrap in try-catch to handle 404 errors gracefully
+          try {
+            await imageMutator.updateAnalysisStatus(image.id, 'processing');
+          } catch (updateError) {
+            if (
+              updateError &&
+              typeof updateError === 'object' &&
+              'status' in updateError &&
+              updateError.status === 404
+            ) {
+              throw new Error(
+                `Image with ID ${imageId} not found.It may have been deleted.`
+              );
+            }
+            throw updateError;
           }
-          throw updateError;
-        }
 
-        // 3. Analyze with AI
-        const result = await getAIService().analyzeImage(imageData, categories);
+          // Analyze with AI
+          result = await getAIService().analyzeImage(imageData, categories);
+
+          // Compute file hash for caching (need to download/compute)
+          const imageBlob = await fetch(
+            pb.files.getURL(image, image.file)
+          ).then((r) => r.blob());
+          const fileHash = await computeFileHash(await imageBlob.arrayBuffer());
+
+          // Save AI metadata to ImageMetadata collection for future cache hits
+          await imageMetadataMutator.saveMetadata(
+            image.id,
+            fileHash,
+            result,
+            result.type
+          );
+        }
 
         // 4. Create records based on result type
         const items: Item[] = [];
@@ -366,6 +427,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               item_manufacturer: itemMetadata.item_manufacturer,
               item_attributes: itemMetadata.item_attributes,
               container: container.id,
+              primary_image: image.id,
             };
 
             const item = await itemMutator.create(itemData);

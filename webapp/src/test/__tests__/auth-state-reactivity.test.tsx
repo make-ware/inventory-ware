@@ -4,6 +4,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 class MockAuthStore {
   isValid = false;
   model = null;
+  get record() {
+    return this.model;
+  }
   private listeners: Array<(token: string | null, model: any) => void> = [];
 
   onChange(callback: (token: string | null, model: any) => void) {
@@ -81,14 +84,14 @@ describe('Authentication State Reactivity Property Tests', () => {
 
       // Verify the auth store reflects the change
       expect(authStore.isValid).toBe(true);
-      expect(authStore.model).toEqual(testUser);
+      expect(authStore.record).toEqual(testUser);
 
       // Simulate logout - auth store changes
       authStore.clear();
 
       // Verify the auth store reflects the logout
       expect(authStore.isValid).toBe(false);
-      expect(authStore.model).toBe(null);
+      expect(authStore.record).toBe(null);
     }
 
     // Verify all state changes were captured
@@ -145,7 +148,7 @@ describe('Authentication State Reactivity Property Tests', () => {
 
     // Verify session is restored correctly
     expect(authStore.isValid).toBe(true);
-    expect(authStore.model).toEqual(testUser);
+    expect(authStore.record).toEqual(testUser);
   });
 
   it('Property 7: Authentication State Reactivity - should handle rapid state changes', () => {

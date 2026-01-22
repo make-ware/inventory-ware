@@ -1185,6 +1185,7 @@ __metadata:
     pocketbase-zod-schema: "npm:^0.4.2"
     prettier: "npm:^3.8.1"
     tsup: "npm:^8.5.1"
+    tsx: "npm:^4.21.0"
     typescript: "npm:^5.9.3"
     vitest: "npm:^4.0.17"
     zod: "npm:^4.3.5"

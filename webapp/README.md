@@ -358,7 +358,7 @@ export const ContainerInputSchema = z.object({
 export type ContainerInput = z.infer<typeof ContainerInputSchema>;
 export type Container = ContainerInput & {
   id: string;
-  user: string;
+  User: string;
   created: string;
   updated: string;
 };

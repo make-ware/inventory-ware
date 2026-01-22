@@ -1,44 +1,19 @@
 // PocketBase JavaScript Hooks
 // Documentation: https://pocketbase.io/docs/js-overview/
 
-// Example: Custom API endpoint
-routerAdd("GET", "/api/hello", (c) => {
-  return c.json(200, {
-    "message": "Hello from PocketBase!",
-    "timestamp": new Date().toISOString()
-  })
-})
-
-// Example: Validate user registration (before creation)
-onRecordCreateRequest((e) => {
-  if (e.record.tableName() === "users") {
-    // Add custom validation logic here
-    console.log("👤 New user registration:", e.record.get("email"))
-  }
-  e.next()
-}, "users")
-
-// Example: Send welcome email after user creation
-onRecordCreate((e) => {
-  if (e.record.tableName() === "users") {
-    // Add email sending logic here
-    console.log("📧 Welcome email should be sent to:", e.record.get("email"))
-  }
-}, "users")
-
 // Track Item changes
 onRecordAfterCreateSuccess((e) => {
   const collection = $app.findCollectionByNameOrId("ItemRecords");
   const record = new Record(collection);
 
   record.set("Item", e.record.id);
-  record.set("User", e.auth ? e.auth.id : null);
+  record.set("User", e.auth ? e.auth.get("id") : null);
   record.set("transaction", "create");
-  record.set("newValue", JSON.stringify(e.record.publicExport()));
-  record.set("previousValue", "");
+  record.set("new_value", JSON.stringify(e.record.publicExport()));
+  record.set("previous_value", "");
 
-  $app.dao().saveRecord(record);
-}, "items");
+  $app.save(record);
+}, "Items");
 
 onRecordUpdateRequest((e) => {
   const newRecord = e.record.fresh();
@@ -49,26 +24,26 @@ onRecordUpdateRequest((e) => {
   if (itemId) {
     try {
       const collection = $app.findCollectionByNameOrId("ItemRecords");
-      const userId = e.auth ? e.auth.id : null;
+      const userId = e.auth ? e.auth.get("id") : null;
       const fields = newRecord.publicExport();
 
-      for (const fieldName in fields) {
-        if (blacklist.indexOf(fieldName) !== -1) continue;
+      for (const field_name in fields) {
+        if (blacklist.indexOf(field_name) !== -1) continue;
 
-        const currentValue = newRecord.getString(fieldName);
-        const previousValue = prevRecord.getString(fieldName);
+        const currentValue = newRecord.getString(field_name);
+        const previous_value = prevRecord.getString(field_name);
 
-        if (currentValue !== previousValue) {
+        if (currentValue !== previous_value) {
           const itemRecord = new Record(collection);
           itemRecord.set("Item", itemId);
           itemRecord.set("User", userId);
-          itemRecord.set("fieldName", fieldName);
-          itemRecord.set("newValue", currentValue);
-          itemRecord.set("previousValue", previousValue);
+          itemRecord.set("field_name", field_name);
+          itemRecord.set("new_value", currentValue);
+          itemRecord.set("previous_value", previous_value);
           itemRecord.set("transaction", "update");
 
-          $app.dao().saveRecord(itemRecord);
-          console.log("Created ItemRecord for " + itemId + ", field: " + fieldName + ", transaction: update");
+          $app.save(itemRecord);
+          console.log("Created ItemRecord for " + itemId + ", field: " + field_name + ", transaction: update");
         }
       }
     } catch (error) {
@@ -76,7 +51,7 @@ onRecordUpdateRequest((e) => {
     }
   }
   e.next();
-}, "items");
+}, "Items");
 
 // Track Container changes
 onRecordAfterCreateSuccess((e) => {
@@ -84,13 +59,13 @@ onRecordAfterCreateSuccess((e) => {
   const record = new Record(collection);
 
   record.set("Container", e.record.id);
-  record.set("User", e.auth ? e.auth.id : null);
+  record.set("User", e.auth ? e.auth.get("id") : null);
   record.set("transaction", "create");
-  record.set("newValue", JSON.stringify(e.record.publicExport()));
-  record.set("previousValue", "");
+  record.set("new_value", JSON.stringify(e.record.publicExport()));
+  record.set("previous_value", "");
 
-  $app.dao().saveRecord(record);
-}, "containers");
+  $app.save(record);
+}, "Containers");
 
 onRecordUpdateRequest((e) => {
   const newRecord = e.record.fresh();
@@ -101,26 +76,26 @@ onRecordUpdateRequest((e) => {
   if (containerId) {
     try {
       const collection = $app.findCollectionByNameOrId("ContainerRecords");
-      const userId = e.auth ? e.auth.id : null;
+      const userId = e.auth ? e.auth.get("id") : null;
       const fields = newRecord.publicExport();
 
-      for (const fieldName in fields) {
-        if (blacklist.indexOf(fieldName) !== -1) continue;
+      for (const field_name in fields) {
+        if (blacklist.indexOf(field_name) !== -1) continue;
 
-        const currentValue = newRecord.getString(fieldName);
-        const previousValue = prevRecord.getString(fieldName);
+        const currentValue = newRecord.getString(field_name);
+        const previous_value = prevRecord.getString(field_name);
 
-        if (currentValue !== previousValue) {
+        if (currentValue !== previous_value) {
           const containerRecord = new Record(collection);
           containerRecord.set("Container", containerId);
           containerRecord.set("User", userId);
-          containerRecord.set("fieldName", fieldName);
-          containerRecord.set("newValue", currentValue);
-          containerRecord.set("previousValue", previousValue);
+          containerRecord.set("field_name", field_name);
+          containerRecord.set("new_value", currentValue);
+          containerRecord.set("previous_value", previous_value);
           containerRecord.set("transaction", "update"); // Default for containers
 
-          $app.dao().saveRecord(containerRecord);
-          console.log("Created ContainerRecord for " + containerId + ", field: " + fieldName);
+          $app.save(containerRecord);
+          console.log("Created ContainerRecord for " + containerId + ", field: " + field_name);
         }
       }
     } catch (error) {
@@ -128,4 +103,4 @@ onRecordUpdateRequest((e) => {
     }
   }
   e.next();
-}, "containers");
+}, "Containers");

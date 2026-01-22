@@ -1,11 +1,11 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
-  const collection_ContainerRecords = new Collection({
-    id: "pb_igpvpqh1nat6idg",
-    name: "ContainerRecords",
+  const collection_ImageMetadata = new Collection({
+    id: "pb_62mnrfn5t0rh5ti",
+    name: "ImageMetadata",
     type: "base",
-    listRule: "@request.auth.id != \"\"",
-    viewRule: "@request.auth.id != \"\"",
+    listRule: "",
+    viewRule: "",
     createRule: "@request.auth.id != \"\"",
     updateRule: "@request.auth.id != \"\"",
     deleteRule: "@request.auth.id != \"\"",
@@ -48,54 +48,45 @@ migrate((app) => {
       system: false,
     },
     {
-      name: "Container",
-      type: "relation",
-      required: true,
-      collectionId: "pb_al4ezg07mp22fyu",
-      maxSelect: 1,
-      minSelect: 0,
-      cascadeDelete: false,
-    },
-    {
-      name: "User",
+      name: "Image",
       type: "relation",
       required: false,
-      collectionId: "_pb_users_auth_",
+      collectionId: "pb_tkwz9j2iq4zlit0",
       maxSelect: 1,
       minSelect: 0,
       cascadeDelete: false,
     },
     {
-      name: "transaction",
+      name: "file_hash",
+      type: "text",
+      required: true,
+    },
+    {
+      name: "metadata",
+      type: "json",
+      required: true,
+    },
+    {
+      name: "version",
+      type: "number",
+      required: false,
+    },
+    {
+      name: "image_type",
       type: "select",
-      required: true,
-      maxSelect: 1,
-      values: ["create", "update", "delete"],
-    },
-    {
-      name: "fieldName",
-      type: "text",
       required: false,
-    },
-    {
-      name: "newValue",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "previousValue",
-      type: "text",
-      required: true,
+      maxSelect: 1,
+      values: ["item", "container", "unprocessed"],
     },
   ],
     indexes: [
-    "CREATE INDEX `idx_container_container_records` ON `container_records` (`container`)",
-    "CREATE INDEX `idx_created_container_records` ON `container_records` (`created`)",
+    "CREATE UNIQUE INDEX `idx_file_hash_image_metadata` ON `ImageMetadata` (`file_hash`)",
+    "CREATE INDEX `idx_image_image_metadata` ON `ImageMetadata` (`Image`)",
   ],
   });
 
-  return app.save(collection_ContainerRecords);
+  return app.save(collection_ImageMetadata);
 }, (app) => {
-  const collection_ContainerRecords = app.findCollectionByNameOrId("ContainerRecords");
-  return app.delete(collection_ContainerRecords);
+  const collection_ImageMetadata = app.findCollectionByNameOrId("ImageMetadata");
+  return app.delete(collection_ImageMetadata);
 });

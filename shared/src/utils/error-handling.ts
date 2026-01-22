@@ -143,11 +143,11 @@ export function parseAuthError(error: ErrorType): AuthError {
         // Validation errors
         if (hasData(error) && error.data?.data) {
           const fieldErrors = error.data.data;
-          const fieldNames = Object.keys(fieldErrors);
+          const field_names = Object.keys(fieldErrors);
 
           // Check for authentication-related error codes or messages
           // Only treat as authentication error if explicitly a credential/auth failure
-          const firstField = fieldNames[0];
+          const firstField = field_names[0];
           const firstError = fieldErrors[firstField];
           const errorCode = firstError?.code;
           const errorMessage = firstError?.message?.toLowerCase() || '';
@@ -332,17 +332,17 @@ export function getErrorMessage(error: ErrorType): string {
  */
 export function getFieldError(
   error: ErrorType,
-  fieldName: string
+  field_name: string
 ): string | undefined {
   const parsedError = parseAuthError(error);
 
-  if (parsedError.type === 'validation' && parsedError.field === fieldName) {
+  if (parsedError.type === 'validation' && parsedError.field === field_name) {
     return parsedError.message;
   }
 
   // Handle specific field mappings
   if (parsedError.type === 'authentication') {
-    if (fieldName === 'email' || fieldName === 'password') {
+    if (field_name === 'email' || field_name === 'password') {
       return 'Invalid email or password.';
     }
   }

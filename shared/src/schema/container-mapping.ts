@@ -4,13 +4,13 @@ import {
   defineCollection,
 } from 'pocketbase-zod-schema/schema';
 import z from 'zod';
-import { BoundingBoxSchema } from '../schema';
+import { BoundingBoxSchema } from '../types/bounding-box.js';
 
 // Mapping for Container image history
 export const ContainerImageMappingSchema = z
   .object({
-    container: RelationField({ collection: 'Containers' }),
-    image: RelationField({ collection: 'Images' }),
+    container: RelationField({ collection: 'Containers', cascadeDelete: true }),
+    image: RelationField({ collection: 'Images', cascadeDelete: true }),
     bounding_box: BoundingBoxSchema.optional(),
     primary_image_bbox: BoundingBoxSchema.optional(),
   })

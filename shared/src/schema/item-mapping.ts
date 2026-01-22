@@ -9,8 +9,8 @@ import { BoundingBoxSchema } from '../types/bounding-box.js';
 // Mapping for Item image history
 export const ItemImageMappingSchema = z
   .object({
-    item: RelationField({ collection: 'Items' }),
-    image: RelationField({ collection: 'Images' }),
+    item: RelationField({ collection: 'Items', cascadeDelete: true }),
+    image: RelationField({ collection: 'Images', cascadeDelete: true }),
     bounding_box: BoundingBoxSchema.optional(),
     primary_image_bbox: BoundingBoxSchema.optional(),
   })

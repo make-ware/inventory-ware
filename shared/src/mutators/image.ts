@@ -9,7 +9,7 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
   }
 
   protected getCollection(): RecordService<Image> {
-    return this.pb.collection('images');
+    return this.pb.collection('Images');
   }
 
   protected async validateInput(input: ImageInput): Promise<ImageInput> {
@@ -32,6 +32,12 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
       formData.append('file', file);
       formData.append('image_type', imageType);
       formData.append('analysis_status', 'pending');
+
+      // Set the user to the currently authenticated user
+      const userId = this.pb.authStore.record?.id;
+      if (userId) {
+        formData.append('User', userId);
+      }
 
       // Use the collection directly for FormData upload
       const record = await this.getCollection().create(formData);
@@ -76,46 +82,110 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
   }
 
   /**
-   * Get images by item ID (images that are primary_image for items with this itemId)
+   * Get all images associated with an item
+   * This includes the primary image and any images in ItemImageMappings
    * @param itemId The item ID to filter by
    * @returns Array of Image records
    */
   async getByItemId(itemId: string): Promise<Image[]> {
     try {
-      // Get the item to find its primary_image
-      const item = await this.pb.collection('items').getOne(itemId);
+      const images: Image[] = [];
+      const imageIds = new Set<string>();
 
-      if (!item || !item.primary_image) {
-        return [];
+      // 1. Get the item to find its primary_image
+      const item = await this.pb.collection('Items').getOne(itemId);
+
+      if (item && item.primary_image) {
+        const primaryImage = await this.getById(item.primary_image);
+        if (primaryImage) {
+          images.push(primaryImage);
+          imageIds.add(primaryImage.id);
+        }
       }
 
-      // Get the primary image
-      const image = await this.getById(item.primary_image);
-      return image ? [image] : [];
+      // 2. Get all historical/mapped images for this item
+      const itemMappings = await this.pb
+        .collection('ItemImageMappings')
+        .getFullList({
+          filter: `item = "${itemId}"`,
+          sort: '-created',
+        });
+
+      // Fetch the actual image records for these mappings
+      for (const mapping of itemMappings) {
+        if (!imageIds.has(mapping.image)) {
+          try {
+            const mappedImage = await this.getById(mapping.image);
+            if (mappedImage) {
+              images.push(mappedImage);
+              imageIds.add(mappedImage.id);
+            }
+          } catch (err) {
+            console.error(
+              `Failed to fetch mapped image ${mapping.image}:`,
+              err
+            );
+          }
+        }
+      }
+
+      return images;
     } catch (error) {
       return this.errorWrapper(error);
     }
   }
 
   /**
-   * Get images by container ID (images that are primary_image for containers with this containerId)
+   * Get all images associated with a container
+   * This includes the primary image and any images in ContainerImageMappings
    * @param containerId The container ID to filter by
    * @returns Array of Image records
    */
   async getByContainerId(containerId: string): Promise<Image[]> {
     try {
-      // Get the container to find its primary_image
+      const images: Image[] = [];
+      const imageIds = new Set<string>();
+
+      // 1. Get the container to find its primary_image
       const container = await this.pb
-        .collection('containers')
+        .collection('Containers')
         .getOne(containerId);
 
-      if (!container || !container.primary_image) {
-        return [];
+      if (container && container.primary_image) {
+        const primaryImage = await this.getById(container.primary_image);
+        if (primaryImage) {
+          images.push(primaryImage);
+          imageIds.add(primaryImage.id);
+        }
       }
 
-      // Get the primary image
-      const image = await this.getById(container.primary_image);
-      return image ? [image] : [];
+      // 2. Get all historical/mapped images for this container
+      const containerMappings = await this.pb
+        .collection('ContainerImageMappings')
+        .getFullList({
+          filter: `container = "${containerId}"`,
+          sort: '-created',
+        });
+
+      // Fetch the actual image records for these mappings
+      for (const mapping of containerMappings) {
+        if (!imageIds.has(mapping.image)) {
+          try {
+            const mappedImage = await this.getById(mapping.image);
+            if (mappedImage) {
+              images.push(mappedImage);
+              imageIds.add(mappedImage.id);
+            }
+          } catch (err) {
+            console.error(
+              `Failed to fetch mapped image ${mapping.image}:`,
+              err
+            );
+          }
+        }
+      }
+
+      return images;
     } catch (error) {
       return this.errorWrapper(error);
     }

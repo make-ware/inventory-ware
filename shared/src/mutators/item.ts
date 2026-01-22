@@ -22,12 +22,37 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
   }
 
   protected getCollection(): RecordService<Item> {
-    return this.pb.collection('items');
+    return this.pb.collection('Items');
   }
 
   protected async validateInput(input: ItemInput): Promise<ItemInput> {
     // Validate the input using the schema
     return ItemInputSchema.parse(input);
+  }
+
+  /**
+   * Create a new item and record the initial image mapping
+   */
+  async create(input: ItemInput): Promise<Item> {
+    try {
+      // Set the user to the currently authenticated user
+      const userId = this.pb.authStore.record?.id;
+      const inputWithUser = { ...input, User: userId };
+      const record = await super.create(inputWithUser);
+
+      // Record the initial mapping if primary_image is provided
+      if (record && input.primary_image) {
+        await this.pb.collection('ItemImageMappings').create({
+          item: record.id,
+          image: input.primary_image,
+          bounding_box: input.primary_image_bbox,
+        });
+      }
+
+      return record;
+    } catch (error) {
+      return this.errorWrapper(error);
+    }
   }
 
   /**
@@ -47,7 +72,7 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
         input.primary_image !== current.primary_image
       ) {
         // Record the historical mapping
-        await this.pb.collection('item_image_mappings').create({
+        await this.pb.collection('ItemImageMappings').create({
           item: id,
           image: current.primary_image,
           bounding_box: current.primary_image_bbox,

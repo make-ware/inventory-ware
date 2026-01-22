@@ -1,14 +1,14 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const collection_Items = new Collection({
-    id: "pb_p3zq0rcjtgmj5lr",
+    id: "pb_7b27uzhylt0gqi8",
     name: "Items",
     type: "base",
-    listRule: "",
-    viewRule: "",
+    listRule: "User = @request.auth.id",
+    viewRule: "User = @request.auth.id",
     createRule: "@request.auth.id != \"\"",
-    updateRule: "@request.auth.id != \"\"",
-    deleteRule: "@request.auth.id != \"\"",
+    updateRule: "User = @request.auth.id",
+    deleteRule: "User = @request.auth.id",
     manageRule: null,
     fields: [
     {
@@ -90,7 +90,7 @@ migrate((app) => {
       name: "container",
       type: "relation",
       required: false,
-      collectionId: "pb_al4ezg07mp22fyu",
+      collectionId: "pb_w8d7bjt4y2segw8",
       maxSelect: 1,
       minSelect: 0,
       cascadeDelete: false,
@@ -99,13 +99,28 @@ migrate((app) => {
       name: "primary_image",
       type: "relation",
       required: false,
-      collectionId: "pb_0tct8klufoespt4",
+      collectionId: "pb_tkwz9j2iq4zlit0",
+      maxSelect: 1,
+      minSelect: 0,
+      cascadeDelete: false,
+    },
+    {
+      name: "primary_image_bbox",
+      type: "json",
+      required: false,
+    },
+    {
+      name: "User",
+      type: "relation",
+      required: false,
+      collectionId: "_pb_users_auth_",
       maxSelect: 1,
       minSelect: 0,
       cascadeDelete: false,
     },
   ],
     indexes: [
+    "CREATE INDEX `idx_User_items` ON `items` (`User`)",
     "CREATE INDEX `idx_category_functional_items` ON `items` (`category_functional`)",
     "CREATE INDEX `idx_category_specific_items` ON `items` (`category_specific`)",
     "CREATE INDEX `idx_item_type_items` ON `items` (`item_type`)",

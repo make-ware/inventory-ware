@@ -18,18 +18,27 @@ vi.mock('@/lib/pocketbase-client', () => {
     isValid: false,
     model: null,
     token: '',
-    clear: vi.fn(),
+    get record() {
+      return this.model;
+    },
+    clear: vi.fn(() => {
+      mockAuthStore.isValid = false;
+      mockAuthStore.model = null;
+      mockAuthStore.token = '';
+    }),
     onChange: vi.fn(() => vi.fn()), // Returns unsubscribe function
+  };
+
+  const mockCollection = {
+    authWithPassword: vi.fn(),
+    authRefresh: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
   };
 
   const mockPb = {
     authStore: mockAuthStore,
-    collection: vi.fn(() => ({
-      authWithPassword: vi.fn(),
-      authRefresh: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    })),
+    collection: vi.fn(() => mockCollection),
   };
 
   return {
@@ -137,10 +146,15 @@ describe('Property Test: Session Cleanup', () => {
 
     for (const user of testUsers) {
       // Setup: Authenticated user
-      mockPb.authStore.isValid = true;
-      mockPb.authStore.model = user;
-      mockPb.authStore.token = `token-${user.id}`;
-      mockPb.collection().authRefresh.mockResolvedValue({ record: user });
+      mockAuthStore.isValid = true;
+      mockAuthStore.model = user;
+      mockAuthStore.token = `token-${user.id}`;
+      mockPb.collection().authRefresh.mockImplementation(async () => {
+        // Simulate authRefresh updating the auth store
+        mockAuthStore.isValid = true;
+        mockAuthStore.model = user;
+        return { record: user };
+      });
 
       const { getByTestId, unmount } = render(
         <AuthProvider>
@@ -171,9 +185,9 @@ describe('Property Test: Session Cleanup', () => {
       unmount();
 
       // Reset for next iteration
-      mockPb.authStore.isValid = false;
-      mockPb.authStore.model = null;
-      mockPb.authStore.token = '';
+      mockAuthStore.isValid = false;
+      mockAuthStore.model = null;
+      mockAuthStore.token = '';
 
       // Clear specific mocks after verification
       mockAuthStore.clear.mockClear();
@@ -195,7 +209,12 @@ describe('Property Test: Session Cleanup', () => {
       // Setup: Authenticated user
       mockAuthStore.isValid = true;
       mockAuthStore.model = user;
-      mockPb.collection().authRefresh.mockResolvedValue({ record: user });
+      mockPb.collection().authRefresh.mockImplementation(async () => {
+        // Simulate authRefresh updating the auth store
+        mockAuthStore.isValid = true;
+        mockAuthStore.model = user;
+        return { record: user };
+      });
 
       // Mock logout to throw error
       mockAuthService.logout.mockImplementationOnce(() => {
@@ -243,7 +262,12 @@ describe('Property Test: Session Cleanup', () => {
     // Setup: Authenticated user with app-specific data in localStorage
     mockAuthStore.isValid = true;
     mockAuthStore.model = user;
-    mockPb.collection().authRefresh.mockResolvedValue({ record: user });
+    mockPb.collection().authRefresh.mockImplementation(async () => {
+      // Simulate authRefresh updating the auth store
+      mockAuthStore.isValid = true;
+      mockAuthStore.model = user;
+      return { record: user };
+    });
 
     // Mock localStorage to have app-specific keys
     mockLocalStorage.length = 5;

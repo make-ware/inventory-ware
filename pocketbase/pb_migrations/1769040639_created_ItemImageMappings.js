@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
-  const collection_ContainerImageMappings = new Collection({
-    id: "pb_phas3u1zxxfe99j",
-    name: "ContainerImageMappings",
+  const collection_ItemImageMappings = new Collection({
+    id: "pb_q5p96224s2x97kw",
+    name: "ItemImageMappings",
     type: "base",
     listRule: "@request.auth.id != \"\"",
     viewRule: "@request.auth.id != \"\"",
@@ -48,22 +48,22 @@ migrate((app) => {
       system: false,
     },
     {
-      name: "container",
+      name: "item",
       type: "relation",
       required: true,
-      collectionId: "pb_al4ezg07mp22fyu",
+      collectionId: "pb_7b27uzhylt0gqi8",
       maxSelect: 1,
       minSelect: 0,
-      cascadeDelete: false,
+      cascadeDelete: true,
     },
     {
       name: "image",
       type: "relation",
       required: true,
-      collectionId: "pb_0tct8klufoespt4",
+      collectionId: "pb_tkwz9j2iq4zlit0",
       maxSelect: 1,
       minSelect: 0,
-      cascadeDelete: false,
+      cascadeDelete: true,
     },
     {
       name: "bounding_box",
@@ -77,13 +77,13 @@ migrate((app) => {
     },
   ],
     indexes: [
-    "CREATE INDEX `idx_container_container_image_mappings` ON `container_image_mappings` (`container`)",
-    "CREATE INDEX `idx_image_container_image_mappings` ON `container_image_mappings` (`image`)",
+    "CREATE INDEX `idx_item_item_image_mappings` ON `item_image_mappings` (`item`)",
+    "CREATE INDEX `idx_image_item_image_mappings` ON `item_image_mappings` (`image`)",
   ],
   });
 
-  return app.save(collection_ContainerImageMappings);
+  return app.save(collection_ItemImageMappings);
 }, (app) => {
-  const collection_ContainerImageMappings = app.findCollectionByNameOrId("ContainerImageMappings");
-  return app.delete(collection_ContainerImageMappings);
+  const collection_ItemImageMappings = app.findCollectionByNameOrId("ItemImageMappings");
+  return app.delete(collection_ItemImageMappings);
 });

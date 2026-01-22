@@ -33,6 +33,7 @@ export const ItemInputSchema = z.object({
   container: RelationField({ collection: 'Containers' }).optional(),
   primary_image: RelationField({ collection: 'Images' }).optional(),
   primary_image_bbox: BoundingBoxSchema.optional(),
+  User: RelationField({ collection: 'Users' }).optional(),
 });
 
 // Define the Zod schema for item updates (all fields optional except validation rules)
@@ -55,6 +56,7 @@ export const ItemUpdateSchema = z.object({
   container: RelationField({ collection: 'Containers' }).optional(),
   primary_image: RelationField({ collection: 'Images' }).optional(),
   primary_image_bbox: BoundingBoxSchema.optional(),
+  User: RelationField({ collection: 'Users' }).optional(),
 });
 
 // Database schema for the complete item record
@@ -80,6 +82,7 @@ export const ItemSchema = z
     container: RelationField({ collection: 'Containers' }).optional(),
     primary_image: RelationField({ collection: 'Images' }).optional(),
     primary_image_bbox: BoundingBoxSchema.optional(),
+    User: RelationField({ collection: 'Users' }).optional(),
   })
   .extend(baseSchema);
 
@@ -89,18 +92,20 @@ export const ItemCollection = defineCollection({
   collectionName: 'Items',
   type: 'base',
   permissions: {
-    // Anyone can list items (adjust based on your auth requirements)
-    listRule: '',
-    // Anyone can view items
-    viewRule: '',
-    // Authenticated users can create items
+    // Users can only list their own items
+    listRule: 'User = @request.auth.id',
+    // Users can only view their own items
+    viewRule: 'User = @request.auth.id',
+    // Authenticated Users can create items
     createRule: '@request.auth.id != ""',
-    // Authenticated users can update items
-    updateRule: '@request.auth.id != ""',
-    // Authenticated users can delete items
-    deleteRule: '@request.auth.id != ""',
+    // Users can only update their own items
+    updateRule: 'User = @request.auth.id',
+    // Users can only delete their own items
+    deleteRule: 'User = @request.auth.id',
   },
   indexes: [
+    // Index on User for efficient User-based queries
+    'CREATE INDEX `idx_User_items` ON `items` (`User`)',
     // Index on category fields for efficient filtering
     'CREATE INDEX `idx_category_functional_items` ON `items` (`category_functional`)',
     'CREATE INDEX `idx_category_specific_items` ON `items` (`category_specific`)',

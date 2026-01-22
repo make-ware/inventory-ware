@@ -122,12 +122,6 @@ async function setupPocketBase() {
 
     console.log('✅ PocketBase setup completed!');
     console.log(`📍 PocketBase binary location: ${executablePath}`);
-    console.log('');
-    console.log('🚀 Quick start:');
-    console.log('  yarn pb:dev     - Start PocketBase in development mode');
-    console.log('  yarn pb:serve   - Start PocketBase in production mode');
-    console.log('  yarn pb:admin   - Create admin account');
-    console.log('  yarn dev        - Start both Next.js and PocketBase');
 
   } catch (error) {
     console.error('❌ Error setting up PocketBase:', error.message);
@@ -167,10 +161,49 @@ onRecordAfterDeleteRequest((e) => {
   }
 }
 
+// Create superuser using environment variables
+function createSuperUser() {
+  const pbDir = path.join(__dirname, '..', 'pocketbase');
+  const isWindows = process.platform === 'win32';
+  const executableName = isWindows ? 'pocketbase.exe' : 'pocketbase';
+  const executablePath = path.join(pbDir, executableName);
+
+  const email = process.env.POCKETBASE_ADMIN_EMAIL;
+  const password = process.env.POCKETBASE_ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    console.log('⚠️  Skipping superuser creation: POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD environment variables are required');
+    return;
+  }
+
+  if (!fs.existsSync(executablePath)) {
+    console.log('⚠️  Skipping superuser creation: PocketBase binary not found');
+    return;
+  }
+
+  console.log(`👤 Creating superuser with email: ${email}...`);
+
+  try {
+    execSync(`"${executablePath}" superuser upsert "${email}" "${password}"`, {
+      cwd: pbDir,
+      stdio: 'inherit'
+    });
+    console.log('✅ Superuser created successfully!');
+  } catch (error) {
+    // The command may fail if the superuser already exists, which is fine
+    if (error.message && error.message.includes('already exists')) {
+      console.log('ℹ️  Superuser already exists');
+    } else {
+      console.log('⚠️  Superuser creation failed (may already exist):', error.message);
+    }
+  }
+}
+
 if (require.main === module) {
   setupPocketBase().then(() => {
     createInitialConfig();
+    createSuperUser();
   });
 }
 
-module.exports = { setupPocketBase };
+module.exports = { setupPocketBase, createSuperUser };

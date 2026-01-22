@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createInventoryService } from '@/services/inventory';
-import PocketBase from 'pocketbase';
-import type { TypedPocketBase } from '@project/shared';
+import {
+  createServerPocketBaseClient,
+  authenticateAsUser,
+} from '@/lib/pocketbase-server';
 
 /**
  * API route to process an image server-side
@@ -17,19 +19,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Create a new PocketBase client instance for this request
-    const pbUrl =
-      process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090';
-    const pb = new PocketBase(pbUrl) as TypedPocketBase;
+    const pb = createServerPocketBaseClient();
 
-    // Get auth token from Authorization header (passed from client)
-    const authHeader = request.headers.get('authorization');
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      if (token) {
-        // Set the auth token on the PocketBase client
-        // PocketBase will validate the token on the first request
-        pb.authStore.save(token, null);
-      }
+    // Authenticate using the user's token from the request
+    try {
+      await authenticateAsUser(pb, request);
+    } catch (authError) {
+      console.error('Authentication failed:', authError);
+      return NextResponse.json(
+        {
+          error:
+            authError instanceof Error
+              ? authError.message
+              : 'Authentication required',
+        },
+        { status: 401 }
+      );
     }
 
     // Debug: Log that we're in server context (don't log the actual key value)

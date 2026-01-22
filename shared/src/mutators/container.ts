@@ -13,7 +13,7 @@ export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
   }
 
   protected getCollection(): RecordService<Container> {
-    return this.pb.collection('containers');
+    return this.pb.collection('Containers');
   }
 
   protected async validateInput(
@@ -21,6 +21,31 @@ export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
   ): Promise<ContainerInput> {
     // Validate the input using the schema
     return ContainerInputSchema.parse(input);
+  }
+
+  /**
+   * Create a new container and record the initial image mapping
+   */
+  async create(input: ContainerInput): Promise<Container> {
+    try {
+      // Set the user to the currently authenticated user
+      const userId = this.pb.authStore.record?.id;
+      const inputWithUser = { ...input, User: userId };
+      const record = await super.create(inputWithUser);
+
+      // Record the initial mapping if primary_image is provided
+      if (record && input.primary_image) {
+        await this.pb.collection('ContainerImageMappings').create({
+          container: record.id,
+          image: input.primary_image,
+          bounding_box: input.primary_image_bbox,
+        });
+      }
+
+      return record;
+    } catch (error) {
+      return this.errorWrapper(error);
+    }
   }
 
   /**
@@ -39,7 +64,7 @@ export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
         input.primary_image !== current.primary_image
       ) {
         // Record the historical mapping
-        await this.pb.collection('container_image_mappings').create({
+        await this.pb.collection('ContainerImageMappings').create({
           container: id,
           image: current.primary_image,
           bounding_box: current.primary_image_bbox,

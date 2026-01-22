@@ -3,6 +3,7 @@ export * from './schema/user.js';
 export * from './schema/item.js';
 export * from './schema/container.js';
 export * from './schema/image.js';
+export * from './schema/image-metadata.js';
 export * from './schema/item-records.js';
 export * from './schema/container-record.js';
 export * from './schema/item-mapping.js';

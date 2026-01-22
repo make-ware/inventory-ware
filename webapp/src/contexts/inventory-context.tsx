@@ -153,8 +153,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         const formData = new FormData();
         formData.append('file', file);
 
+        const authToken = pb.authStore.token;
         const response = await fetch('/api-next/process-image', {
           method: 'POST',
+          headers: {
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
           body: formData,
         });
 

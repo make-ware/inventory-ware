@@ -1,5 +1,6 @@
 import {
   FileField,
+  RelationField,
   baseSchema,
   defineCollection,
 } from 'pocketbase-zod-schema/schema';
@@ -8,12 +9,14 @@ import { z } from 'zod';
 // Define the Zod schema for image input (for creating new images)
 export const ImageInputSchema = z.object({
   file: FileField(),
+  file_hash: z.string().nullable().optional(),
   image_type: z
     .enum(['item', 'container', 'unprocessed'])
     .default('unprocessed'),
   analysis_status: z
     .enum(['pending', 'processing', 'completed', 'failed'])
     .default('pending'),
+  User: RelationField({ collection: 'Users' }).optional(),
 });
 
 // Define the Zod schema for image updates (all fields optional except validation rules)
@@ -21,10 +24,12 @@ export const ImageInputSchema = z.object({
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ImageUpdateSchema = z.object({
   file: FileField().optional(),
+  file_hash: z.string().nullable().optional(),
   image_type: z.enum(['item', 'container', 'unprocessed']).optional(),
   analysis_status: z
     .enum(['pending', 'processing', 'completed', 'failed'])
     .optional(),
+  User: RelationField({ collection: 'Users' }).optional(),
 });
 
 // Database schema for the complete image record
@@ -32,12 +37,14 @@ const ImageUpdateSchema = z.object({
 export const ImageSchema = z
   .object({
     file: FileField(),
+    file_hash: z.string().nullable().optional(),
     image_type: z
       .enum(['item', 'container', 'unprocessed'])
       .default('unprocessed'),
     analysis_status: z
       .enum(['pending', 'processing', 'completed', 'failed'])
       .default('pending'),
+    User: RelationField({ collection: 'Users' }).optional(),
   })
   .extend(baseSchema);
 
@@ -47,18 +54,20 @@ export const ImageCollection = defineCollection({
   collectionName: 'Images',
   type: 'base',
   permissions: {
-    // Anyone can list images (adjust based on your auth requirements)
-    listRule: '',
-    // Anyone can view images
-    viewRule: '',
-    // Authenticated users can create images
+    // Users can only list their own images
+    listRule: 'User = @request.auth.id',
+    // Users can only view their own images
+    viewRule: 'User = @request.auth.id',
+    // Authenticated Users can create images
     createRule: '@request.auth.id != ""',
-    // Authenticated users can update images
-    updateRule: '@request.auth.id != ""',
-    // Authenticated users can delete images
-    deleteRule: '@request.auth.id != ""',
+    // Users can only update their own images
+    updateRule: 'User = @request.auth.id',
+    // Users can only delete their own images
+    deleteRule: 'User = @request.auth.id',
   },
   indexes: [
+    // Index on User for efficient User-based queries
+    'CREATE INDEX `idx_User_images` ON `images` (`User`)',
     // Index on image_type for filtering
     'CREATE INDEX `idx_image_type_images` ON `images` (`image_type`)',
     // Index on analysis_status for filtering

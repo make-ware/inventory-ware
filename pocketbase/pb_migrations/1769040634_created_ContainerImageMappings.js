@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
-  const collection_ItemRecords = new Collection({
-    id: "pb_3urrudve6gjxqpe",
-    name: "ItemRecords",
+  const collection_ContainerImageMappings = new Collection({
+    id: "pb_mp4o965ofbb7h4k",
+    name: "ContainerImageMappings",
     type: "base",
     listRule: "@request.auth.id != \"\"",
     viewRule: "@request.auth.id != \"\"",
@@ -48,54 +48,42 @@ migrate((app) => {
       system: false,
     },
     {
-      name: "Item",
+      name: "container",
       type: "relation",
       required: true,
-      collectionId: "pb_p3zq0rcjtgmj5lr",
+      collectionId: "pb_w8d7bjt4y2segw8",
       maxSelect: 1,
       minSelect: 0,
-      cascadeDelete: false,
+      cascadeDelete: true,
     },
     {
-      name: "User",
+      name: "image",
       type: "relation",
-      required: false,
-      collectionId: "_pb_users_auth_",
+      required: true,
+      collectionId: "pb_tkwz9j2iq4zlit0",
       maxSelect: 1,
       minSelect: 0,
-      cascadeDelete: false,
+      cascadeDelete: true,
     },
     {
-      name: "transaction",
-      type: "select",
-      required: true,
-      maxSelect: 1,
-      values: ["create", "update", "delete"],
-    },
-    {
-      name: "fieldName",
-      type: "text",
+      name: "bounding_box",
+      type: "json",
       required: false,
     },
     {
-      name: "newValue",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "previousValue",
-      type: "text",
-      required: true,
+      name: "primary_image_bbox",
+      type: "json",
+      required: false,
     },
   ],
     indexes: [
-    "CREATE INDEX `idx_item_item_records` ON `item_records` (`item`)",
-    "CREATE INDEX `idx_created_item_records` ON `item_records` (`created`)",
+    "CREATE INDEX `idx_container_container_image_mappings` ON `container_image_mappings` (`container`)",
+    "CREATE INDEX `idx_image_container_image_mappings` ON `container_image_mappings` (`image`)",
   ],
   });
 
-  return app.save(collection_ItemRecords);
+  return app.save(collection_ContainerImageMappings);
 }, (app) => {
-  const collection_ItemRecords = app.findCollectionByNameOrId("ItemRecords");
-  return app.delete(collection_ItemRecords);
+  const collection_ContainerImageMappings = app.findCollectionByNameOrId("ContainerImageMappings");
+  return app.delete(collection_ContainerImageMappings);
 });

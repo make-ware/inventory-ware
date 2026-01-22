@@ -8,12 +8,15 @@ import { z } from 'zod';
 // Schema for tracking snapshots of Item history
 export const ItemRecordSchema = z
   .object({
-    Item: RelationField({ collection: 'Items' }),
+    Item: RelationField({ collection: 'Items', cascadeDelete: true }),
     User: RelationField({ collection: 'Users' }).optional(),
     transaction: z.enum(['create', 'update', 'delete']),
-    fieldName: z.string().nullish().describe('Name of the field that changed'),
-    newValue: z.string().describe('New value of the changed field'),
-    previousValue: z.string().describe('Previous value of the changed field'),
+    field_name: z.string().nullish().describe('Name of the field that changed'),
+    new_value: z.string().describe('New value of the changed field'),
+    previous_value: z
+      .string()
+      .optional()
+      .describe('Previous value of the changed field'),
   })
   .extend(baseSchema);
 

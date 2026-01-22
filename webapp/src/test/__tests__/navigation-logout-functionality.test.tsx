@@ -127,7 +127,7 @@ describe('Navigation Logout Functionality Property Tests', () => {
 
     // Reset mock state
     mockPb.authStore.isValid = false;
-    mockPb.authStore.model = null;
+    mockPb.authStore.record = null;
 
     // Create fresh mock auth context
     mockAuthContext = new MockAuthContext();

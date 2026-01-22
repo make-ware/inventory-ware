@@ -1,14 +1,14 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
-  const collection_ItemImageMappings = new Collection({
-    id: "pb_1rhdpfj44i2saog",
-    name: "ItemImageMappings",
+  const collection_Containers = new Collection({
+    id: "pb_w8d7bjt4y2segw8",
+    name: "Containers",
     type: "base",
-    listRule: "@request.auth.id != \"\"",
-    viewRule: "@request.auth.id != \"\"",
+    listRule: "User = @request.auth.id",
+    viewRule: "User = @request.auth.id",
     createRule: "@request.auth.id != \"\"",
-    updateRule: "@request.auth.id != \"\"",
-    deleteRule: "@request.auth.id != \"\"",
+    updateRule: "User = @request.auth.id",
+    deleteRule: "User = @request.auth.id",
     manageRule: null,
     fields: [
     {
@@ -48,42 +48,49 @@ migrate((app) => {
       system: false,
     },
     {
-      name: "item",
-      type: "relation",
+      name: "container_label",
+      type: "text",
       required: true,
-      collectionId: "pb_p3zq0rcjtgmj5lr",
-      maxSelect: 1,
-      minSelect: 0,
-      cascadeDelete: false,
+      min: 1,
     },
     {
-      name: "image",
-      type: "relation",
-      required: true,
-      collectionId: "pb_0tct8klufoespt4",
-      maxSelect: 1,
-      minSelect: 0,
-      cascadeDelete: false,
-    },
-    {
-      name: "bounding_box",
-      type: "json",
+      name: "container_notes",
+      type: "text",
       required: false,
+    },
+    {
+      name: "primary_image",
+      type: "relation",
+      required: false,
+      collectionId: "pb_tkwz9j2iq4zlit0",
+      maxSelect: 1,
+      minSelect: 0,
+      cascadeDelete: false,
     },
     {
       name: "primary_image_bbox",
       type: "json",
       required: false,
     },
+    {
+      name: "User",
+      type: "relation",
+      required: false,
+      collectionId: "_pb_users_auth_",
+      maxSelect: 1,
+      minSelect: 0,
+      cascadeDelete: false,
+    },
   ],
     indexes: [
-    "CREATE INDEX `idx_item_item_image_mappings` ON `item_image_mappings` (`item`)",
-    "CREATE INDEX `idx_image_item_image_mappings` ON `item_image_mappings` (`image`)",
+    "CREATE INDEX `idx_User_containers` ON `containers` (`User`)",
+    "CREATE INDEX `idx_created_containers` ON `containers` (`created`)",
+    "CREATE INDEX `idx_label_containers` ON `containers` (`container_label`)",
   ],
   });
 
-  return app.save(collection_ItemImageMappings);
+  return app.save(collection_Containers);
 }, (app) => {
-  const collection_ItemImageMappings = app.findCollectionByNameOrId("ItemImageMappings");
-  return app.delete(collection_ItemImageMappings);
+  const collection_Containers = app.findCollectionByNameOrId("Containers");
+  return app.delete(collection_Containers);
 });
