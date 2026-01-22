@@ -10,11 +10,7 @@ import type {
   SearchFilters,
   BulkEditData,
 } from '@/components/inventory';
-import {
-  SearchFilter,
-  ItemCard,
-  BulkEditDialog,
-} from '@/components/inventory';
+import { SearchFilter, ItemCard, BulkEditDialog } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2, Plus, CheckSquare, X } from 'lucide-react';

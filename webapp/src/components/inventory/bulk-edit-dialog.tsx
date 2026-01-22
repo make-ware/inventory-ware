@@ -95,9 +95,7 @@ export function BulkEditDialog({
               <Combobox
                 options={categories.specific}
                 value={data.category_specific}
-                onChange={(val) =>
-                  setData({ ...data, category_specific: val })
-                }
+                onChange={(val) => setData({ ...data, category_specific: val })}
                 placeholder="No Change"
               />
             </div>

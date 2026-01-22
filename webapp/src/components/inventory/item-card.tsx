@@ -49,8 +49,14 @@ export function ItemCard({
       onClick={handleClick}
     >
       {isSelectionMode && (
-        <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
-          <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect?.()} />
+        <div
+          className="absolute top-2 left-2 z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelect?.()}
+          />
         </div>
       )}
       <CardHeader className="pb-2">
