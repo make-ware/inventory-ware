@@ -7,3 +7,4 @@ export { ItemCard } from './item-card';
 export { ItemForm } from './item-form';
 export { SearchFilter } from './search-filter';
 export type { CategoryLibrary, SearchFilters } from './search-filter';
+export { BulkEditDialog, type BulkEditData } from './bulk-edit-dialog';

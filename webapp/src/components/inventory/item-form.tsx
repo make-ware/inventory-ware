@@ -3,10 +3,15 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ItemInputSchema, type ItemInput } from '@project/shared';
+import {
+  ItemInputSchema,
+  type ItemInput,
+  type CategoryLibrary,
+} from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Combobox } from '@/components/ui/combobox';
 import {
   Form,
   FormControl,
@@ -23,6 +28,7 @@ interface ItemFormProps {
   onSubmit: (data: ItemInput) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
+  categories?: CategoryLibrary;
 }
 
 export function ItemForm({
@@ -30,6 +36,7 @@ export function ItemForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  categories,
 }: ItemFormProps) {
   const form = useForm<z.input<typeof ItemInputSchema>>({
     resolver: zodResolver(ItemInputSchema),
@@ -104,9 +111,11 @@ export function ItemForm({
               <FormItem>
                 <FormLabel>Functional Category *</FormLabel>
                 <FormControl>
-                  <Input
+                  <Combobox
+                    options={categories?.functional || []}
+                    value={field.value}
+                    onChange={field.onChange}
                     placeholder="e.g., Tools"
-                    {...field}
                     disabled={isSubmitting}
                   />
                 </FormControl>
@@ -123,9 +132,11 @@ export function ItemForm({
               <FormItem>
                 <FormLabel>Specific Category *</FormLabel>
                 <FormControl>
-                  <Input
+                  <Combobox
+                    options={categories?.specific || []}
+                    value={field.value}
+                    onChange={field.onChange}
                     placeholder="e.g., Power Tools"
-                    {...field}
                     disabled={isSubmitting}
                   />
                 </FormControl>
@@ -142,9 +153,11 @@ export function ItemForm({
               <FormItem>
                 <FormLabel>Item Type *</FormLabel>
                 <FormControl>
-                  <Input
+                  <Combobox
+                    options={categories?.item_type || []}
+                    value={field.value}
+                    onChange={field.onChange}
                     placeholder="e.g., Drill"
-                    {...field}
                     disabled={isSubmitting}
                   />
                 </FormControl>

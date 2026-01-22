@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator } from '@project/shared';
-import type { Item, ItemInput } from '@project/shared';
+import type { Item, ItemInput, CategoryLibrary } from '@project/shared';
 import { ItemForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,10 +17,11 @@ export default function EditItemPage() {
   const itemId = params.id as string;
 
   const [item, setItem] = useState<Item | null>(null);
+  const [categories, setCategories] = useState<CategoryLibrary>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const itemMutator = new ItemMutator(pb);
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
   const loadItem = useCallback(async () => {
     try {
@@ -37,12 +38,15 @@ export default function EditItemPage() {
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId, router]);
+  }, [itemId, router, itemMutator]);
 
   useEffect(() => {
     loadItem();
-  }, [loadItem]);
+    itemMutator
+      .getDistinctCategories()
+      .then(setCategories)
+      .catch((err) => console.error('Failed to load categories', err));
+  }, [loadItem, itemMutator]);
 
   const handleSubmit = async (data: ItemInput) => {
     try {
@@ -105,6 +109,7 @@ export default function EditItemPage() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}
+            categories={categories}
           />
         </CardContent>
       </Card>

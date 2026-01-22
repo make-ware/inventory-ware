@@ -4,15 +4,21 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Edit, Trash2, Image as ImageIcon, Copy } from 'lucide-react';
 import type { Item } from '@project/shared';
+import { cn } from '@/lib/utils';
 
 interface ItemCardProps {
   item: Item;
   imageUrl?: string;
   onEdit?: () => void;
   onDelete?: () => void;
+  onClone?: () => void;
   onClick?: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function ItemCard({
@@ -20,42 +26,79 @@ export function ItemCard({
   imageUrl,
   onEdit,
   onDelete,
+  onClone,
   onClick,
+  isSelectionMode,
+  isSelected,
+  onToggleSelect,
 }: ItemCardProps) {
+  const handleClick = () => {
+    if (isSelectionMode && onToggleSelect) {
+      onToggleSelect();
+    } else if (onClick) {
+      onClick();
+    }
+  };
+
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={onClick}
+      className={cn(
+        'cursor-pointer hover:shadow-md transition-shadow relative',
+        isSelected && 'ring-2 ring-primary'
+      )}
+      onClick={handleClick}
     >
+      {isSelectionMode && (
+        <div className="absolute top-2 left-2 z-10" onClick={(e) => e.stopPropagation()}>
+          <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelect?.()} />
+        </div>
+      )}
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
-          <CardTitle className="text-lg">{item.item_label}</CardTitle>
-          <div className="flex gap-1">
-            {onEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          <CardTitle className={cn('text-lg', isSelectionMode && 'ml-6')}>
+            {item.item_label}
+          </CardTitle>
+          {!isSelectionMode && (
+            <div className="flex gap-1">
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+              {onClone && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClone();
+                  }}
+                  title="Clone Item"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>

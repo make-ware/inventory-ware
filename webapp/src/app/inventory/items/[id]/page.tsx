@@ -18,6 +18,7 @@ import {
   Trash2,
   Package,
   Image as ImageIcon,
+  Copy,
 } from 'lucide-react';
 
 export default function ItemDetailPage() {
@@ -113,6 +114,15 @@ export default function ItemDetailPage() {
           Back to Inventory
         </Button>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              router.push(`/inventory/items/new?clone_from=${itemId}`)
+            }
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Clone
+          </Button>
           <Button
             variant="outline"
             onClick={() => router.push(`/inventory/items/${itemId}/edit`)}

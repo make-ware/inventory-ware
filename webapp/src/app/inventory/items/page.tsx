@@ -5,11 +5,19 @@ import { useRouter } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
 import type { Item, Container, Image } from '@project/shared';
-import type { CategoryLibrary, SearchFilters } from '@/components/inventory';
-import { SearchFilter, ItemCard } from '@/components/inventory';
+import type {
+  CategoryLibrary,
+  SearchFilters,
+  BulkEditData,
+} from '@/components/inventory';
+import {
+  SearchFilter,
+  ItemCard,
+  BulkEditDialog,
+} from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, CheckSquare, X } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -27,6 +35,11 @@ export default function ItemsPage() {
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Bulk Edit State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
 
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
@@ -149,6 +162,62 @@ export default function ItemsPage() {
     }
   };
 
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      if (prev) {
+        setSelectedItems(new Set()); // Clear on exit
+      }
+      return !prev;
+    });
+  };
+
+  const toggleItemSelection = (id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (
+      !confirm(`Are you sure you want to delete ${selectedItems.size} items?`)
+    )
+      return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedItems).map((id) => itemMutator.delete(id))
+      );
+      toast.success(`Deleted ${selectedItems.size} items`);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to bulk delete items');
+    }
+  };
+
+  const handleBulkEditConfirm = async (data: BulkEditData) => {
+    try {
+      await Promise.all(
+        Array.from(selectedItems).map((id) => itemMutator.update(id, data))
+      );
+      toast.success(`Updated ${selectedItems.size} items`);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to bulk update:', error);
+      toast.error('Failed to bulk update items');
+    }
+  };
+
   const getImageUrl = (imageId?: string): string | undefined => {
     if (!imageId) return undefined;
     const image = images.get(imageId);
@@ -190,7 +259,7 @@ export default function ItemsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="container mx-auto py-8 space-y-8 relative">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Items</h1>
@@ -198,13 +267,26 @@ export default function ItemsPage() {
             Manage your inventory items ({items.length} total)
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => router.push('/inventory/items/new')}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Item
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant={isSelectionMode ? 'secondary' : 'outline'}
+            onClick={toggleSelectionMode}
+          >
+            {isSelectionMode ? (
+              <X className="h-4 w-4 mr-2" />
+            ) : (
+              <CheckSquare className="h-4 w-4 mr-2" />
+            )}
+            {isSelectionMode ? 'Cancel Selection' : 'Select Items'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/inventory/items/new')}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Item
+          </Button>
+        </div>
       </div>
 
       <SearchFilter
@@ -233,7 +315,13 @@ export default function ItemsPage() {
                 imageUrl={getItemImageUrl(item)}
                 onClick={() => router.push(`/inventory/items/${item.id}`)}
                 onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
+                onClone={() =>
+                  router.push(`/inventory/items/new?clone_from=${item.id}`)
+                }
                 onDelete={() => handleDeleteItem(item.id)}
+                isSelectionMode={isSelectionMode}
+                isSelected={selectedItems.has(item.id)}
+                onToggleSelect={() => toggleItemSelection(item.id)}
               />
             ))}
           </div>
@@ -263,6 +351,24 @@ export default function ItemsPage() {
           )}
         </>
       )}
+
+      {selectedItems.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-background border rounded-lg shadow-lg p-4 flex items-center gap-4 z-50">
+          <span className="font-medium">{selectedItems.size} selected</span>
+          <Button onClick={() => setIsBulkEditDialogOpen(true)}>Edit</Button>
+          <Button variant="destructive" onClick={handleBulkDelete}>
+            Delete
+          </Button>
+        </div>
+      )}
+
+      <BulkEditDialog
+        open={isBulkEditDialogOpen}
+        onOpenChange={setIsBulkEditDialogOpen}
+        selectedCount={selectedItems.size}
+        onConfirm={handleBulkEditConfirm}
+        categories={categories}
+      />
     </div>
   );
 }
