@@ -23,7 +23,7 @@ export default defineConfig({
       },
       {
         find: '@project/shared',
-        replacement: path.resolve(__dirname, '../shared'),
+        replacement: path.resolve(__dirname, '../shared/src/index.ts'),
       },
       {
         find: '@',
