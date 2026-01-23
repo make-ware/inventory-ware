@@ -80,7 +80,10 @@ describe('ItemHistory', () => {
 
     const link = screen.getByRole('link', { name: /view image/i });
     expect(link).toHaveAttribute('href', 'http://pb/img.jpg');
-    expect(mockGetUrl).toHaveBeenCalledWith({ collectionId: 'Items', id: '123' }, 'img_filename.jpg');
+    expect(mockGetUrl).toHaveBeenCalledWith(
+      { collectionId: 'Items', id: '123' },
+      'img_filename.jpg'
+    );
   });
 
   it('renders container updates with link', async () => {

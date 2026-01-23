@@ -237,6 +237,8 @@ export default function ItemDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          <ItemHistory itemId={item.id} />
         </div>
 
         {/* Sidebar - Images */}
@@ -289,8 +291,6 @@ export default function ItemDetailPage() {
               </div>
             </CardContent>
           </Card>
-
-          <ItemHistory itemId={item.id} />
         </div>
       </div>
     </div>

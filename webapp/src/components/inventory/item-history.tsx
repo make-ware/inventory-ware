@@ -109,9 +109,7 @@ export function ItemHistory({ itemId }: ItemHistoryProps) {
                     {formatFieldName(record.fieldName)}
                   </div>
 
-                  <div className="text-sm">
-                    {renderNewValue(record)}
-                  </div>
+                  <div className="text-sm">{renderNewValue(record)}</div>
 
                   {record.expand?.UserRef && (
                     <div className="flex items-center gap-1 mt-0.5">
@@ -134,7 +132,8 @@ export function ItemHistory({ itemId }: ItemHistoryProps) {
 }
 
 function getIconForField(fieldName?: string) {
-  if (fieldName === 'primaryImage') return <ImageIcon className="h-3.5 w-3.5" />;
+  if (fieldName === 'primaryImage')
+    return <ImageIcon className="h-3.5 w-3.5" />;
   if (fieldName === 'container') return <Package className="h-3.5 w-3.5" />;
   return null;
 }
@@ -151,6 +150,7 @@ function formatFieldName(fieldName?: string): string {
     itemManufacturer: 'Manufacturer',
     itemAttributes: 'Attributes',
     primaryImage: 'Image',
+    primaryImageBbox: 'Image Crop',
     container: 'Container',
   };
   return map[fieldName || ''] || fieldName || 'Update';
@@ -159,11 +159,15 @@ function formatFieldName(fieldName?: string): string {
 function renderNewValue(record: ItemRecord) {
   const { fieldName, newValue, ItemRef } = record;
 
-  if (!newValue && fieldName !== 'container') return <span className="text-muted-foreground italic">(empty)</span>;
+  if (!newValue && fieldName !== 'container')
+    return <span className="text-muted-foreground italic">(empty)</span>;
 
   // Handle Image Update
   if (fieldName === 'primaryImage') {
-    const imageUrl = pb.files.getUrl({ collectionId: 'Items', id: ItemRef }, newValue);
+    const imageUrl = pb.files.getUrl(
+      { collectionId: 'Items', id: ItemRef },
+      newValue
+    );
     return (
       <div className="flex items-center gap-2 mt-1">
         <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
@@ -178,7 +182,12 @@ function renderNewValue(record: ItemRecord) {
 
   // Handle Container Update
   if (fieldName === 'container') {
-    if (!newValue) return <span className="text-muted-foreground italic">Removed from container</span>;
+    if (!newValue)
+      return (
+        <span className="text-muted-foreground italic">
+          Removed from container
+        </span>
+      );
 
     return (
       <div className="flex items-center gap-2 mt-1">
@@ -194,11 +203,25 @@ function renderNewValue(record: ItemRecord) {
 
   // Handle Attributes
   if (fieldName === 'itemAttributes') {
-    return <span className="text-muted-foreground text-xs italic">Attributes changed</span>;
+    return (
+      <span className="text-muted-foreground text-xs italic">
+        Attributes changed
+      </span>
+    );
+  }
+
+  // Handle Bounding Box - don't show raw data
+  if (fieldName === 'primaryImageBbox') {
+    return (
+      <span className="text-muted-foreground text-xs italic">
+        Bounding box updated
+      </span>
+    );
   }
 
   // Default Text Display
-  const displayValue = newValue.length > 50 ? newValue.substring(0, 50) + '...' : newValue;
+  const displayValue =
+    newValue.length > 50 ? newValue.substring(0, 50) + '...' : newValue;
   return (
     <div className="text-muted-foreground break-words bg-muted/50 p-1.5 rounded-md text-xs font-mono">
       {displayValue}
