@@ -6,7 +6,7 @@ export PB_DATA_DIR="${PB_DATA_DIR:-/data/pb_data}"
 export PB_MIGRATIONS_DIR="/app/pocketbase/pb_migrations"
 export PB_HOOKS_DIR="/app/pocketbase/pb_hooks"
 
-# Create directories (attempt)
+# Create directories
 mkdir -p "$PB_DATA_DIR"
 
 echo "Starting PocketBase..."
