@@ -61,6 +61,8 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+*.log
+*.py
 
 dist/
 
