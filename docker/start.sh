@@ -9,7 +9,8 @@ if [ "${LOG_LEVEL}" = "debug" ] || [ "${LOG_LEVEL}" = "verbose" ]; then
 fi
 
 # PocketBase Configuration
-export PB_DATA_DIR="${PB_DATA_DIR:-/app/pb/pb_data}"
+export PB_DATA_DIR="${PB_DATA_DIR:-/data/pb_data}"
+export PB_STORAGE_DIR="${PB_STORAGE_DIR:-/data/pb_storage}"
 export PB_PUBLIC_DIR="${PB_PUBLIC_DIR:-/app/webapp/.next}"
 # POCKETBASE_URL is for server-side code (bypasses nginx, connects directly)
 export POCKETBASE_URL="${POCKETBASE_URL:-http://localhost:8090}"
@@ -36,6 +37,12 @@ if [ ! -d "$PB_DATA_DIR" ]; then
     mkdir -p "$PB_DATA_DIR"
 fi
 
+# Create PocketBase storage directory
+if [ ! -d "$PB_STORAGE_DIR" ]; then
+    [ "${LOG_LEVEL}" = "debug" ] || [ "${LOG_LEVEL}" = "verbose" ] && echo "  Creating PB_STORAGE_DIR: $PB_STORAGE_DIR"
+    mkdir -p "$PB_STORAGE_DIR"
+fi
+
 # Create log directories
 mkdir -p /var/log/supervisor
 mkdir -p /var/log/nginx
@@ -44,19 +51,23 @@ mkdir -p /var/log/nginx
 if [ "${LOG_LEVEL}" = "debug" ] || [ "${LOG_LEVEL}" = "verbose" ]; then
   echo "  Setting directory permissions..."
 fi
-chown -R nextjs:nodejs "$PB_DATA_DIR" 2>/dev/null || {
-  if [ "${LOG_LEVEL}" = "debug" ] || [ "${LOG_LEVEL}" = "verbose" ]; then
-    echo "    Warning: Could not change ownership of $PB_DATA_DIR"
-  fi
-}
 
-# Set appropriate permissions
-chmod -R 755 "$PB_DATA_DIR" 2>/dev/null || true
+# Set ownership for data directories
+for dir in "$PB_DATA_DIR" "$PB_STORAGE_DIR"; do
+    chown -R nextjs:nodejs "$dir" 2>/dev/null || {
+      if [ "${LOG_LEVEL}" = "debug" ] || [ "${LOG_LEVEL}" = "verbose" ]; then
+        echo "    Warning: Could not change ownership of $dir"
+      fi
+    }
+    # Set appropriate permissions
+    chmod -R 755 "$dir" 2>/dev/null || true
+done
 
 if [ "${LOG_LEVEL}" = "debug" ] || [ "${LOG_LEVEL}" = "verbose" ]; then
   echo ""
   echo "Directory setup complete:"
   echo "  - PB_DATA_DIR: $PB_DATA_DIR"
+  echo "  - PB_STORAGE_DIR: $PB_STORAGE_DIR"
   echo "  - PB_PUBLIC_DIR: $PB_PUBLIC_DIR"
 fi
 

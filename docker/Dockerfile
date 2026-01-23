@@ -124,8 +124,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/pb/pocketbase ./pb/pocketbase
 COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_hooks ./pb/pb_hooks
 COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_migrations ./pb/pb_migrations
 
-# Create pb_data and data directories
-RUN mkdir -p ./pb/pb_data && chown -R nextjs:nodejs ./pb/pb_data
+# Create pb_data and pb_storage directories in /data
+RUN mkdir -p /data/pb_data /data/pb_storage && \
+    chown -R nextjs:nodejs /data
 
 # Copy workspace package.json files
 COPY --from=builder --chown=nextjs:nodejs /app/webapp/package.json ./webapp/
@@ -199,10 +200,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/pb/pocketbase ./pb/pocketbase
 COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_hooks ./pb/pb_hooks
 COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_migrations ./pb/pb_migrations
 
-# Create pb_data directory
-RUN mkdir -p ./pb/pb_data && chown -R nextjs:nodejs ./pb/pb_data
+# Create pb_data and pb_storage directories in /data
+RUN mkdir -p /data/pb_data /data/pb_storage && \
+    chown -R nextjs:nodejs /data
 
 USER nextjs
 EXPOSE 8090
 
-CMD ["./pb/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/app/pb/pb_data"]
+CMD ["./pb/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/data/pb_data"]

@@ -14,7 +14,8 @@ docker run -d \
   -p 8888:80 \
   -e POCKETBASE_ADMIN_EMAIL=admin@example.com \
   -e POCKETBASE_ADMIN_PASSWORD=change-this-password \
-  -v inventory-ware-data:/app/pb/pb_data \
+  -v inventory-ware-data:/data/pb_data \
+  -v inventory-ware-storage:/data/pb_storage \
   ghcr.io/make-ware/inventory-ware:latest
 ```
 
@@ -23,6 +24,7 @@ This command will:
 -   Expose the application on port `8888`.
 -   **Auto-create** the PocketBase admin account with the provided credentials.
 -   Persist data in a Docker volume named `inventory-ware-data`.
+-   Persist storage in a Docker volume named `inventory-ware-storage`.
 
 ## Option 2: Docker Compose
 
@@ -55,5 +57,5 @@ docker compose down
 ## Data Persistence
 
 Both methods use Docker volumes to ensure your data is saved even if the containers are removed.
--   **Monolithic:** Uses volume `inventory-ware-data` (as specified in the run command).
--   **Docker Compose:** Uses volume `pb_data` (defined in `docker-compose.yml`).
+-   **Monolithic:** Uses volumes `inventory-ware-data` and `inventory-ware-storage`.
+-   **Docker Compose:** Uses volumes `pb_data` and `pb_storage` (defined in `docker-compose.yml`).
