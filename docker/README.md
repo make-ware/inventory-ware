@@ -11,20 +11,18 @@ Run the following command in your terminal:
 ```bash
 docker run -d \
   --name inventory-ware \
-  -p 8888:80 \
+  -p 80:80 \
+  -v data:/data \
   -e POCKETBASE_ADMIN_EMAIL=admin@example.com \
   -e POCKETBASE_ADMIN_PASSWORD=change-this-password \
-  -v inventory-ware-data:/data/pb_data \
-  -v inventory-ware-storage:/data/pb_storage \
   ghcr.io/make-ware/inventory-ware:latest
 ```
 
 This command will:
 -   Start the container in detached mode (`-d`).
--   Expose the application on port `8888`.
+-   Expose the application on port `80`.
 -   **Auto-create** the PocketBase admin account with the provided credentials.
--   Persist data in a Docker volume named `inventory-ware-data`.
--   Persist storage in a Docker volume named `inventory-ware-storage`.
+-   Persist all data (database and uploads) in a Docker volume named `data` mapped to `/data`.
 
 ## Option 2: Docker Compose
 
@@ -57,5 +55,5 @@ docker compose down
 ## Data Persistence
 
 Both methods use Docker volumes to ensure your data is saved even if the containers are removed.
--   **Monolithic:** Uses volumes `inventory-ware-data` and `inventory-ware-storage`.
--   **Docker Compose:** Uses volumes `pb_data` and `pb_storage` (defined in `docker-compose.yml`).
+-   **Monolithic:** Uses a volume named `data`.
+-   **Docker Compose:** Uses a volume named `data` (defined in `docker-compose.yml`).

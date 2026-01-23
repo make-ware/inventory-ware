@@ -10,8 +10,7 @@ services:
     ports:
       - "8090:8090"
     volumes:
-      - pb_data:/data/pb_data
-      - pb_storage:/data/pb_storage
+      - data:/data
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
     healthcheck:
@@ -35,5 +34,4 @@ services:
         condition: service_healthy
 
 volumes:
-  pb_data:
-  pb_storage:
+  data:
