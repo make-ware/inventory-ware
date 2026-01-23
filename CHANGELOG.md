@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.1.0...inventory-ware-v0.1.1) (2026-01-23)
+
+
+### Bug Fixes
+
+* update documentation ([f831d76](https://github.com/make-ware/inventory-ware/commit/f831d76305ad8988da7b7712f209ff0b8f31f7b4))
+
 ## [0.1.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.0.2...inventory-ware-v0.1.0) (2026-01-23)
 
 
