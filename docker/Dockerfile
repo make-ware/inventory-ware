@@ -13,7 +13,7 @@ RUN corepack enable && corepack prepare yarn@4.12.0 --activate
 COPY package.json yarn.lock .yarnrc.yml* ./
 COPY webapp/package.json ./webapp/
 COPY shared/package.json ./shared/
-COPY pb/package.json ./pb/
+COPY pocketbase/package.json ./pocketbase/
 
 # Install dependencies
 RUN yarn install --immutable
@@ -22,7 +22,7 @@ RUN yarn install --immutable
 # Supports multi-architecture builds via TARGETARCH
 ARG POCKETBASE_VERSION=0.35.0
 ARG TARGETARCH
-RUN mkdir -p /app/pb && \
+RUN mkdir -p /app/pocketbase && \
     POCKETBASE_ARCH=$(case "${TARGETARCH}" in \
         "amd64") echo "amd64" ;; \
         "arm64") echo "arm64" ;; \
@@ -31,8 +31,8 @@ RUN mkdir -p /app/pb && \
     echo "Downloading PocketBase v${POCKETBASE_VERSION} for architecture: ${POCKETBASE_ARCH}" && \
     curl -f -L -S "https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_${POCKETBASE_ARCH}.zip" \
     -o /tmp/pocketbase.zip && \
-    unzip /tmp/pocketbase.zip -d /app/pb && \
-    chmod +x /app/pb/pocketbase && \
+    unzip /tmp/pocketbase.zip -d /app/pocketbase && \
+    chmod +x /app/pocketbase/pocketbase && \
     rm /tmp/pocketbase.zip
 
 # Build stage
@@ -50,15 +50,15 @@ RUN corepack enable && corepack prepare yarn@4.12.0 --activate
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/.yarn ./.yarn
-COPY --from=deps /app/pb/pocketbase ./pb/pocketbase
+COPY --from=deps /app/pocketbase/pocketbase ./pocketbase/pocketbase
 
 # Copy workspace files
 COPY package.json yarn.lock .yarnrc.yml* ./
 COPY webapp ./webapp
 COPY shared ./shared
-COPY pb/pb_hooks ./pb/pb_hooks
-COPY pb/pb_migrations ./pb/pb_migrations
-COPY pb/package.json ./pb/package.json
+COPY pocketbase/pb_hooks ./pocketbase/pb_hooks
+COPY pocketbase/pb_migrations ./pocketbase/pb_migrations
+COPY pocketbase/package.json ./pocketbase/package.json
 
 # Build shared package first (required by webapp)
 RUN yarn workspace @project/shared build
@@ -69,7 +69,7 @@ ENV NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL}
 RUN yarn workspace @project/webapp build
 
 # Ensure pb_migrations exists
-RUN mkdir -p /app/pb/pb_migrations
+RUN mkdir -p /app/pocketbase/pb_migrations
 
 # -----------------------------------------------------------------------------
 # Base Runner (Common setup for all runner stages)
@@ -120,9 +120,9 @@ RUN mkdir -p /var/log/supervisor /var/run /etc/supervisor/conf.d && \
     chown -R nginx:nginx /var/log/nginx /var/cache/nginx /var/run/nginx
 
 # Copy PocketBase binary and files
-COPY --from=builder --chown=nextjs:nodejs /app/pb/pocketbase ./pb/pocketbase
-COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_hooks ./pb/pb_hooks
-COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_migrations ./pb/pb_migrations
+COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pocketbase ./pocketbase/pocketbase
+COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_hooks ./pocketbase/pb_hooks
+COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_migrations ./pocketbase/pb_migrations
 
 # Create pb_data and pb_storage directories in /data
 RUN mkdir -p /data/pb_data /data/pb_storage && \
@@ -131,7 +131,7 @@ RUN mkdir -p /data/pb_data /data/pb_storage && \
 # Copy workspace package.json files
 COPY --from=builder --chown=nextjs:nodejs /app/webapp/package.json ./webapp/
 COPY --from=builder --chown=nextjs:nodejs /app/shared/package.json ./shared/
-COPY --from=builder --chown=nextjs:nodejs /app/pb/package.json ./pb/
+COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/package.json ./pocketbase/
 
 # Copy built application files
 COPY --from=builder --chown=nextjs:nodejs /app/webapp/.next ./webapp/.next
@@ -196,9 +196,9 @@ RUN apk add --no-cache curl && \
     rm -rf /var/cache/apk/*
 
 # Copy PocketBase binary and files
-COPY --from=builder --chown=nextjs:nodejs /app/pb/pocketbase ./pb/pocketbase
-COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_hooks ./pb/pb_hooks
-COPY --from=builder --chown=nextjs:nodejs /app/pb/pb_migrations ./pb/pb_migrations
+COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pocketbase ./pocketbase/pocketbase
+COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_hooks ./pocketbase/pb_hooks
+COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_migrations ./pocketbase/pb_migrations
 
 # Create pb_data and pb_storage directories in /data
 RUN mkdir -p /data/pb_data /data/pb_storage && \
@@ -207,4 +207,4 @@ RUN mkdir -p /data/pb_data /data/pb_storage && \
 USER nextjs
 EXPOSE 8090
 
-CMD ["./pb/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/data/pb_data"]
+CMD ["./pocketbase/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/data/pb_data"]
