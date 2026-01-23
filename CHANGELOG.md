@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.1.2...inventory-ware-v0.2.0) (2026-01-23)
+
+
+### Features
+
+* add dark mode support ([9944087](https://github.com/make-ware/inventory-ware/commit/9944087b6bec6ff231c5c6ca9b15413396284bac))
+* add dark mode support ([8c687e2](https://github.com/make-ware/inventory-ware/commit/8c687e238a1fcf155f660845d1a164d73a96d414))
+
+
+### Bug Fixes
+
+* **docker:** explicitly set PocketBase migrations directory ([8f61702](https://github.com/make-ware/inventory-ware/commit/8f617026f6569b30d57f2389cb632c9a872db233))
+
 ## [0.1.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.1.1...inventory-ware-v0.1.2) (2026-01-23)
 
 
