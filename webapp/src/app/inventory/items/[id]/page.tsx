@@ -11,6 +11,7 @@ import {
 } from '@project/shared';
 import type { Item, Image, Container } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
+import { ItemHistory } from '@/components/inventory/item-history';
 
 type ItemWithExpand = Item & { expand?: { primaryImage?: Image } };
 import { Button } from '@/components/ui/button';
@@ -236,6 +237,8 @@ export default function ItemDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          <ItemHistory itemId={item.id} />
         </div>
 
         {/* Sidebar - Images */}
