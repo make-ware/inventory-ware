@@ -59,8 +59,14 @@ export function CroppedImageViewer({
 
   // Crop mode
   // Avoid division by zero when width/height is 1 (100%)
-  const posX = boundingBox.width >= 1 ? 0 : (boundingBox.x / (1 - boundingBox.width)) * 100;
-  const posY = boundingBox.height >= 1 ? 0 : (boundingBox.y / (1 - boundingBox.height)) * 100;
+  const posX =
+    boundingBox.width >= 1
+      ? 0
+      : (boundingBox.x / (1 - boundingBox.width)) * 100;
+  const posY =
+    boundingBox.height >= 1
+      ? 0
+      : (boundingBox.y / (1 - boundingBox.height)) * 100;
 
   return (
     <div

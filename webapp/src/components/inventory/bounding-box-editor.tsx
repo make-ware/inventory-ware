@@ -81,34 +81,34 @@ export function BoundingBoxEditor({
       </div>
 
       <div className="relative border rounded-md overflow-hidden bg-muted select-none touch-none">
-         <div
-           ref={containerRef}
-           className="relative cursor-crosshair"
-           onMouseDown={handleMouseDown}
-           onMouseMove={handleMouseMove}
-           onMouseUp={handleMouseUp}
-           onMouseLeave={handleMouseUp}
-         >
-           <img
-             ref={imageRef}
-             src={imageUrl}
-             alt="Editor"
-             className="w-full h-auto block max-h-[60vh] object-contain mx-auto"
-             draggable={false}
-           />
+        <div
+          ref={containerRef}
+          className="relative cursor-crosshair"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          <img
+            ref={imageRef}
+            src={imageUrl}
+            alt="Editor"
+            className="w-full h-auto block max-h-[60vh] object-contain mx-auto"
+            draggable={false}
+          />
 
-           {box && (
-             <div
-               className="absolute border-2 border-primary bg-primary/20"
-               style={{
-                 left: `${box.x * 100}%`,
-                 top: `${box.y * 100}%`,
-                 width: `${box.width * 100}%`,
-                 height: `${box.height * 100}%`,
-               }}
-             />
-           )}
-         </div>
+          {box && (
+            <div
+              className="absolute border-2 border-primary bg-primary/20"
+              style={{
+                left: `${box.x * 100}%`,
+                top: `${box.y * 100}%`,
+                width: `${box.width * 100}%`,
+                height: `${box.height * 100}%`,
+              }}
+            />
+          )}
+        </div>
       </div>
       <p className="text-sm text-muted-foreground">
         Click and drag to draw a box around the object.
