@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator } from '@project/shared';
@@ -19,7 +19,7 @@ import { Loader2 } from 'lucide-react';
 
 const IMAGES_PER_PAGE = 24;
 
-export default function ImagesPage() {
+function ImagesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -287,5 +287,19 @@ export default function ImagesPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function ImagesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <ImagesPageContent />
+    </Suspense>
   );
 }
