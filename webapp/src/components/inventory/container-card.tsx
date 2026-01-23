@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Image as ImageIcon, Package } from 'lucide-react';
 import type { Container, BoundingBox } from '@project/shared';
-import { CroppedImageViewer } from './cropped-image-viewer';
+import { CroppedImageViewer } from '../image/cropped-image-viewer';
 
 interface ContainerCardProps {
   container: Container;
@@ -72,7 +72,6 @@ export function ContainerCard({
           <CroppedImageViewer
             imageUrl={imageUrl}
             boundingBox={boundingBox}
-            mode="crop"
             alt={container.containerLabel}
             className="w-full h-32 rounded mb-3 overflow-hidden"
           />

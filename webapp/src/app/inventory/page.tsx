@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
 import type { Item, Container, Image } from '@project/shared';
@@ -31,6 +31,16 @@ const ITEMS_PER_PAGE = 12;
 
 export default function InventoryPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize state from query string
+  const initialPage = Math.max(
+    1,
+    parseInt(searchParams.get('page') || '1', 10)
+  );
+  const initialTab =
+    (searchParams.get('tab') as 'items' | 'containers') || 'items';
+
   const [items, setItems] = useState<Item[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
   const [images, setImages] = useState<Map<string, Image>>(new Map());
@@ -42,8 +52,10 @@ export default function InventoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<'items' | 'containers'>('items');
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [activeTab, setActiveTab] = useState<'items' | 'containers'>(
+    initialTab === 'containers' ? 'containers' : 'items'
+  );
   const [isManualMode, setIsManualMode] = useState(false);
   const [manualDialog, setManualDialog] = useState<{
     open: boolean;
@@ -54,78 +66,67 @@ export default function InventoryPage() {
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
-  const loadImages = useCallback(
-    async (imageIds: string[]) => {
-      try {
-        const currentImages = images;
-        const newImages = new Map(currentImages);
-        const imagesToLoad: string[] = [];
-
-        for (const imageId of imageIds) {
-          if (!newImages.has(imageId)) {
-            imagesToLoad.push(imageId);
-          }
-        }
-
-        for (const imageId of imagesToLoad) {
-          try {
-            const image = await imageMutator.getById(imageId);
-            if (image) {
-              newImages.set(imageId, image);
-            }
-          } catch {
-            // Ignore errors for individual images
-          }
-        }
-
-        if (imagesToLoad.length > 0) {
-          setImages(newImages);
-        }
-      } catch (error) {
-        console.error('Failed to load images:', error);
-      }
-    },
-    [images, imageMutator]
-  );
-
   const loadItems = useCallback(async () => {
     try {
-      const results = await itemMutator.search(searchQuery, {
-        categoryFunctional: searchFilters.functional,
-        categorySpecific: searchFilters.specific,
-        itemType: searchFilters.itemType,
-      });
+      // Fetch items with expanded primaryImage to avoid N+1 queries
+      const results = await itemMutator.search(
+        searchQuery,
+        {
+          categoryFunctional: searchFilters.functional,
+          categorySpecific: searchFilters.specific,
+          itemType: searchFilters.itemType,
+        },
+        'primaryImage'
+      );
       setItems(results);
-      setCurrentPage(1); // Reset to first page on new search
 
-      // Load images for items
-      const imageIds = results
-        .map((item) => item.primaryImage)
-        .filter((id): id is string => Boolean(id));
-      await loadImages(imageIds);
+      // Extract expanded images into cache
+      setImages((prev) => {
+        const newImages = new Map(prev);
+        for (const item of results) {
+          const expanded = item as Item & { expand?: { primaryImage?: Image } };
+          if (expanded.expand?.primaryImage) {
+            newImages.set(
+              expanded.expand.primaryImage.id,
+              expanded.expand.primaryImage
+            );
+          }
+        }
+        return newImages;
+      });
     } catch (error) {
       console.error('Failed to load items:', error);
       toast.error('Failed to load items');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, searchFilters, loadImages]);
+  }, [searchQuery, searchFilters, itemMutator]);
 
   const loadContainers = useCallback(async () => {
     try {
-      const results = await containerMutator.search('');
+      // Fetch containers with expanded primaryImage to avoid N+1 queries
+      const results = await containerMutator.search('', 'primaryImage');
       setContainers(results);
 
-      // Load images for containers
-      const imageIds = results
-        .map((container) => container.primaryImage)
-        .filter((id): id is string => Boolean(id));
-      await loadImages(imageIds);
+      // Extract expanded images into cache
+      setImages((prev) => {
+        const newImages = new Map(prev);
+        for (const container of results) {
+          const expanded = container as Container & {
+            expand?: { primaryImage?: Image };
+          };
+          if (expanded.expand?.primaryImage) {
+            newImages.set(
+              expanded.expand.primaryImage.id,
+              expanded.expand.primaryImage
+            );
+          }
+        }
+        return newImages;
+      });
     } catch (error) {
       console.error('Failed to load containers:', error);
       toast.error('Failed to load containers');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadImages]);
+  }, [containerMutator]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -134,8 +135,7 @@ export default function InventoryPage() {
     } catch (error) {
       console.error('Failed to load categories:', error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [itemMutator]);
 
   const loadData = useCallback(async () => {
     try {
@@ -167,6 +167,15 @@ export default function InventoryPage() {
   useEffect(() => {
     loadItems();
   }, [loadItems]);
+
+  // Reset page to 1 when search query or filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      handlePageChange(1);
+    }
+    // Only reset when search/filters change, not when currentPage or handlePageChange changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, searchFilters]);
 
   // Removed local scale-out logic as it is now handled by UploadContext
 
@@ -238,12 +247,52 @@ export default function InventoryPage() {
     return items.filter((item) => item.container === containerId).length;
   };
 
+  // Update URL when page or tab changes
+  const updateUrl = useCallback(
+    (newPage: number, newTab: 'items' | 'containers') => {
+      const params = new URLSearchParams();
+      if (newPage > 1) {
+        params.set('page', newPage.toString());
+      }
+      if (newTab !== 'items') {
+        params.set('tab', newTab);
+      }
+      const query = params.toString();
+      router.replace(query ? `?${query}` : '/inventory', { scroll: false });
+    },
+    [router]
+  );
+
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setCurrentPage(newPage);
+      updateUrl(newPage, activeTab);
+    },
+    [activeTab, updateUrl]
+  );
+
+  const handleTabChange = useCallback(
+    (newTab: 'items' | 'containers') => {
+      setActiveTab(newTab);
+      setCurrentPage(1); // Reset page when switching tabs
+      updateUrl(1, newTab);
+    },
+    [updateUrl]
+  );
+
   // Pagination
   const paginatedItems = items.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
+
+  // Ensure current page is valid when items change
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      handlePageChange(totalPages);
+    }
+  }, [totalPages, currentPage, handlePageChange]);
 
   if (isLoading) {
     return (
@@ -254,18 +303,19 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="container py-8 space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="container py-4 sm:py-8 space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Inventory Manager</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Inventory Manager</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Upload images to automatically catalog items and containers
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
             onClick={() => router.push('/inventory/items/new')}
+            className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Item
@@ -273,6 +323,7 @@ export default function InventoryPage() {
           <Button
             variant="outline"
             onClick={() => router.push('/inventory/containers/new')}
+            className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Container
@@ -287,7 +338,7 @@ export default function InventoryPage() {
             checked={isManualMode}
             onCheckedChange={setIsManualMode}
           />
-          <Label htmlFor="manual-mode">
+          <Label htmlFor="manual-mode" className="text-sm sm:text-base">
             Manual Labeling Mode {isManualMode ? '(On)' : '(Off)'}
           </Label>
         </div>
@@ -297,7 +348,7 @@ export default function InventoryPage() {
 
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as 'items' | 'containers')}
+        onValueChange={(v) => handleTabChange(v as 'items' | 'containers')}
       >
         <TabsList>
           <TabsTrigger value="items">Items ({items.length})</TabsTrigger>
@@ -325,7 +376,7 @@ export default function InventoryPage() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {paginatedItems.map((item) => (
                   <ItemCard
                     key={item.id}
@@ -344,11 +395,14 @@ export default function InventoryPage() {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
                   <Button
                     variant="outline"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    onClick={() =>
+                      handlePageChange(Math.max(1, currentPage - 1))
+                    }
                     disabled={currentPage === 1}
+                    className="w-full sm:w-auto"
                   >
                     Previous
                   </Button>
@@ -358,9 +412,10 @@ export default function InventoryPage() {
                   <Button
                     variant="outline"
                     onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                      handlePageChange(Math.min(totalPages, currentPage + 1))
                     }
                     disabled={currentPage === totalPages}
+                    className="w-full sm:w-auto"
                   >
                     Next
                   </Button>
@@ -379,7 +434,7 @@ export default function InventoryPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {containers.map((container) => (
                 <ContainerCard
                   key={container.id}

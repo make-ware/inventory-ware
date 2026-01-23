@@ -41,7 +41,7 @@ export default function InventoryLayout({ children }: InventoryLayoutProps) {
         {/* Sub-navigation */}
         <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container">
-            <nav className="flex items-center space-x-6 py-4">
+            <nav className="flex items-center space-x-3 sm:space-x-6 py-3 sm:py-4 overflow-x-auto">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -49,11 +49,11 @@ export default function InventoryLayout({ children }: InventoryLayoutProps) {
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      'flex items-center space-x-2 text-sm font-medium transition-colors hover:text-primary',
+                      'flex items-center space-x-2 text-xs sm:text-sm font-medium transition-colors hover:text-primary whitespace-nowrap',
                       item.isActive ? 'text-primary' : 'text-muted-foreground'
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span>{item.label}</span>
                   </Link>
                 );
@@ -63,7 +63,7 @@ export default function InventoryLayout({ children }: InventoryLayoutProps) {
         </div>
 
         {/* Main content */}
-        <div className="container py-6">{children}</div>
+        <div className="container py-4 sm:py-6">{children}</div>
       </div>
     </InventoryProvider>
   );

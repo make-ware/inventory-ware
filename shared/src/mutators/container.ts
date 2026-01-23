@@ -46,14 +46,18 @@ export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
   /**
    * Search for containers by query
    * @param query Search query to match against label and notes
+   * @param expand Optional relation fields to expand (e.g., 'primaryImage')
    * @returns Array of matching Container records
    */
-  async search(query: string): Promise<Container[]> {
+  async search(
+    query: string,
+    expand?: string | string[]
+  ): Promise<Container[]> {
     try {
       const escapedQuery = query.replace(/"/g, '\\"');
       const filter = `(containerLabel~"${escapedQuery}" || containerNotes~"${escapedQuery}")`;
 
-      const result = await this.getList(1, 500, filter);
+      const result = await this.getList(1, 500, filter, undefined, expand);
       return result.items;
     } catch (error) {
       return this.errorWrapper(error);

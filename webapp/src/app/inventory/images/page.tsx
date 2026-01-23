@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator } from '@project/shared';
 import type { Image } from '@project/shared';
@@ -21,10 +21,18 @@ const IMAGES_PER_PAGE = 24;
 
 export default function ImagesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize currentPage from query string
+  const initialPage = Math.max(
+    1,
+    parseInt(searchParams.get('page') || '1', 10)
+  );
+
   const [images, setImages] = useState<Image[]>([]);
   const [filteredImages, setFilteredImages] = useState<Image[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(initialPage);
   const [imageTypeFilter, setImageTypeFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [processingImages, setProcessingImages] = useState<Set<string>>(
@@ -59,8 +67,25 @@ export default function ImagesPage() {
     }
 
     setFilteredImages(filtered);
-    setCurrentPage(1); // Reset to first page on filter change
   }, [images, imageTypeFilter, statusFilter]);
+
+  // Update URL when page changes
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setCurrentPage(newPage);
+      const params = new URLSearchParams(searchParams.toString());
+      if (newPage === 1) {
+        params.delete('page');
+      } else {
+        params.set('page', newPage.toString());
+      }
+      const query = params.toString();
+      router.replace(query ? `?${query}` : '/inventory/images', {
+        scroll: false,
+      });
+    },
+    [router, searchParams]
+  );
 
   // Load initial data
   useEffect(() => {
@@ -71,6 +96,15 @@ export default function ImagesPage() {
   useEffect(() => {
     filterImages();
   }, [filterImages]);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      handlePageChange(1);
+    }
+    // Only reset when filters change, not when currentPage or handlePageChange changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageTypeFilter, statusFilter]);
 
   // Poll for status updates on processing images
   useEffect(() => {
@@ -148,6 +182,13 @@ export default function ImagesPage() {
   );
   const totalPages = Math.ceil(filteredImages.length / IMAGES_PER_PAGE);
 
+  // Ensure current page is valid when filtered images change
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      handlePageChange(totalPages);
+    }
+  }, [totalPages, currentPage, handlePageChange]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -224,7 +265,7 @@ export default function ImagesPage() {
             <div className="flex items-center justify-center gap-2">
               <Button
                 variant="outline"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
               >
                 Previous
@@ -235,7 +276,7 @@ export default function ImagesPage() {
               <Button
                 variant="outline"
                 onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  handlePageChange(Math.min(totalPages, currentPage + 1))
                 }
                 disabled={currentPage === totalPages}
               >

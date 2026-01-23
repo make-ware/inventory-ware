@@ -54,9 +54,14 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
    * Search for items by query and filters
    * @param query Search query to match against label, notes, and manufacturer
    * @param filters Optional category and container filters
+   * @param expand Optional relation fields to expand (e.g., 'primaryImage')
    * @returns Array of matching Item records
    */
-  async search(query: string, filters?: ItemSearchFilters): Promise<Item[]> {
+  async search(
+    query: string,
+    filters?: ItemSearchFilters,
+    expand?: string | string[]
+  ): Promise<Item[]> {
     try {
       const filterParts: string[] = [];
 
@@ -89,7 +94,7 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
       const filter =
         filterParts.length > 0 ? filterParts.join(' && ') : undefined;
 
-      const result = await this.getList(1, 500, filter);
+      const result = await this.getList(1, 500, filter, undefined, expand);
       return result.items;
     } catch (error) {
       return this.errorWrapper(error);
@@ -99,12 +104,22 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
   /**
    * Get all items in a specific container
    * @param containerId The container ID
+   * @param expand Optional expand parameter for related records
    * @returns Array of Item records
    */
-  async getByContainer(containerId: string): Promise<Item[]> {
+  async getByContainer(
+    containerId: string,
+    expand?: string | string[]
+  ): Promise<Item[]> {
     try {
       const escapedId = containerId.replace(/"/g, '\\"');
-      const result = await this.getList(1, 500, `container="${escapedId}"`);
+      const result = await this.getList(
+        1,
+        500,
+        `container="${escapedId}"`,
+        undefined,
+        expand
+      );
       return result.items;
     } catch (error) {
       return this.errorWrapper(error);

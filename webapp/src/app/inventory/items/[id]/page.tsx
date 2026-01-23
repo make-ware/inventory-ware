@@ -2,15 +2,17 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import NextImage from 'next/image';
 import pb from '@/lib/pocketbase-client';
+import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
 import {
   ItemMutator,
-  ImageMutator,
   ContainerMutator,
   formatCategoryLabel,
 } from '@project/shared';
 import type { Item, Image, Container } from '@project/shared';
+import { getImageFileUrl } from '@/lib/image-utils';
+
+type ItemWithExpand = Item & { expand?: { primaryImage?: Image } };
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,29 +33,26 @@ export default function ItemDetailPage() {
   const params = useParams();
   const itemId = params.id as string;
 
-  const [item, setItem] = useState<Item | null>(null);
-  const [images, setImages] = useState<Image[]>([]);
+  const [item, setItem] = useState<ItemWithExpand | null>(null);
   const [container, setContainer] = useState<Container | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const itemMutator = new ItemMutator(pb);
-  const imageMutator = new ImageMutator(pb);
   const containerMutator = new ContainerMutator(pb);
 
   const loadItemDetails = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      // Load item
-      const itemData = await itemMutator.getById(itemId);
+      // Load item with expanded primaryImage
+      const itemData = (await itemMutator.getById(
+        itemId,
+        'primaryImage'
+      )) as ItemWithExpand | null;
       if (!itemData) {
         throw new Error('Item not found');
       }
       setItem(itemData);
-
-      // Load associated images (primary + historical)
-      const itemImages = await imageMutator.getByItemId(itemId);
-      setImages(itemImages);
 
       // Load container if item is in one
       if (itemData.container) {
@@ -89,10 +88,6 @@ export default function ItemDetailPage() {
       console.error('Failed to delete item:', error);
       toast.error('Failed to delete item');
     }
-  };
-
-  const getImageUrl = (image: Image): string => {
-    return imageMutator.getFileUrl(image);
   };
 
   if (isLoading) {
@@ -250,7 +245,7 @@ export default function ItemDetailPage() {
               <CardTitle className="text-lg">Images</CardTitle>
             </CardHeader>
             <CardContent>
-              {images.length === 0 ? (
+              {!item.expand?.primaryImage ? (
                 <div className="text-center py-8">
                   <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">
@@ -259,25 +254,16 @@ export default function ItemDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {images.map((image) => (
-                    <div
-                      key={image.id}
-                      className="relative aspect-square rounded-lg overflow-hidden border"
-                    >
-                      <NextImage
-                        src={getImageUrl(image)}
-                        alt="Item image"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                      {image.id === item.primaryImage && (
-                        <Badge className="absolute top-2 right-2 z-10">
-                          Primary
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
+                  <div className="relative aspect-square rounded-lg overflow-hidden border">
+                    <CroppedImageViewer
+                      imageUrl={getImageFileUrl(item.expand.primaryImage)}
+                      boundingBox={item.primaryImageBbox}
+                      alt="Item image"
+                    />
+                    <Badge className="absolute top-2 right-2 z-10">
+                      Primary
+                    </Badge>
+                  </div>
                 </div>
               )}
             </CardContent>

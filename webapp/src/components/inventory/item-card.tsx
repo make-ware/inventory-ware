@@ -8,7 +8,7 @@ import { Edit, Trash2, Image as ImageIcon, Copy } from 'lucide-react';
 import type { Item, BoundingBox } from '@project/shared';
 import { formatCategoryLabel } from '@project/shared';
 import { cn } from '@/lib/utils';
-import { CroppedImageViewer } from './cropped-image-viewer';
+import { CroppedImageViewer } from '../image/cropped-image-viewer';
 
 interface ItemCardProps {
   item: Item;
@@ -120,7 +120,6 @@ export function ItemCard({
           <CroppedImageViewer
             imageUrl={imageUrl}
             boundingBox={boundingBox}
-            mode="crop"
             alt={item.itemLabel}
             className="w-full h-32 rounded mb-3 overflow-hidden"
           />
