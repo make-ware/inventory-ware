@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.0...inventory-ware-v0.2.1) (2026-01-23)
+
+
+### Bug Fixes
+
+* add hooksDir ([00e3fb3](https://github.com/make-ware/inventory-ware/commit/00e3fb365c184789395627ff7a1e98d64352daa9))
+
 ## [0.2.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.1.2...inventory-ware-v0.2.0) (2026-01-23)
 
 
