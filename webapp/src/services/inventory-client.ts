@@ -1,12 +1,6 @@
-import {
-  type TypedPocketBase,
-  ItemMutator,
-} from '@project/shared';
+import { type TypedPocketBase, ItemMutator } from '@project/shared';
 import type { CategoryLibrary } from './ai-analysis';
-import type {
-  InventoryService,
-  ProcessImageResult,
-} from './inventory-types';
+import type { InventoryService, ProcessImageResult } from './inventory-types';
 import type { AnalysisResult } from '@project/shared';
 
 /**
@@ -20,21 +14,23 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
   return {
     async processImageUpload(
-      file: File,
-      userId: string
+      _file: File,
+      _userId: string
     ): Promise<ProcessImageResult> {
       throw new Error('processImageUpload is not available on the client side');
     },
 
-    async reanalyzeImage(imageId: string): Promise<AnalysisResult> {
+    async reanalyzeImage(_imageId: string): Promise<AnalysisResult> {
       throw new Error('reanalyzeImage is not available on the client side');
     },
 
     async processExistingImage(
-      imageId: string,
-      userId: string
+      _imageId: string,
+      _userId: string
     ): Promise<ProcessImageResult> {
-      throw new Error('processExistingImage is not available on the client side');
+      throw new Error(
+        'processExistingImage is not available on the client side'
+      );
     },
 
     async getCategoryLibrary(): Promise<CategoryLibrary> {

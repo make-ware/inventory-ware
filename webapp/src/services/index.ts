@@ -6,7 +6,4 @@ export {
   type CategoryLibrary,
 } from './ai-analysis';
 export { createInventoryService } from './inventory-client';
-export type {
-  InventoryService,
-  ProcessImageResult,
-} from './inventory-types';
+export type { InventoryService, ProcessImageResult } from './inventory-types';

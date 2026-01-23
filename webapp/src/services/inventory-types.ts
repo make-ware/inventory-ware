@@ -1,9 +1,5 @@
-import type {
-  Item,
-  Container,
-  Image,
-  AnalysisResult,
-} from '@project/shared';
+import type { Item, Container, Image, AnalysisResult } from '@project/shared';
+import type { CategoryLibrary } from './ai-analysis';
 
 /**
  * Result of processing an image upload
@@ -64,4 +60,4 @@ export interface InventoryService {
   ): Promise<string[]>;
 }
 
-export type { CategoryLibrary } from './ai-analysis';
+export type { CategoryLibrary };

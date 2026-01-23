@@ -16,10 +16,7 @@ import type {
   AnalysisResult,
   ItemInput,
 } from '@project/shared';
-import type {
-  InventoryService,
-  ProcessImageResult,
-} from './inventory-types';
+import type { InventoryService, ProcessImageResult } from './inventory-types';
 
 /**
  * Download an image from PocketBase and convert it to base64 data URL
@@ -115,9 +112,13 @@ export function createInventoryServerService(
       // Create a new File object for the converted image
       // Replace extension with .jpg
       const newFileName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
-      const convertedFile = new File([convertedBuffer], newFileName, {
-        type: 'image/jpeg',
-      });
+      const convertedFile = new File(
+        [new Uint8Array(convertedBuffer)],
+        newFileName,
+        {
+          type: 'image/jpeg',
+        }
+      );
 
       // 4. Upload the converted image (always create a new record for this user)
       const image = await imageMutator.uploadImage(convertedFile, userId);
