@@ -1186,7 +1186,7 @@ __metadata:
     nodemon: "npm:^3.1.11"
     pocketbase: "npm:^0.26.6"
     pocketbase-typegen: "npm:^1.3.3"
-    pocketbase-zod-schema: "npm:^0.4.2"
+    pocketbase-zod-schema: "npm:^0.5.0"
     prettier: "npm:^3.8.1"
     tsup: "npm:^8.5.1"
     tsx: "npm:^4.21.0"
@@ -7737,9 +7737,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"pocketbase-zod-schema@npm:^0.4.2":
-  version: 0.4.2
-  resolution: "pocketbase-zod-schema@npm:0.4.2"
+"pocketbase-zod-schema@npm:^0.5.0":
+  version: 0.5.0
+  resolution: "pocketbase-zod-schema@npm:0.5.0"
   dependencies:
     chalk: "npm:^5.6.2"
     commander: "npm:^12.1.0"
@@ -7749,7 +7749,7 @@ __metadata:
     zod: "npm:^4.3.5"
   bin:
     pocketbase-migrate: dist/cli/migrate.js
-  checksum: 10/5930fbd8e69bb3fe9c4422a8cf45b66fb48f033130b08a3f6acd451e453b7b8412430c56bc4e07c09a2a79bc9d96b673e1216f1835263c0f76011fc89f0cbc4c
+  checksum: 10/0219c59b707ef17c078d85e671cc2091223897f761927fb5ca0ee9ea7bd9441751aca884504a4d6204ad21395391b133c01747c87c80554316b62e7c0216d08c
   languageName: node
   linkType: hard
 
