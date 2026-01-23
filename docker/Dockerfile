@@ -199,12 +199,14 @@ RUN apk add --no-cache curl && \
 COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pocketbase ./pocketbase/pocketbase
 COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_hooks ./pocketbase/pb_hooks
 COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_migrations ./pocketbase/pb_migrations
+COPY --chown=nextjs:nodejs docker/start_pb.sh /app/start_pb.sh
 
 # Create pb_data and pb_storage directories in /data
 RUN mkdir -p /data/pb_data /data/pb_storage && \
-    chown -R nextjs:nodejs /data
+    chown -R nextjs:nodejs /data && \
+    chmod +x /app/start_pb.sh
 
 USER nextjs
 EXPOSE 8090
 
-CMD ["./pocketbase/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/data/pb_data"]
+CMD ["/app/start_pb.sh"]
