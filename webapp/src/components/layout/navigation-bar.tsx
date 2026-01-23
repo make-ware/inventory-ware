@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import Image from 'next/image';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,6 +77,12 @@ export function NavigationBar({ className }: NavigationBarProps) {
         {/* Logo/Brand */}
         <div className="mr-4 flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
+            <Image
+              src="/inventory-ware.png"
+              alt="Inventory Ware"
+              width={48}
+              height={48}
+            />
             <span className="font-bold text-xl">Inventory Ware</span>
           </Link>
         </div>
@@ -91,12 +98,6 @@ export function NavigationBar({ className }: NavigationBarProps) {
                   className="text-sm font-medium transition-colors hover:text-primary"
                 >
                   Inventory
-                </Link>
-                <Link
-                  href="/inventory/images"
-                  className="text-sm font-medium transition-colors hover:text-primary"
-                >
-                  Images
                 </Link>
               </nav>
             )}
@@ -211,9 +212,6 @@ export function NavigationBar({ className }: NavigationBarProps) {
                           </p>
                         </div>
                       </div>
-                      <Button variant="ghost" className="justify-start" asChild>
-                        <Link href="/inventory">Inventory</Link>
-                      </Button>
                       {authenticatedLinks.map((link) => (
                         <Button
                           key={link.href}

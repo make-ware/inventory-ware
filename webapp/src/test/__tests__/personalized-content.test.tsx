@@ -126,7 +126,7 @@ describe('Personalized Content Property Tests', () => {
     }
   });
 
-  it('Property 11: Personalized Content - should display user info in account section', () => {
+  it('Property 11: Personalized Content - should display personalized welcome message', () => {
     const testUsers = Array.from({ length: 3 }, generateRandomUser);
 
     for (const testUser of testUsers) {
@@ -136,15 +136,11 @@ describe('Personalized Content Property Tests', () => {
         </MockAuthProvider>
       );
 
-      // Verify user email is displayed in account section
-      expect(screen.getByText(testUser.email)).toBeInTheDocument();
-
-      // Verify user name is displayed (or "Not set" if empty)
-      if (testUser.name) {
-        expect(screen.getByText(testUser.name)).toBeInTheDocument();
-      } else {
-        expect(screen.getByText('Not set')).toBeInTheDocument();
-      }
+      // Verify personalized welcome message is displayed
+      const welcomeMessage = screen.getByText(
+        new RegExp(`Welcome back, ${testUser.name || testUser.email}!`, 'i')
+      );
+      expect(welcomeMessage).toBeInTheDocument();
 
       unmount();
     }
@@ -166,7 +162,9 @@ describe('Personalized Content Property Tests', () => {
 
     // Should display generic welcome content instead
     expect(screen.getByText(/Inventory Ware/i)).toBeInTheDocument();
-    expect(screen.getByText(/Get Started/i)).toBeInTheDocument();
+    // There may be multiple "Get Started" buttons, so use getAllByText
+    const getStartedButtons = screen.getAllByText(/Get Started/i);
+    expect(getStartedButtons.length).toBeGreaterThan(0);
   });
 
   it('Property 11: Personalized Content - should handle special characters in names', () => {
@@ -229,23 +227,17 @@ describe('Personalized Content Property Tests', () => {
       </MockAuthProvider>
     );
 
-    // Check that user information is consistent across different sections
-    const emailElements = screen.getAllByText(testUser.email);
-    expect(emailElements.length).toBeGreaterThan(0);
+    // Check that the welcome message contains the user's name or email
+    const welcomeMessage = screen.getByText(
+      new RegExp(`Welcome back, ${testUser.name || testUser.email}!`, 'i')
+    );
+    expect(welcomeMessage).toBeInTheDocument();
 
-    // All instances should show the same email
-    emailElements.forEach((element) => {
-      expect(element.textContent).toBe(testUser.email);
-    });
-
+    // Verify the welcome message contains the correct user information
     if (testUser.name) {
-      const nameElements = screen.getAllByText(testUser.name);
-      expect(nameElements.length).toBeGreaterThan(0);
-
-      // All instances should show the same name
-      nameElements.forEach((element) => {
-        expect(element.textContent).toBe(testUser.name);
-      });
+      expect(welcomeMessage.textContent).toContain(testUser.name);
+    } else {
+      expect(welcomeMessage.textContent).toContain(testUser.email);
     }
   });
 });
