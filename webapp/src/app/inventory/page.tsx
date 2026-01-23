@@ -8,16 +8,21 @@ import {
   Suspense,
   useRef,
 } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
 import type { Item, Container, Image } from '@project/shared';
-import type { CategoryLibrary, SearchFilters } from '@/components/inventory';
+import type {
+  CategoryLibrary,
+  SearchFilters,
+  BulkEditData,
+} from '@/components/inventory';
 import {
   ImageUpload,
   SearchFilter,
   ItemCard,
   ContainerCard,
+  BulkEditDialog,
 } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -41,6 +46,8 @@ import {
   PenTool,
   Sparkles,
   HelpCircle,
+  CheckSquare,
+  X,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -55,15 +62,20 @@ const ITEMS_PER_PAGE = 12;
 function InventoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { queue, clearCompleted, addFiles } = useUpload();
 
-  // Initialize state from query string
-  const initialPage = Math.max(
-    1,
-    parseInt(searchParams.get('page') || '1', 10)
-  );
-  const initialTab =
-    (searchParams.get('tab') as 'items' | 'containers') || 'items';
+  // Initialize state from query string (only on first render)
+  const [initialState] = useState(() => ({
+    page: Math.max(1, parseInt(searchParams.get('page') || '1', 10)),
+    tab: (searchParams.get('tab') as 'items' | 'containers') || 'items',
+    query: searchParams.get('q') || '',
+    filters: {
+      functional: searchParams.get('functional') || undefined,
+      specific: searchParams.get('specific') || undefined,
+      itemType: searchParams.get('itemType') || undefined,
+    } as SearchFilters,
+  }));
 
   const [items, setItems] = useState<Item[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
@@ -73,13 +85,23 @@ function InventoryPageContent() {
     specific: [],
     itemType: [],
   });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(initialPage);
-  const [activeTab, setActiveTab] = useState<'items' | 'containers'>(
-    initialTab === 'containers' ? 'containers' : 'items'
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState(initialState.query);
+  const [searchFilters, setSearchFilters] = useState<SearchFilters>(
+    initialState.filters
   );
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(initialState.page);
+  const [activeTab, setActiveTab] = useState<'items' | 'containers'>(
+    initialState.tab
+  );
+
+  // Bulk Edit State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
 
   // Logic state
   const [useAIAnalysis, setUseAIAnalysis] = useState(true);
@@ -119,7 +141,7 @@ function InventoryPageContent() {
     localStorage.setItem('inventory_use_ai_analysis', String(checked));
   };
 
-  // Watch Upload Queue for Manual Completions
+  // Watch Upload Queue
   useEffect(() => {
     const newManualCompleted = queue.filter(
       (item) =>
@@ -133,11 +155,9 @@ function InventoryPageContent() {
       newManualCompleted.forEach((item) => handledUploads.current.add(item.id));
 
       if (newManualCompleted.length === 1) {
-        // Redirect to wizard for single item
         const imageId = newManualCompleted[0].imageId;
         router.push(`/inventory/images/${imageId}/wizard`);
       } else {
-        // Show toast for multiple items
         const firstImageId = newManualCompleted[0].imageId;
         toast.success(`${newManualCompleted.length} images uploaded.`, {
           action: {
@@ -153,7 +173,6 @@ function InventoryPageContent() {
 
   const loadItems = useCallback(async () => {
     try {
-      // Fetch items with expanded primaryImage to avoid N+1 queries
       const results = await itemMutator.search(
         searchQuery,
         {
@@ -165,7 +184,6 @@ function InventoryPageContent() {
       );
       setItems(results);
 
-      // Extract expanded images into cache
       setImages((prev) => {
         const newImages = new Map(prev);
         for (const item of results) {
@@ -187,11 +205,9 @@ function InventoryPageContent() {
 
   const loadContainers = useCallback(async () => {
     try {
-      // Fetch containers with expanded primaryImage to avoid N+1 queries
       const results = await containerMutator.search('', 'primaryImage');
       setContainers(results);
 
-      // Extract expanded images into cache
       setImages((prev) => {
         const newImages = new Map(prev);
         for (const container of results) {
@@ -234,12 +250,10 @@ function InventoryPageContent() {
     }
   }, [loadItems, loadContainers, loadCategories]);
 
-  // Load initial data
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Listen for background upload completion events to refresh data
   useEffect(() => {
     const handleUpdate = () => {
       loadData();
@@ -248,21 +262,79 @@ function InventoryPageContent() {
     return () => window.removeEventListener('inventory-updated', handleUpdate);
   }, [loadData]);
 
-  // Reload data when search/filters change
+  // Sync state FROM URL (e.g. Back button)
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    if (q !== searchQuery) setSearchQuery(q);
+
+    const functional = searchParams.get('functional') || undefined;
+    const specific = searchParams.get('specific') || undefined;
+    const itemType = searchParams.get('itemType') || undefined;
+
+    setSearchFilters((prev) => {
+      if (
+        prev.functional === functional &&
+        prev.specific === specific &&
+        prev.itemType === itemType
+      )
+        return prev;
+      return { functional, specific, itemType };
+    });
+
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    if (page !== currentPage) setCurrentPage(page);
+
+    const tab = (searchParams.get('tab') as 'items' | 'containers') || 'items';
+    if (tab !== activeTab) setActiveTab(tab);
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Sync state TO URL with Debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (currentPage > 1) params.set('page', currentPage.toString());
+      if (activeTab !== 'items') params.set('tab', activeTab);
+
+      if (searchQuery) params.set('q', searchQuery);
+      if (searchFilters.functional)
+        params.set('functional', searchFilters.functional);
+      if (searchFilters.specific)
+        params.set('specific', searchFilters.specific);
+      if (searchFilters.itemType)
+        params.set('itemType', searchFilters.itemType);
+
+      const query = params.toString();
+      const url = query ? `?${query}` : pathname;
+
+      const currentParams = new URLSearchParams(searchParams.toString());
+      if (query !== currentParams.toString()) {
+        router.push(url, { scroll: false });
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [
+    searchQuery,
+    searchFilters,
+    currentPage,
+    activeTab,
+    router,
+    pathname,
+    searchParams,
+  ]);
+
+  // Reload items when search/filters change
   useEffect(() => {
     loadItems();
-  }, [loadItems]);
-
-  // Reset page to 1 when search query or filters change
-  useEffect(() => {
-    if (currentPage !== 1) {
-      handlePageChange(1);
-    }
-    // Only reset when search/filters change, not when currentPage or handlePageChange changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, searchFilters]);
-
-  // Removed local scale-out logic as it is now handled by UploadContext
+    // Use a separate effect to reset page to avoid infinite loops or conflicts
+    // We only want to reset page if the search criteria changes, NOT if we're just syncing from URL
+    // Actually, if search changes, we probably want page 1.
+    // The previous implementation had:
+    // if (currentPage !== 1) handlePageChange(1);
+    // But now page is controlled by URL/state.
+  }, [searchQuery, searchFilters, loadItems]);
 
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
@@ -278,7 +350,6 @@ function InventoryPageContent() {
   };
 
   const handleDeleteContainer = async (containerId: string) => {
-    // Check if container has items
     const containerItems = items.filter(
       (item) => item.container === containerId
     );
@@ -296,7 +367,7 @@ function InventoryPageContent() {
       await containerMutator.delete(containerId);
       toast.success('Container deleted successfully');
       await loadContainers();
-      await loadItems(); // Reload items to update container references
+      await loadItems();
     } catch (error) {
       console.error('Failed to delete container:', error);
       toast.error('Failed to delete container');
@@ -311,20 +382,16 @@ function InventoryPageContent() {
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
-    // First try the item's primary image
     if (item.primaryImage) {
       const url = getImageUrl(item.primaryImage);
       if (url) return url;
     }
-
-    // Fallback to container's primary image if item doesn't have one
     if (item.container) {
       const container = containers.find((c) => c.id === item.container);
       if (container?.primaryImage) {
         return getImageUrl(container.primaryImage);
       }
     }
-
     return undefined;
   };
 
@@ -332,47 +399,78 @@ function InventoryPageContent() {
     return items.filter((item) => item.container === containerId).length;
   };
 
-  // Update URL when page or tab changes
-  const updateUrl = useCallback(
-    (newPage: number, newTab: 'items' | 'containers') => {
-      const params = new URLSearchParams();
-      if (newPage > 1) {
-        params.set('page', newPage.toString());
+  const handlePageChange = useCallback((newPage: number) => {
+    setCurrentPage(newPage);
+  }, []);
+
+  const handleTabChange = useCallback((newTab: 'items' | 'containers') => {
+    setActiveTab(newTab);
+    setCurrentPage(1);
+  }, []);
+
+  // Bulk Edit Handlers
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      if (prev) {
+        setSelectedItems(new Set());
       }
-      if (newTab !== 'items') {
-        params.set('tab', newTab);
+      return !prev;
+    });
+  };
+
+  const toggleItemSelection = (id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
       }
-      const query = params.toString();
-      router.replace(query ? `?${query}` : '/inventory', { scroll: false });
-    },
-    [router]
-  );
+      return next;
+    });
+  };
 
-  const handlePageChange = useCallback(
-    (newPage: number) => {
-      setCurrentPage(newPage);
-      updateUrl(newPage, activeTab);
-    },
-    [activeTab, updateUrl]
-  );
+  const handleBulkDelete = async () => {
+    if (
+      !confirm(`Are you sure you want to delete ${selectedItems.size} items?`)
+    )
+      return;
 
-  const handleTabChange = useCallback(
-    (newTab: 'items' | 'containers') => {
-      setActiveTab(newTab);
-      setCurrentPage(1); // Reset page when switching tabs
-      updateUrl(1, newTab);
-    },
-    [updateUrl]
-  );
+    try {
+      await Promise.all(
+        Array.from(selectedItems).map((id) => itemMutator.delete(id))
+      );
+      toast.success(`Deleted ${selectedItems.size} items`);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to bulk delete items');
+    }
+  };
 
-  // Pagination
+  const handleBulkEditConfirm = async (data: BulkEditData) => {
+    try {
+      await Promise.all(
+        Array.from(selectedItems).map((id) => itemMutator.update(id, data))
+      );
+      toast.success(`Updated ${selectedItems.size} items`);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to bulk update:', error);
+      toast.error('Failed to bulk update items');
+    }
+  };
+
   const paginatedItems = items.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
   const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
 
-  // Ensure current page is valid when items change
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
       handlePageChange(totalPages);
@@ -387,7 +485,7 @@ function InventoryPageContent() {
     input.onchange = (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (files && files.length > 0) {
-        addFiles(Array.from(files), true); // Force manual mode
+        addFiles(Array.from(files), true);
       }
     };
     input.click();
@@ -402,7 +500,7 @@ function InventoryPageContent() {
   }
 
   return (
-    <div className="container py-4 sm:py-8 space-y-6 sm:space-y-8">
+    <div className="container py-4 sm:py-8 space-y-6 sm:space-y-8 relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Inventory Manager</h1>
@@ -411,6 +509,20 @@ function InventoryPageContent() {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
+          {activeTab === 'items' && (
+            <Button
+              variant={isSelectionMode ? 'secondary' : 'outline'}
+              onClick={toggleSelectionMode}
+              className="w-full sm:w-auto"
+            >
+              {isSelectionMode ? (
+                <X className="h-4 w-4 mr-2" />
+              ) : (
+                <CheckSquare className="h-4 w-4 mr-2" />
+              )}
+              {isSelectionMode ? 'Cancel Selection' : 'Select Items'}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => setCreateOptionDialog({ open: true, type: 'item' })}
@@ -517,7 +629,13 @@ function InventoryPageContent() {
                     onEdit={() =>
                       router.push(`/inventory/items/${item.id}/edit`)
                     }
+                    onClone={() =>
+                      router.push(`/inventory/items/new?clone_from=${item.id}`)
+                    }
                     onDelete={() => handleDeleteItem(item.id)}
+                    isSelectionMode={isSelectionMode}
+                    isSelected={selectedItems.has(item.id)}
+                    onToggleSelect={() => toggleItemSelection(item.id)}
                   />
                 ))}
               </div>
@@ -633,6 +751,37 @@ function InventoryPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {selectedItems.size > 0 && (
+        <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 bg-background border rounded-lg shadow-lg p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-50 max-w-[calc(100%-2rem)] sm:max-w-none">
+          <span className="font-medium text-sm sm:text-base">
+            {selectedItems.size} selected
+          </span>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => setIsBulkEditDialogOpen(true)}
+              className="flex-1 sm:flex-none"
+            >
+              Edit
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              className="flex-1 sm:flex-none"
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <BulkEditDialog
+        open={isBulkEditDialogOpen}
+        onOpenChange={setIsBulkEditDialogOpen}
+        selectedCount={selectedItems.size}
+        onConfirm={handleBulkEditConfirm}
+        categories={categories}
+      />
     </div>
   );
 }
