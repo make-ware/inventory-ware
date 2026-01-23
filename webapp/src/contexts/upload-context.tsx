@@ -34,8 +34,6 @@ interface UploadContextType {
   addFiles: (files: File[], isManualMode?: boolean) => Promise<void>;
   retryItem: (id: string) => Promise<void>;
   clearCompleted: () => void;
-  cancelItem: (id: string) => void;
-  cancelAll: () => void;
   isProcessing: boolean;
 }
 
@@ -45,7 +43,6 @@ const STORAGE_KEY = 'inventory_upload_queue';
 
 export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<UploadItem[]>([]);
-  const queueRef = useRef<UploadItem[]>([]);
   const imageMutator = useRef(new ImageMutator(pb)).current;
 
   // Persist queue to localStorage
@@ -67,7 +64,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
-    queueRef.current = queue; // Keep ref in sync with state
   }, [queue]);
 
   // Subscribe to real-time updates for image analysis status
@@ -126,63 +122,56 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const triggerAnalysis = useCallback(
-    async (imageId: string, itemId: string) => {
-      const authToken = pb.authStore.token;
-      try {
-        const response = await fetch('/api-next/analyze-image', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-          },
-          body: JSON.stringify({ imageId: imageId }),
-        });
+  const triggerAnalysis = useCallback(async (imageId: string, itemId: string) => {
+    const authToken = pb.authStore.token;
+    try {
+      const response = await fetch('/api-next/analyze-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ imageId: imageId }),
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Analysis failed');
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Analysis failed');
+      }
 
-        // Mark as completed on successful response as a fallback to Realtime
-        setQueue((prev) => {
-          const item = prev.find((it) => it.id === itemId);
-          if (item && item.status !== 'completed') {
-            // Only dispatch update if we are changing state
+      // Mark as completed on successful response as a fallback to Realtime
+      setQueue((prev) => {
+        const item = prev.find((it) => it.id === itemId);
+        if (item && item.status !== 'completed') {
+          // Only dispatch update if we are changing state
+          if (item.status !== 'completed') {
             window.dispatchEvent(new CustomEvent('inventory-updated'));
             toast.success(`Processed ${item.fileName}`);
-            return prev.map((it) =>
-              it.id === itemId
-                ? { ...it, status: 'completed' as const, progress: 100 }
-                : it
-            );
           }
-          return prev;
-        });
-      } catch (error) {
-        console.error(
-          `Failed to trigger analysis for image ${imageId}:`,
-          error
-        );
-        setQueue((prev) => {
-          const item = prev.find((it) => it.id === itemId);
-          if (!item) return prev; // Item was cancelled, don't update
           return prev.map((it) =>
             it.id === itemId
-              ? {
-                  ...it,
-                  status: 'failed' as const,
-                  error:
-                    error instanceof Error ? error.message : 'Unknown error',
-                }
+              ? { ...it, status: 'completed', progress: 100 }
               : it
           );
-        });
-        toast.error(`Failed to analyze image`);
-      }
-    },
-    []
-  );
+        }
+        return prev;
+      });
+    } catch (error) {
+      console.error(`Failed to trigger analysis for image ${imageId}:`, error);
+      setQueue((prev) =>
+        prev.map((it) =>
+          it.id === itemId
+            ? {
+                ...it,
+                status: 'failed',
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }
+            : it
+        )
+      );
+      toast.error(`Failed to analyze image`);
+    }
+  }, []);
 
   const addFiles = useCallback(
     async (files: File[], isManualMode = false) => {
@@ -194,11 +183,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         isManualMode,
       }));
 
-      setQueue((prev) => {
-        const updated = [...prev, ...newItems];
-        queueRef.current = updated; // Update ref immediately
-        return updated;
-      });
+      setQueue((prev) => [...prev, ...newItems]);
 
       // Process each file
       for (let i = 0; i < files.length; i++) {
@@ -206,26 +191,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         const item = newItems[i];
 
         try {
-          // Check if item still exists (not cancelled) before starting upload
-          if (!queueRef.current.some((it) => it.id === item.id)) {
-            continue; // Item was cancelled, skip it
-          }
-
           // 1. Upload stage
-          setQueue((prev) => {
-            const exists = prev.find((it) => it.id === item.id);
-            if (!exists) {
-              queueRef.current = prev; // Update ref even if item doesn't exist
-              return prev; // Item was cancelled
-            }
-            const updated = prev.map((it) =>
+          setQueue((prev) =>
+            prev.map((it) =>
               it.id === item.id
-                ? { ...it, status: 'uploading' as const, progress: 10 }
+                ? { ...it, status: 'uploading', progress: 10 }
                 : it
-            );
-            queueRef.current = updated; // Update ref immediately
-            return updated;
-          });
+            )
+          );
 
           // Get the authenticated user ID
           const userId = pb.authStore.record?.id;
@@ -235,28 +208,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
           const image = await imageMutator.uploadImage(file, userId);
 
-          // Check if item still exists (not cancelled) before updating
-          setQueue((prev) => {
-            const exists = prev.find((it) => it.id === item.id);
-            if (!exists) {
-              queueRef.current = prev; // Update ref even if item doesn't exist
-              return prev; // Item was cancelled
-            }
-            const updated = prev.map((it) =>
+          setQueue((prev) =>
+            prev.map((it) =>
               it.id === item.id
                 ? {
                     ...it,
-                    status: (isManualMode
-                      ? 'completed'
-                      : 'analyzing') as UploadStatus, // Set to analyzing to indicate background work
+                    status: isManualMode ? 'completed' : 'analyzing', // Set to analyzing to indicate background work
                     progress: isManualMode ? 100 : 20, // 20% uploaded, waiting for analysis
                     imageId: image.id,
                   }
                 : it
-            );
-            queueRef.current = updated; // Update ref immediately
-            return updated;
-          });
+            )
+          );
 
           if (isManualMode) {
             toast.success(`Uploaded ${file.name}`);
@@ -265,31 +228,22 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
           // Trigger analysis asynchronously (fire and forget)
           // We don't await this, so the loop continues to the next file upload immediately
-          // Check if item still exists before triggering analysis
-          if (queueRef.current.some((it) => it.id === item.id)) {
-            triggerAnalysis(image.id, item.id);
-          }
+          triggerAnalysis(image.id, item.id);
+
         } catch (error) {
           console.error(`Failed to upload ${file.name}:`, error);
-          setQueue((prev) => {
-            const exists = prev.find((it) => it.id === item.id);
-            if (!exists) {
-              queueRef.current = prev; // Update ref even if item doesn't exist
-              return prev; // Item was cancelled, don't update
-            }
-            const updated = prev.map((it) =>
+          setQueue((prev) =>
+            prev.map((it) =>
               it.id === item.id
                 ? {
                     ...it,
-                    status: 'failed' as const,
+                    status: 'failed',
                     error:
                       error instanceof Error ? error.message : 'Unknown error',
                   }
                 : it
-            );
-            queueRef.current = updated; // Update ref immediately
-            return updated;
-          });
+            )
+          );
           toast.error(`Failed to upload ${file.name}`);
         }
       }
@@ -303,12 +257,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       setQueue((prev) => {
         return prev.map((it) =>
           it.id === id
-            ? {
-                ...it,
-                status: 'analyzing' as const,
-                error: undefined,
-                progress: 20,
-              }
+            ? { ...it, status: 'analyzing', error: undefined, progress: 20 }
             : it
         );
       });
@@ -330,34 +279,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const cancelItem = useCallback((id: string) => {
-    setQueue((prev) => {
-      const updated = prev.filter((item) => item.id !== id);
-      queueRef.current = updated; // Update ref immediately
-      return updated;
-    });
-  }, []);
-
-  const cancelAll = useCallback(() => {
-    setQueue([]);
-    queueRef.current = []; // Update ref immediately
-  }, []);
-
   const isProcessing = queue.some(
     (item) => item.status === 'uploading' || item.status === 'analyzing'
   );
 
   return (
     <UploadContext.Provider
-      value={{
-        queue,
-        addFiles,
-        retryItem,
-        clearCompleted,
-        cancelItem,
-        cancelAll,
-        isProcessing,
-      }}
+      value={{ queue, addFiles, retryItem, clearCompleted, isProcessing }}
     >
       {children}
     </UploadContext.Provider>

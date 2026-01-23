@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useUpload } from '@/contexts/upload-context';
@@ -16,7 +16,7 @@ export function ImageUpload({
   isManualMode = false,
   acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'],
 }: ImageUploadProps) {
-  const { addFiles, queue } = useUpload();
+  const { addFiles, isProcessing, queue } = useUpload();
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -30,13 +30,22 @@ export function ImageUpload({
     onDrop,
     accept: Object.fromEntries(acceptedTypes.map((t) => [t, []])),
     multiple: true,
+    disabled: isProcessing,
   });
 
   const getStatusIcon = () => {
+    if (isProcessing) {
+      return (
+        <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
+      );
+    }
     return <Upload className="h-12 w-12 text-muted-foreground" />;
   };
 
   const getStatusText = () => {
+    if (isProcessing) {
+      return 'Processing your images in the background...';
+    }
     if (isDragActive) {
       return 'Drop images here (multiple files supported)';
     }
@@ -48,7 +57,8 @@ export function ImageUpload({
       <Card
         className={cn(
           'border-2 border-dashed transition-colors',
-          isDragActive && 'border-primary bg-primary/5'
+          isDragActive && 'border-primary bg-primary/5',
+          isProcessing && 'border-primary/50'
         )}
       >
         <CardContent
@@ -66,7 +76,7 @@ export function ImageUpload({
         </CardContent>
       </Card>
 
-      {queue.length > 0 && (
+      {queue.length > 0 && !isProcessing && (
         <p className="text-[10px] text-center text-muted-foreground">
           View background progress in the bottom right tracker.
         </p>
