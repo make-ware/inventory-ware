@@ -9,6 +9,7 @@ import {
   type ItemInput,
   type CategoryLibrary,
   formatCategoryLabel,
+  BoundingBox,
 } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

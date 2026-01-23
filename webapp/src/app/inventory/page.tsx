@@ -39,7 +39,15 @@ import {
   Package,
   Image as ImageIcon,
   PenTool,
+  Sparkles,
+  HelpCircle,
 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { useUpload } from '@/contexts/upload-context';
 
 const ITEMS_PER_PAGE = 12;
@@ -74,8 +82,8 @@ function InventoryPageContent() {
   );
 
   // Logic state
-  const [isAIEnabled, setIsAIEnabled] = useState(true);
-  const [isManualMode, setIsManualMode] = useState(false);
+  const [useAIAnalysis, setUseAIAnalysis] = useState(true);
+  const [isSystemAIEnabled, setIsSystemAIEnabled] = useState(false);
   const handledUploads = useRef<Set<string>>(new Set());
 
   // Dialog state
@@ -88,18 +96,28 @@ function InventoryPageContent() {
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
-  // Fetch Config
+  // Fetch Config & User Preference
   useEffect(() => {
+    const storedPref = localStorage.getItem('inventory_use_ai_analysis');
+    const userPref = storedPref === null ? true : storedPref === 'true';
+
     fetch('/api-next/config')
       .then((res) => res.json())
       .then((data) => {
-        setIsAIEnabled(data.isAIEnabled);
+        setIsSystemAIEnabled(data.isAIEnabled);
         if (!data.isAIEnabled) {
-          setIsManualMode(true);
+          setUseAIAnalysis(false);
+        } else {
+          setUseAIAnalysis(userPref);
         }
       })
       .catch(console.error);
   }, []);
+
+  const handleAIToggle = (checked: boolean) => {
+    setUseAIAnalysis(checked);
+    localStorage.setItem('inventory_use_ai_analysis', String(checked));
+  };
 
   // Watch Upload Queue for Manual Completions
   useEffect(() => {
@@ -416,18 +434,44 @@ function InventoryPageContent() {
 
       <div className="space-y-4">
         <div className="flex items-center space-x-2 justify-end">
-          <Switch
-            id="manual-mode"
-            checked={isManualMode}
-            onCheckedChange={setIsManualMode}
-            disabled={!isAIEnabled}
-          />
-          <Label htmlFor="manual-mode" className="text-sm sm:text-base">
-            Manual Labeling Mode {isManualMode ? '(On)' : '(Off)'}
-          </Label>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="ai-mode"
+              checked={useAIAnalysis}
+              onCheckedChange={handleAIToggle}
+              disabled={!isSystemAIEnabled}
+            />
+            <Label
+              htmlFor="ai-mode"
+              className={cn(
+                'text-sm sm:text-base flex items-center gap-2 transition-colors',
+                useAIAnalysis ? 'font-bold' : 'text-muted-foreground'
+              )}
+            >
+              AI Image Analysis {useAIAnalysis ? '(On)' : '(Off)'}
+              {useAIAnalysis && <Sparkles className="h-4 w-4 text-green-600" />}
+            </Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help opacity-50 hover:opacity-100 transition-opacity" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  When enabled, images are automatically analyzed by AI to
+                  detect items and details. Turn off to manually label images
+                  via the wizard instead.
+                  {!isSystemAIEnabled && (
+                    <span className="block mt-1 text-red-400 font-semibold">
+                      AI is currently disabled by system configuration.
+                    </span>
+                  )}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
-        <ImageUpload isManualMode={isManualMode} />
+        <ImageUpload isManualMode={!useAIAnalysis} />
       </div>
 
       <Tabs
