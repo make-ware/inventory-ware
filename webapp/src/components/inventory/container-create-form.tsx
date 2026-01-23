@@ -1,9 +1,10 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ContainerInputSchema, type ContainerInput } from '@project/shared';
+import { ContainerInputSchema, type ContainerInput, type BoundingBox } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,6 +25,8 @@ interface ContainerCreateFormProps {
   ) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
+  selectedBbox?: BoundingBox;
+  primaryImageId?: string;
 }
 
 export function ContainerCreateForm({
@@ -31,6 +34,8 @@ export function ContainerCreateForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  selectedBbox,
+  primaryImageId,
 }: ContainerCreateFormProps) {
   // Create a form schema without UserRef since it's not part of the form
   const FormSchema = ContainerInputSchema.omit({ UserRef: true });
@@ -40,9 +45,24 @@ export function ContainerCreateForm({
     defaultValues: {
       containerLabel: '',
       containerNotes: '',
+      primaryImage: primaryImageId,
+      primaryImageBbox: selectedBbox,
       ...defaultValues,
     },
   });
+
+  // Update form values when props change
+  useEffect(() => {
+    if (primaryImageId) {
+      form.setValue('primaryImage', primaryImageId);
+    }
+  }, [primaryImageId, form]);
+
+  useEffect(() => {
+    if (selectedBbox) {
+      form.setValue('primaryImageBbox', selectedBbox);
+    }
+  }, [selectedBbox, form]);
 
   const handleSubmit = async (data: z.input<typeof FormSchema>) => {
     await onSubmit(data);
