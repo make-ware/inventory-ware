@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/contexts/auth-context';
 import { UploadProvider } from '@/contexts/upload-context';
 import { NavigationBar } from '@/components/layout/navigation-bar';
@@ -28,18 +29,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          <UploadProvider>
-            <NavigationBar />
-            <main className="min-h-screen">{children}</main>
-            <UploadTracker />
-            <Toaster />
-          </UploadProvider>
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthProvider>
+            <UploadProvider>
+              <NavigationBar />
+              <main className="min-h-screen">{children}</main>
+              <UploadTracker />
+              <Toaster />
+            </UploadProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
