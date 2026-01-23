@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createInventoryService } from '@/services/inventory';
+import { createInventoryServerService } from '@/services/inventory-server';
 import { ImageMutator } from '@project/shared';
 import {
   createServerPocketBaseClient,
@@ -88,7 +88,7 @@ export async function POST(
     }
 
     // Create service server-side where env vars are available
-    const service = createInventoryService(pb);
+    const service = createInventoryServerService(pb);
 
     // Process the existing image
     const result = await service.processExistingImage(id, userId);

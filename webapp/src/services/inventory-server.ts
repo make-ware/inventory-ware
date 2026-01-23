@@ -6,7 +6,9 @@ import {
   ContainerMutator,
   computeFileHash,
 } from '@project/shared';
-import { createAIAnalysisService, type CategoryLibrary } from './ai-analysis';
+import sharp from 'sharp';
+import { createAIAnalysisService } from './ai-analysis';
+import type { CategoryLibrary } from './ai-analysis';
 import type {
   Item,
   Container,
@@ -14,6 +16,10 @@ import type {
   AnalysisResult,
   ItemInput,
 } from '@project/shared';
+import type {
+  InventoryService,
+  ProcessImageResult,
+} from './inventory-types';
 
 /**
  * Download an image from PocketBase and convert it to base64 data URL
@@ -65,70 +71,13 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 /**
- * Result of processing an image upload
- */
-export interface ProcessImageResult {
-  image: Image;
-  result: AnalysisResult;
-  items: Item[];
-  container?: Container;
-}
-
-/**
- * Inventory Service for managing inventory operations
- */
-export interface InventoryService {
-  /**
-   * Process an uploaded image: upload → analyze → create entities
-   * @param file - The image file to upload
-   * @param userId - ID of the authenticated user
-   * @returns Processing result with created entities
-   */
-  processImageUpload(file: File, userId: string): Promise<ProcessImageResult>;
-
-  /**
-   * Re-analyze an existing image
-   * @param imageId - ID of the image to re-analyze
-   * @returns Analysis result with updated metadata
-   */
-  reanalyzeImage(imageId: string): Promise<AnalysisResult>;
-
-  /**
-   * Process an existing image: analyze → create entities
-   * This is useful for re-queuing images that failed or were uploaded without processing
-   * @param imageId - ID of the existing image to process
-   * @param userId - ID of the authenticated user
-   * @returns Processing result with created entities
-   */
-  processExistingImage(
-    imageId: string,
-    userId: string
-  ): Promise<ProcessImageResult>;
-
-  /**
-   * Get the category library (distinct category values from all items)
-   * @returns Category library with functional, specific, and itemType arrays
-   */
-  getCategoryLibrary(): Promise<CategoryLibrary>;
-
-  /**
-   * Search for existing categories to avoid duplicates
-   * @param query - Search query
-   * @param type - Category type
-   * @returns List of matching category values
-   */
-  searchCategories(
-    query: string,
-    type: 'functional' | 'specific' | 'itemType'
-  ): Promise<string[]>;
-}
-
-/**
- * Create an Inventory Service instance
+ * Create an Inventory Service instance (Server side)
  * @param pb - TypedPocketBase client instance
  * @returns InventoryService instance
  */
-export function createInventoryService(pb: TypedPocketBase): InventoryService {
+export function createInventoryServerService(
+  pb: TypedPocketBase
+): InventoryService {
   const imageMutator = new ImageMutator(pb);
   const imageMetadataMutator = new ImageMetadataMutator(pb);
   const itemMutator = new ItemMutator(pb);
@@ -149,21 +98,36 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
       file: File,
       userId: string
     ): Promise<ProcessImageResult> {
-      // 1. Compute file hash for deduplication/caching
+      // 1. Compute file hash for deduplication/caching (using original file)
       const fileHash = await computeFileHash(file);
 
       // 2. Check for cached metadata with same hash
       const cachedEntry = await imageMetadataMutator.findByHash(fileHash);
       const cachedMetadata = cachedEntry?.metadata;
 
-      // 3. Upload the new image (always create a new record for this user)
-      const image = await imageMutator.uploadImage(file, userId);
+      // 3. Convert image to optimized JPEG
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const convertedBuffer = await sharp(buffer)
+        .jpeg({ quality: 80 })
+        .toBuffer();
 
-      // 4. Update the image's fileHash field
+      // Create a new File object for the converted image
+      // Replace extension with .jpg
+      const newFileName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+      const convertedFile = new File([convertedBuffer], newFileName, {
+        type: 'image/jpeg',
+      });
+
+      // 4. Upload the converted image (always create a new record for this user)
+      const image = await imageMutator.uploadImage(convertedFile, userId);
+
+      // 5. Update the image's fileHash field with the ORIGINAL file's hash
       await imageMutator.update(image.id, { fileHash });
 
-      // Convert file to base64 for AI analysis (if needed)
-      const imageData = await fileToBase64(file);
+      // Convert converted file to base64 for AI analysis
+      // We use the converted file here as it should look the same but be smaller/standardized
+      const imageData = await fileToBase64(convertedFile);
 
       try {
         let result: AnalysisResult;
