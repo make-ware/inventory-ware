@@ -33,6 +33,9 @@ export interface ComboboxProps {
   disabled?: boolean;
   /** When true (default), allows creating new values not in the options list */
   allowCreate?: boolean;
+  id?: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean | 'false' | 'true' | 'grammar' | 'spelling';
 }
 
 export function Combobox({
@@ -43,6 +46,7 @@ export function Combobox({
   className,
   disabled = false,
   allowCreate = true,
+  ...props
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState('');
@@ -76,6 +80,7 @@ export function Combobox({
           aria-expanded={open}
           className={cn('w-full justify-between', className)}
           disabled={disabled}
+          {...props}
         >
           {getLabel(value)}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
