@@ -84,6 +84,7 @@ export function AttributesEditor({
                 size="icon"
                 onClick={() => removeAttribute(index)}
                 disabled={disabled}
+                aria-label="Remove attribute"
               >
                 <X className="h-4 w-4" />
               </Button>
