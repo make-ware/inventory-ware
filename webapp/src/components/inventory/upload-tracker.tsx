@@ -12,11 +12,13 @@ import {
   XCircle,
   Package,
   RefreshCw,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function UploadTracker() {
-  const { queue, clearCompleted, retryItem } = useUpload();
+  const { queue, clearCompleted, retryItem, cancelItem, cancelAll } =
+    useUpload();
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Auto-expand when new items are added, and auto-hide completed after some time
@@ -70,24 +72,42 @@ export function UploadTracker() {
                     <span className="text-xs font-medium truncate flex-1">
                       {item.fileName}
                     </span>
-                    {item.status === 'uploading' && (
-                      <div className="flex items-center gap-1 text-[10px] text-blue-500">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Uploading</span>
-                      </div>
-                    )}
-                    {item.status === 'analyzing' && (
-                      <div className="flex items-center gap-1 text-[10px] text-purple-500">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        <span>Analyzing</span>
-                      </div>
-                    )}
-                    {item.status === 'completed' && (
-                      <CheckCircle className="h-3 w-3 text-green-500" />
-                    )}
-                    {item.status === 'failed' && (
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1">
+                      {item.status === 'uploading' && (
+                        <div className="flex items-center gap-1 text-[10px] text-blue-500">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Uploading</span>
+                        </div>
+                      )}
+                      {item.status === 'analyzing' && (
+                        <div className="flex items-center gap-1 text-[10px] text-purple-500">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          <span>Analyzing</span>
+                        </div>
+                      )}
+                      {item.status === 'completed' && (
+                        <CheckCircle className="h-3 w-3 text-green-500" />
+                      )}
+                      {item.status === 'failed' && (
                         <XCircle className="h-3 w-3 text-red-500" />
+                      )}
+                      {(item.status === 'uploading' ||
+                        item.status === 'analyzing' ||
+                        item.status === 'failed') && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 hover:bg-destructive/10 hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelItem(item.id);
+                          }}
+                          title="Cancel"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {item.status === 'failed' && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -100,8 +120,8 @@ export function UploadTracker() {
                         >
                           <RefreshCw className="h-3 w-3 text-primary" />
                         </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                   {(item.status === 'uploading' ||
                     item.status === 'analyzing') && (
@@ -118,8 +138,21 @@ export function UploadTracker() {
                 </div>
               ))}
             </div>
-            {(completedCount > 0 || failedCount > 0) && (
-              <div className="p-2 border-t flex justify-end">
+            <div className="p-2 border-t flex justify-between gap-2">
+              {queue.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cancelAll();
+                  }}
+                  className="text-[10px] h-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  Cancel All
+                </Button>
+              )}
+              {(completedCount > 0 || failedCount > 0) && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -127,12 +160,12 @@ export function UploadTracker() {
                     e.stopPropagation();
                     clearCompleted();
                   }}
-                  className="text-[10px] h-7"
+                  className="text-[10px] h-7 ml-auto"
                 >
                   Clear Finished
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         )}
       </Card>
