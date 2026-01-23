@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.1.1...inventory-ware-v0.1.2) (2026-01-23)
+
+
+### Bug Fixes
+
+* add tags to docker images ([f724376](https://github.com/make-ware/inventory-ware/commit/f7243762fc141d52ce657eaed69f1028dcc83fde))
+
 ## [0.1.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.1.0...inventory-ware-v0.1.1) (2026-01-23)
 
 
