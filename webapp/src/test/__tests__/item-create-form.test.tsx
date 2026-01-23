@@ -61,8 +61,12 @@ describe('ItemCreateForm', () => {
     expect(screen.getByLabelText(/item type/i)).toBeInTheDocument();
 
     expect(screen.getByLabelText(/manufacturer/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /add attribute/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /create item/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /add attribute/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /create item/i })
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
 
@@ -76,7 +80,9 @@ describe('ItemCreateForm', () => {
       // Check for validation errors
       // Based on schema messages
       expect(screen.getByText(/item label is required/i)).toBeInTheDocument();
-      expect(screen.getByText(/functional category is required/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/functional category is required/i)
+      ).toBeInTheDocument();
     });
   });
 
@@ -125,9 +131,9 @@ describe('ItemCreateForm', () => {
     // Verify arguments (ignoring complex transformations if any)
     const submittedData = defaultProps.onSubmit.mock.calls[0][0];
     expect(submittedData).toMatchObject({
-        itemName: 'DCD771',
-        itemLabel: 'Cordless Drill',
-        itemManufacturer: 'DeWalt',
+      itemName: 'DCD771',
+      itemLabel: 'Cordless Drill',
+      itemManufacturer: 'DeWalt',
     });
   });
 
@@ -138,11 +144,15 @@ describe('ItemCreateForm', () => {
     // Add Attribute
     await user.click(screen.getByRole('button', { name: /add attribute/i }));
 
-    expect(screen.getAllByPlaceholderText(/name \(e.g., input voltage\)/i)).toHaveLength(1);
+    expect(
+      screen.getAllByPlaceholderText(/name \(e.g., input voltage\)/i)
+    ).toHaveLength(1);
 
     // Remove Attribute
     await user.click(screen.getByRole('button', { name: /remove attribute/i }));
 
-    expect(screen.queryByPlaceholderText(/name \(e.g., input voltage\)/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/name \(e.g., input voltage\)/i)
+    ).not.toBeInTheDocument();
   });
 });

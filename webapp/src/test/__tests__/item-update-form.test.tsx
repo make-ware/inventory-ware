@@ -70,15 +70,25 @@ describe('ItemUpdateForm', () => {
     expect(screen.getByLabelText(/manufacturer/i)).toHaveValue('BrandX');
 
     // Check Comboboxes (text content of the button)
-    expect(screen.getByLabelText(/functional category/i)).toHaveTextContent('Tools');
-    expect(screen.getByLabelText(/specific category/i)).toHaveTextContent('Power Tools');
+    expect(screen.getByLabelText(/functional category/i)).toHaveTextContent(
+      'Tools'
+    );
+    expect(screen.getByLabelText(/specific category/i)).toHaveTextContent(
+      'Power Tools'
+    );
     expect(screen.getByLabelText(/item type/i)).toHaveTextContent('Drill');
 
     // Check Attributes
-    expect(screen.getByPlaceholderText(/name \(e.g., input voltage\)/i)).toHaveValue('Voltage');
-    expect(screen.getByPlaceholderText(/value \(e.g., 12.0 volts\)/i)).toHaveValue('18V');
+    expect(
+      screen.getByPlaceholderText(/name \(e.g., input voltage\)/i)
+    ).toHaveValue('Voltage');
+    expect(
+      screen.getByPlaceholderText(/value \(e.g., 12.0 volts\)/i)
+    ).toHaveValue('18V');
 
-    expect(screen.getByRole('button', { name: /update item/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /update item/i })
+    ).toBeInTheDocument();
   });
 
   it.skip('updates values and calls onSubmit', async () => {
@@ -100,14 +110,16 @@ describe('ItemUpdateForm', () => {
 
     await waitFor(() => {
       expect(defaultProps.onSubmit).toHaveBeenCalledTimes(1);
-      expect(defaultProps.onSubmit).toHaveBeenCalledWith(expect.objectContaining({
-        itemName: 'Updated Item',
-        itemLabel: 'Updated Label',
-        // Other values should remain or match what's in the form
-        categoryFunctional: 'Tools',
-        categorySpecific: 'Power Tools',
-        itemType: 'Drill',
-      }));
+      expect(defaultProps.onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemName: 'Updated Item',
+          itemLabel: 'Updated Label',
+          // Other values should remain or match what's in the form
+          categoryFunctional: 'Tools',
+          categorySpecific: 'Power Tools',
+          itemType: 'Drill',
+        })
+      );
     });
   });
 
