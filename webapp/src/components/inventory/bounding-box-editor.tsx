@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, MouseEvent } from 'react';
+import { useState, useRef, MouseEvent, TouchEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { type BoundingBox } from '@project/shared';
 
@@ -34,6 +34,21 @@ export function BoundingBoxEditor({
     return { x, y };
   };
 
+  const getNormalizedPointFromTouch = (e: TouchEvent) => {
+    if (!containerRef.current) return { x: 0, y: 0 };
+    const rect = containerRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = Math.min(
+      Math.max((touch.clientX - rect.left) / rect.width, 0),
+      1
+    );
+    const y = Math.min(
+      Math.max((touch.clientY - rect.top) / rect.height, 0),
+      1
+    );
+    return { x, y };
+  };
+
   const handleMouseDown = (e: MouseEvent) => {
     e.preventDefault();
     const point = getNormalizedPoint(e);
@@ -56,6 +71,33 @@ export function BoundingBoxEditor({
   };
 
   const handleMouseUp = () => {
+    setIsDrawing(false);
+    setStartPoint(null);
+  };
+
+  const handleTouchStart = (e: TouchEvent) => {
+    // Prevent scrolling while drawing
+    // Note: This might require passive: false in event listener if attached manually,
+    // but in React it's usually handled. 'touch-none' CSS class helps too.
+    const point = getNormalizedPointFromTouch(e);
+    setStartPoint(point);
+    setIsDrawing(true);
+    setBox({ x: point.x, y: point.y, width: 0, height: 0 });
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (!isDrawing || !startPoint) return;
+    const point = getNormalizedPointFromTouch(e);
+
+    const x = Math.min(point.x, startPoint.x);
+    const y = Math.min(point.y, startPoint.y);
+    const width = Math.abs(point.x - startPoint.x);
+    const height = Math.abs(point.y - startPoint.y);
+
+    setBox({ x, y, width, height });
+  };
+
+  const handleTouchEnd = () => {
     setIsDrawing(false);
     setStartPoint(null);
   };
@@ -88,6 +130,9 @@ export function BoundingBoxEditor({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <img
             ref={imageRef}

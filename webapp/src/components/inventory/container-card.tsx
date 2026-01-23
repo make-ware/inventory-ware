@@ -1,15 +1,16 @@
 'use client';
 
-import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Image as ImageIcon, Package } from 'lucide-react';
-import type { Container } from '@project/shared';
+import type { Container, BoundingBox } from '@project/shared';
+import { CroppedImageViewer } from './cropped-image-viewer';
 
 interface ContainerCardProps {
   container: Container;
   imageUrl?: string;
+  boundingBox?: BoundingBox;
   itemCount?: number;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -19,6 +20,7 @@ interface ContainerCardProps {
 export function ContainerCard({
   container,
   imageUrl,
+  boundingBox,
   itemCount = 0,
   onEdit,
   onDelete,
@@ -67,15 +69,13 @@ export function ContainerCard({
       </CardHeader>
       <CardContent>
         {imageUrl ? (
-          <div className="relative w-full h-32 rounded mb-3 overflow-hidden">
-            <Image
-              src={imageUrl}
-              alt={container.containerLabel}
-              fill
-              className="object-cover"
-              unoptimized
-            />
-          </div>
+          <CroppedImageViewer
+            imageUrl={imageUrl}
+            boundingBox={boundingBox}
+            mode="crop"
+            alt={container.containerLabel}
+            className="w-full h-32 rounded mb-3 overflow-hidden"
+          />
         ) : (
           <div className="w-full h-32 bg-muted rounded mb-3 flex items-center justify-center">
             <ImageIcon className="h-8 w-8 text-muted-foreground" />

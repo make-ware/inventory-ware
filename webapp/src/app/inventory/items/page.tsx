@@ -309,6 +309,9 @@ export default function ItemsPage() {
                 key={item.id}
                 item={item}
                 imageUrl={getItemImageUrl(item)}
+                boundingBox={
+                  item.primaryImage ? item.primaryImageBbox : undefined
+                }
                 onClick={() => router.push(`/inventory/items/${item.id}`)}
                 onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
                 onClone={() =>

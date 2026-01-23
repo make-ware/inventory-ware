@@ -174,6 +174,7 @@ export default function ContainersPage() {
               key={container.id}
               container={container}
               imageUrl={getImageUrl(container.primaryImage)}
+              boundingBox={container.primaryImageBbox}
               itemCount={getContainerItemCount(container.id)}
               onClick={() =>
                 router.push(`/inventory/containers/${container.id}`)

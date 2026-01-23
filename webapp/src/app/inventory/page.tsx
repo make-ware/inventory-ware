@@ -331,6 +331,9 @@ export default function InventoryPage() {
                     key={item.id}
                     item={item}
                     imageUrl={getItemImageUrl(item)}
+                    boundingBox={
+                      item.primaryImage ? item.primaryImageBbox : undefined
+                    }
                     onClick={() => router.push(`/inventory/items/${item.id}`)}
                     onEdit={() =>
                       router.push(`/inventory/items/${item.id}/edit`)
@@ -382,6 +385,7 @@ export default function InventoryPage() {
                   key={container.id}
                   container={container}
                   imageUrl={getImageUrl(container.primaryImage)}
+                  boundingBox={container.primaryImageBbox}
                   itemCount={getContainerItemCount(container.id)}
                   onClick={() =>
                     router.push(`/inventory/containers/${container.id}`)
