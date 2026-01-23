@@ -11,11 +11,12 @@ import {
   CheckCircle,
   XCircle,
   Package,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function UploadTracker() {
-  const { queue, clearCompleted } = useUpload();
+  const { queue, clearCompleted, retryItem } = useUpload();
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Auto-expand when new items are added, and auto-hide completed after some time
@@ -85,7 +86,21 @@ export function UploadTracker() {
                       <CheckCircle className="h-3 w-3 text-green-500" />
                     )}
                     {item.status === 'failed' && (
-                      <XCircle className="h-3 w-3 text-red-500" />
+                      <div className="flex items-center gap-1">
+                        <XCircle className="h-3 w-3 text-red-500" />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0 hover:bg-muted/50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            retryItem(item.id);
+                          }}
+                          title="Retry analysis"
+                        >
+                          <RefreshCw className="h-3 w-3 text-primary" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                   {(item.status === 'uploading' ||

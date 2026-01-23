@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 /// <reference path="../pb_data/types.d.ts" />
 // PocketBase JavaScript Hooks
 // Documentation: https://pocketbase.io/docs/js-overview/
@@ -291,3 +292,75 @@ onRecordAfterUpdateSuccess((e) => {
   }
   e.next();
 }, "Containers");
+
+// ============================================================================
+// IMAGES HOOKS
+// ============================================================================
+
+// Trigger analysis when an image is created
+onRecordAfterCreateSuccess((e) => {
+  const imageId = e.record.id;
+  const userId = e.record.getString('UserRef');
+  const secret = $os.getenv('INTERNAL_API_SECRET');
+
+  // Only trigger if we have the secret and userId
+  if (secret && userId) {
+    try {
+      const result = $http.send({
+        url: "http://localhost:3000/api-next/analyze-image",
+        method: "POST",
+        body: JSON.stringify({ imageId: imageId, userId: userId }),
+        headers: {
+          "content-type": "application/json",
+          "x-internal-secret": secret
+        },
+        timeout: 120 // 2 minutes timeout for analysis
+      });
+
+      if (result.statusCode !== 200) {
+        console.error("Analysis request failed with status: " + result.statusCode);
+      }
+    } catch (err) {
+      console.error("Failed to trigger analysis for image " + imageId, err);
+    }
+  } else {
+    console.log("Skipping analysis trigger: missing secret or userId");
+  }
+
+  e.next();
+}, "Images");
+
+// Trigger analysis when image is updated to 'pending' (Reprocessing)
+onRecordAfterUpdateSuccess((e) => {
+  const newStatus = e.record.getString('analysisStatus');
+  const oldStatus = e.record.original().getString('analysisStatus');
+
+  // Only trigger if status changed TO 'pending'
+  if (newStatus === 'pending' && oldStatus !== 'pending') {
+    const imageId = e.record.id;
+    const userId = e.record.getString('UserRef');
+    const secret = $os.getenv('INTERNAL_API_SECRET');
+
+    if (secret && userId) {
+      try {
+        const result = $http.send({
+          url: "http://localhost:3000/api-next/analyze-image",
+          method: "POST",
+          body: JSON.stringify({ imageId: imageId, userId: userId }),
+          headers: {
+            "content-type": "application/json",
+            "x-internal-secret": secret
+          },
+          timeout: 120
+        });
+
+        if (result.statusCode !== 200) {
+          console.error("Analysis request failed with status: " + result.statusCode);
+        }
+      } catch (err) {
+        console.error("Failed to re-trigger analysis for image " + imageId, err);
+      }
+    }
+  }
+  e.next();
+}, "Images");

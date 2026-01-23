@@ -32,6 +32,7 @@ export interface UploadItem {
 interface UploadContextType {
   queue: UploadItem[];
   addFiles: (files: File[], isManualMode?: boolean) => Promise<void>;
+  retryItem: (id: string) => Promise<void>;
   clearCompleted: () => void;
   isProcessing: boolean;
 }
@@ -64,6 +65,62 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
+
+  // Subscribe to real-time updates for image analysis status
+  useEffect(() => {
+    // Subscribe to all changes in Images collection
+    // In a production app with many users, we should filter or be more selective,
+    // but here we are primarily interested in our own uploaded images.
+    pb.collection('Images').subscribe('*', (e) => {
+      if (e.action === 'update') {
+        setQueue((prev) => {
+          const found = prev.find((item) => item.imageId === e.record.id);
+          if (found) {
+            // Update status based on record
+            const status = e.record.analysisStatus; // 'pending' | 'processing' | 'completed' | 'failed'
+            let uploadStatus: UploadStatus = found.status;
+            let progress = found.progress;
+
+            if (status === 'processing') {
+              uploadStatus = 'analyzing';
+              progress = 50;
+            } else if (status === 'completed') {
+              uploadStatus = 'completed';
+              progress = 100;
+              // Dispatch event only once when completing
+              if (found.status !== 'completed') {
+                window.dispatchEvent(new CustomEvent('inventory-updated'));
+                toast.success(`Processed ${found.fileName}`);
+              }
+            } else if (status === 'failed') {
+              uploadStatus = 'failed';
+              // Don't show toast for failure here to avoid spam if many fail,
+              // relying on UI to show error state.
+            }
+
+            if (uploadStatus !== found.status) {
+              return prev.map((item) =>
+                item.id === found.id
+                  ? {
+                      ...item,
+                      status: uploadStatus,
+                      progress,
+                      error:
+                        status === 'failed' ? 'Analysis failed' : undefined,
+                    }
+                  : item
+              );
+            }
+          }
+          return prev;
+        });
+      }
+    });
+
+    return () => {
+      pb.collection('Images').unsubscribe('*');
+    };
+  }, []);
 
   const addFiles = useCallback(
     async (files: File[], isManualMode = false) => {
@@ -105,8 +162,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               it.id === item.id
                 ? {
                     ...it,
-                    status: isManualMode ? 'completed' : 'analyzing',
-                    progress: 50,
+                    status: isManualMode ? 'completed' : 'analyzing', // Set to analyzing to indicate background work
+                    progress: isManualMode ? 100 : 20, // 20% uploaded, waiting for analysis
                     imageId: image.id,
                   }
                 : it
@@ -118,35 +175,9 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             continue;
           }
 
-          // 2. Analysis stage
-          const authToken = pb.authStore.token;
-          const response = await fetch('/api-next/analyze-image', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-            },
-            body: JSON.stringify({ imageId: image.id }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Analysis failed');
-          }
-
-          setQueue((prev) =>
-            prev.map((it) =>
-              it.id === item.id
-                ? { ...it, status: 'completed', progress: 100 }
-                : it
-            )
-          );
-
-          // Trigger a refresh of the inventory data if we are on the inventory page
-          // This can be done via a custom event or by the page watching the queue
-          window.dispatchEvent(new CustomEvent('inventory-updated'));
+          // Background analysis will pick up from here via Realtime subscription
         } catch (error) {
-          console.error(`Failed to process ${file.name}:`, error);
+          console.error(`Failed to upload ${file.name}:`, error);
           setQueue((prev) =>
             prev.map((it) =>
               it.id === item.id
@@ -159,11 +190,43 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
                 : it
             )
           );
-          toast.error(`Failed to process ${file.name}`);
+          toast.error(`Failed to upload ${file.name}`);
         }
       }
     },
     [imageMutator]
+  );
+
+  const retryItem = useCallback(
+    async (id: string) => {
+      // Optimistically update status to analyzing
+      setQueue((prev) => {
+        return prev.map((it) =>
+          it.id === id
+            ? { ...it, status: 'analyzing', error: undefined, progress: 20 }
+            : it
+        );
+      });
+
+      const item = queue.find((it) => it.id === id);
+      if (!item || !item.imageId) return;
+
+      try {
+        await imageMutator.updateAnalysisStatus(item.imageId, 'pending');
+        toast.info(`Retrying analysis for ${item.fileName}`);
+      } catch (error) {
+        console.error(`Failed to retry ${item.fileName}:`, error);
+        setQueue((prev) =>
+          prev.map((it) =>
+            it.id === id
+              ? { ...it, status: 'failed', error: 'Failed to retry' }
+              : it
+          )
+        );
+        toast.error(`Failed to retry ${item.fileName}`);
+      }
+    },
+    [queue, imageMutator]
   );
 
   const clearCompleted = useCallback(() => {
@@ -180,7 +243,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UploadContext.Provider
-      value={{ queue, addFiles, clearCompleted, isProcessing }}
+      value={{ queue, addFiles, retryItem, clearCompleted, isProcessing }}
     >
       {children}
     </UploadContext.Provider>
