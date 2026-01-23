@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
@@ -29,7 +29,7 @@ import { Loader2, Plus, Box, Package } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 12;
 
-export default function InventoryPage() {
+function InventoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -510,5 +510,19 @@ export default function InventoryPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <InventoryPageContent />
+    </Suspense>
   );
 }

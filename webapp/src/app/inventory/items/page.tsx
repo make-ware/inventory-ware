@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator } from '@project/shared';
@@ -18,7 +18,7 @@ import { Loader2, Plus, CheckSquare, X } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 12;
 
-export default function ItemsPage() {
+function ItemsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -371,5 +371,19 @@ export default function ItemsPage() {
         categories={categories}
       />
     </div>
+  );
+}
+
+export default function ItemsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <ItemsPageContent />
+    </Suspense>
   );
 }
