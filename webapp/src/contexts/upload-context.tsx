@@ -122,6 +122,57 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const triggerAnalysis = useCallback(async (imageId: string, itemId: string) => {
+    const authToken = pb.authStore.token;
+    try {
+      const response = await fetch('/api-next/analyze-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ imageId: imageId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Analysis failed');
+      }
+
+      // Mark as completed on successful response as a fallback to Realtime
+      setQueue((prev) => {
+        const item = prev.find((it) => it.id === itemId);
+        if (item && item.status !== 'completed') {
+          // Only dispatch update if we are changing state
+          if (item.status !== 'completed') {
+            window.dispatchEvent(new CustomEvent('inventory-updated'));
+            toast.success(`Processed ${item.fileName}`);
+          }
+          return prev.map((it) =>
+            it.id === itemId
+              ? { ...it, status: 'completed', progress: 100 }
+              : it
+          );
+        }
+        return prev;
+      });
+    } catch (error) {
+      console.error(`Failed to trigger analysis for image ${imageId}:`, error);
+      setQueue((prev) =>
+        prev.map((it) =>
+          it.id === itemId
+            ? {
+                ...it,
+                status: 'failed',
+                error: error instanceof Error ? error.message : 'Unknown error',
+              }
+            : it
+        )
+      );
+      toast.error(`Failed to analyze image`);
+    }
+  }, []);
+
   const addFiles = useCallback(
     async (files: File[], isManualMode = false) => {
       const newItems: UploadItem[] = files.map((file) => ({
@@ -175,7 +226,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             continue;
           }
 
-          // Background analysis will pick up from here via Realtime subscription
+          // Trigger analysis asynchronously (fire and forget)
+          // We don't await this, so the loop continues to the next file upload immediately
+          triggerAnalysis(image.id, item.id);
+
         } catch (error) {
           console.error(`Failed to upload ${file.name}:`, error);
           setQueue((prev) =>
@@ -194,7 +248,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [imageMutator]
+    [imageMutator, triggerAnalysis]
   );
 
   const retryItem = useCallback(
@@ -211,22 +265,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       const item = queue.find((it) => it.id === id);
       if (!item || !item.imageId) return;
 
-      try {
-        await imageMutator.updateAnalysisStatus(item.imageId, 'pending');
-        toast.info(`Retrying analysis for ${item.fileName}`);
-      } catch (error) {
-        console.error(`Failed to retry ${item.fileName}:`, error);
-        setQueue((prev) =>
-          prev.map((it) =>
-            it.id === id
-              ? { ...it, status: 'failed', error: 'Failed to retry' }
-              : it
-          )
-        );
-        toast.error(`Failed to retry ${item.fileName}`);
-      }
+      // Call the analysis API directly
+      triggerAnalysis(item.imageId, item.id);
     },
-    [queue, imageMutator]
+    [queue, triggerAnalysis]
   );
 
   const clearCompleted = useCallback(() => {
