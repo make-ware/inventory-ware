@@ -1,59 +1,35 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
-import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
-import type { Item, Container, Image } from '@project/shared';
+import { ItemMutator, ContainerMutator } from '@project/shared';
+import type { Item, Container } from '@project/shared';
+import { getExpandedImageUrl } from '@/lib/image-utils';
 import { ContainerCard } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2, Plus } from 'lucide-react';
 
-export default function ContainersPage() {
+const CONTAINERS_PER_PAGE = 12;
+
+function ContainersPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize currentPage from query string
+  const initialPage = Math.max(
+    1,
+    parseInt(searchParams.get('page') || '1', 10)
+  );
+  const [currentPage, setCurrentPage] = useState(initialPage);
+
   const [items, setItems] = useState<Item[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
-  const [images, setImages] = useState<Map<string, Image>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
 
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
-  const imageMutator = useMemo(() => new ImageMutator(pb), []);
-
-  const loadImages = useCallback(
-    async (imageIds: string[]) => {
-      try {
-        const currentImages = images;
-        const newImages = new Map(currentImages);
-        const imagesToLoad: string[] = [];
-
-        for (const imageId of imageIds) {
-          if (!newImages.has(imageId)) {
-            imagesToLoad.push(imageId);
-          }
-        }
-
-        for (const imageId of imagesToLoad) {
-          try {
-            const image = await imageMutator.getById(imageId);
-            if (image) {
-              newImages.set(imageId, image);
-            }
-          } catch {
-            // Ignore errors for individual images
-          }
-        }
-
-        if (imagesToLoad.length > 0) {
-          setImages(newImages);
-        }
-      } catch (error) {
-        console.error('Failed to load images:', error);
-      }
-    },
-    [images, imageMutator]
-  );
 
   const loadItems = useCallback(async () => {
     try {
@@ -62,25 +38,18 @@ export default function ContainersPage() {
     } catch (error) {
       console.error('Failed to load items:', error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [itemMutator]);
 
   const loadContainers = useCallback(async () => {
     try {
-      const results = await containerMutator.search('');
+      // Fetch containers with expanded primaryImage to avoid N+1 queries
+      const results = await containerMutator.search('', 'primaryImage');
       setContainers(results);
-
-      // Load images for containers
-      const imageIds = results
-        .map((container) => container.primaryImage)
-        .filter((id): id is string => Boolean(id));
-      await loadImages(imageIds);
     } catch (error) {
       console.error('Failed to load containers:', error);
       toast.error('Failed to load containers');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadImages]);
+  }, [containerMutator]);
 
   const loadData = useCallback(async () => {
     try {
@@ -124,16 +93,41 @@ export default function ContainersPage() {
     }
   };
 
-  const getImageUrl = (imageId?: string): string | undefined => {
-    if (!imageId) return undefined;
-    const image = images.get(imageId);
-    if (!image) return undefined;
-    return imageMutator.getFileUrl(image);
-  };
-
   const getContainerItemCount = (containerId: string): number => {
     return items.filter((item) => item.container === containerId).length;
   };
+
+  // Update URL when page changes
+  const handlePageChange = useCallback(
+    (newPage: number) => {
+      setCurrentPage(newPage);
+      const params = new URLSearchParams(searchParams.toString());
+      if (newPage === 1) {
+        params.delete('page');
+      } else {
+        params.set('page', newPage.toString());
+      }
+      const query = params.toString();
+      router.replace(query ? `?${query}` : '/inventory/containers', {
+        scroll: false,
+      });
+    },
+    [router, searchParams]
+  );
+
+  // Pagination
+  const paginatedContainers = containers.slice(
+    (currentPage - 1) * CONTAINERS_PER_PAGE,
+    currentPage * CONTAINERS_PER_PAGE
+  );
+  const totalPages = Math.ceil(containers.length / CONTAINERS_PER_PAGE);
+
+  // Ensure current page is valid when containers change
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      handlePageChange(totalPages);
+    }
+  }, [totalPages, currentPage, handlePageChange]);
 
   if (isLoading) {
     return (
@@ -144,17 +138,18 @@ export default function ContainersPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-4 sm:py-8 space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Containers</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Containers</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage your containers ({containers.length} total)
           </p>
         </div>
         <Button
           variant="outline"
           onClick={() => router.push('/inventory/containers/new')}
+          className="w-full sm:w-auto"
         >
           <Plus className="h-4 w-4 mr-2" />
           New Container
@@ -168,24 +163,67 @@ export default function ContainersPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {containers.map((container) => (
-            <ContainerCard
-              key={container.id}
-              container={container}
-              imageUrl={getImageUrl(container.primaryImage)}
-              itemCount={getContainerItemCount(container.id)}
-              onClick={() =>
-                router.push(`/inventory/containers/${container.id}`)
-              }
-              onEdit={() =>
-                router.push(`/inventory/containers/${container.id}/edit`)
-              }
-              onDelete={() => handleDeleteContainer(container.id)}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {paginatedContainers.map((container) => (
+              <ContainerCard
+                key={container.id}
+                container={container}
+                imageUrl={getExpandedImageUrl(container)}
+                boundingBox={container.primaryImageBbox}
+                itemCount={getContainerItemCount(container.id)}
+                onClick={() =>
+                  router.push(`/inventory/containers/${container.id}`)
+                }
+                onEdit={() =>
+                  router.push(`/inventory/containers/${container.id}/edit`)
+                }
+                onDelete={() => handleDeleteContainer(container.id)}
+              />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+              <Button
+                variant="outline"
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="w-full sm:w-auto"
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  handlePageChange(Math.min(totalPages, currentPage + 1))
+                }
+                disabled={currentPage === totalPages}
+                className="w-full sm:w-auto"
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+export default function ContainersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <ContainersPageContent />
+    </Suspense>
   );
 }

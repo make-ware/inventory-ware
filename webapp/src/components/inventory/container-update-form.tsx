@@ -25,7 +25,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useInventory } from '@/hooks/use-inventory';
-import { CroppedImageViewer } from './cropped-image-viewer';
+import { CroppedImageViewer } from '../image/cropped-image-viewer';
 import { BoundingBoxEditor } from './bounding-box-editor';
 import { Crop } from 'lucide-react';
 

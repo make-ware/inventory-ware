@@ -2,10 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import NextImage from 'next/image';
 import pb from '@/lib/pocketbase-client';
-import { ContainerMutator, ItemMutator, ImageMutator } from '@project/shared';
+import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
+import { ContainerMutator, ItemMutator } from '@project/shared';
 import type { Container, Item, Image } from '@project/shared';
+import { getImageFileUrl, getExpandedImageUrl } from '@/lib/image-utils';
+
+type ContainerWithExpand = Container & { expand?: { primaryImage?: Image } };
+type ItemWithExpand = Item & { expand?: { primaryImage?: Image } };
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -33,32 +37,35 @@ export default function ContainerDetailPage() {
   const params = useParams();
   const containerId = params.id as string;
 
-  const [container, setContainer] = useState<Container | null>(null);
-  const [containerItems, setContainerItems] = useState<Item[]>([]);
+  const [container, setContainer] = useState<ContainerWithExpand | null>(null);
+  const [containerItems, setContainerItems] = useState<ItemWithExpand[]>([]);
   const [allItems, setAllItems] = useState<Item[]>([]);
-  const [images, setImages] = useState<Image[]>([]);
-  const [itemImages, setItemImages] = useState<Map<string, Image>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
 
   const containerMutator = new ContainerMutator(pb);
   const itemMutator = new ItemMutator(pb);
-  const imageMutator = new ImageMutator(pb);
 
   const loadContainerDetails = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      // Load container
-      const containerData = await containerMutator.getById(containerId);
+      // Load container with expanded primaryImage
+      const containerData = (await containerMutator.getById(
+        containerId,
+        'primaryImage'
+      )) as ContainerWithExpand | null;
       if (!containerData) {
         throw new Error('Container not found');
       }
       setContainer(containerData);
 
-      // Load items in this container
-      const items = await itemMutator.getByContainer(containerId);
+      // Load items in this container with expanded primaryImage
+      const items = (await itemMutator.getByContainer(
+        containerId,
+        'primaryImage'
+      )) as ItemWithExpand[];
       setContainerItems(items);
 
       // Load all items (for add item dropdown)
@@ -68,40 +75,6 @@ export default function ContainerDetailPage() {
         (item) => item.container !== containerId
       );
       setAllItems(availableItems);
-
-      // Load container images - get primary image if it exists
-      const allContainerImages: Image[] = [];
-      if (containerData.primaryImage) {
-        try {
-          const containerPrimaryImage = await imageMutator.getById(
-            containerData.primaryImage
-          );
-          if (containerPrimaryImage) {
-            allContainerImages.push(containerPrimaryImage);
-          }
-        } catch {
-          console.error(
-            `Failed to load container primary image ${containerData.primaryImage}`
-          );
-        }
-      }
-      setImages(allContainerImages);
-
-      // Load images for items
-      const imageMap = new Map<string, Image>();
-      for (const item of items) {
-        if (item.primaryImage) {
-          try {
-            const image = await imageMutator.getById(item.primaryImage);
-            if (image) {
-              imageMap.set(item.primaryImage, image);
-            }
-          } catch {
-            console.error(`Failed to load image ${item.primaryImage}`);
-          }
-        }
-      }
-      setItemImages(imageMap);
     } catch (error) {
       console.error('Failed to load container details:', error);
       toast.error('Failed to load container details');
@@ -170,27 +143,14 @@ export default function ContainerDetailPage() {
     }
   };
 
-  const getImageUrl = (image: Image): string => {
-    return imageMutator.getFileUrl(image);
-  };
+  const getItemImageUrl = (item: ItemWithExpand): string | undefined => {
+    // Try item's expanded primary image
+    const itemUrl = getExpandedImageUrl(item);
+    if (itemUrl) return itemUrl;
 
-  const getItemImageUrl = (item: Item): string | undefined => {
-    // First try the item's primary image
-    if (item.primaryImage) {
-      const image = itemImages.get(item.primaryImage);
-      if (image) {
-        return imageMutator.getFileUrl(image);
-      }
-    }
-
-    // Fallback to container's primary image if item doesn't have one
-    if (container?.primaryImage) {
-      const containerImage = images.find(
-        (img) => img.id === container.primaryImage
-      );
-      if (containerImage) {
-        return imageMutator.getFileUrl(containerImage);
-      }
+    // Fallback to container's expanded image
+    if (container) {
+      return getExpandedImageUrl(container);
     }
 
     return undefined;
@@ -334,6 +294,9 @@ export default function ContainerDetailPage() {
                   key={item.id}
                   item={item}
                   imageUrl={getItemImageUrl(item)}
+                  boundingBox={
+                    item.primaryImage ? item.primaryImageBbox : undefined
+                  }
                   onClick={() => router.push(`/inventory/items/${item.id}`)}
                   onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
                   onDelete={() => handleRemoveItem(item.id)}
@@ -350,7 +313,7 @@ export default function ContainerDetailPage() {
               <CardTitle className="text-lg">Images</CardTitle>
             </CardHeader>
             <CardContent>
-              {images.length === 0 ? (
+              {!container.expand?.primaryImage ? (
                 <div className="text-center py-8">
                   <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">
@@ -359,20 +322,13 @@ export default function ContainerDetailPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {images.map((image) => (
-                    <div
-                      key={image.id}
-                      className="relative aspect-square rounded-lg overflow-hidden border"
-                    >
-                      <NextImage
-                        src={getImageUrl(image)}
-                        alt="Container image"
-                        fill
-                        className="object-cover"
-                        unoptimized
-                      />
-                    </div>
-                  ))}
+                  <div className="relative aspect-square rounded-lg overflow-hidden border">
+                    <CroppedImageViewer
+                      imageUrl={getImageFileUrl(container.expand.primaryImage)}
+                      boundingBox={container.primaryImageBbox}
+                      alt="Container image"
+                    />
+                  </div>
                 </div>
               )}
             </CardContent>
