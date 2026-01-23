@@ -2,18 +2,15 @@ import {
   RelationField,
   SelectField,
   TextField,
-  defineCollection,
   baseSchema,
+  defineCollection,
 } from 'pocketbase-zod-schema/schema';
 import { z } from 'zod';
 
-// Schema for tracking snapshots of Container history
-export const ContainerRecordSchema = z
+// Schema for tracking snapshots of Item history
+export const ItemRecordSchema = z
   .object({
-    ContainerRef: RelationField({
-      collection: 'Containers',
-      cascadeDelete: true,
-    }),
+    ItemRef: RelationField({ collection: 'Items', cascadeDelete: true }),
     UserRef: RelationField({ collection: 'Users' }),
     transactionType: SelectField(['create', 'update', 'delete']),
     fieldName: TextField().nullish().describe('Name of the field that changed'),
@@ -21,9 +18,9 @@ export const ContainerRecordSchema = z
   })
   .extend(baseSchema);
 
-export const ContainerRecordCollection = defineCollection({
-  schema: ContainerRecordSchema,
-  collectionName: 'ContainerRecords',
+export const ItemRecordCollection = defineCollection({
+  schema: ItemRecordSchema,
+  collectionName: 'ItemRecords',
   type: 'base',
   permissions: {
     listRule: '@request.auth.id != ""',

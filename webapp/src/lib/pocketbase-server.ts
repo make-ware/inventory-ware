@@ -75,9 +75,40 @@ export async function authenticateAsUser(
   // Verify the token is valid by refreshing the auth
   // This will throw if the token is invalid or expired
   try {
-    await pb.collection('Users').authRefresh();
-  } catch {
+    const authData = await pb.collection('Users').authRefresh();
+
+    // authRefresh returns { token, record } - we need to explicitly save the record
+    // The record contains the full user data including the ID
+    if (!authData.record) {
+      pb.authStore.clear();
+      throw new Error(
+        'Authentication failed: no user record returned from authRefresh'
+      );
+    }
+
+    // Explicitly save both the token and record to ensure authStore is fully populated
+    // Use the refreshed token if available, otherwise use the original token
+    const tokenToSave = authData.token || token;
+    pb.authStore.save(tokenToSave, authData.record);
+
+    // Double-check that the record is now available in authStore
+    if (!pb.authStore.record || !pb.authStore.record.id) {
+      console.error('Auth store state after save:', {
+        hasRecord: !!pb.authStore.record,
+        recordId: pb.authStore.record?.id,
+        hasToken: !!pb.authStore.token,
+        isValid: pb.authStore.isValid,
+      });
+      pb.authStore.clear();
+      throw new Error(
+        'Authentication failed: user record ID not available after saving to authStore'
+      );
+    }
+  } catch (error) {
     pb.authStore.clear();
+    if (error instanceof Error) {
+      throw error;
+    }
     throw new Error('Invalid or expired authentication token');
   }
 }

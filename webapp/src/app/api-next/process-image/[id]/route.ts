@@ -43,6 +43,16 @@ export async function POST(
       );
     }
 
+    // Get the authenticated user ID
+    const userId = pb.authStore.record?.id;
+    console.log('User ID:', userId);
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User authentication required' },
+        { status: 401 }
+      );
+    }
+
     // Verify the image exists before processing
     const imageMutator = new ImageMutator(pb);
     let image;
@@ -81,7 +91,7 @@ export async function POST(
     const service = createInventoryService(pb);
 
     // Process the existing image
-    const result = await service.processExistingImage(id);
+    const result = await service.processExistingImage(id, userId);
 
     return NextResponse.json({
       success: true,

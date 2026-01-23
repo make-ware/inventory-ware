@@ -72,7 +72,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     items: [],
     containers: [],
     images: new Map(),
-    categories: { functional: [], specific: [], item_type: [] },
+    categories: { functional: [], specific: [], itemType: [] },
     isLoading: false,
     error: null,
   });
@@ -194,9 +194,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         // Map SearchFilters to ItemSearchFilters format
         const itemFilters = filters
           ? {
-              category_functional: filters.functional,
-              category_specific: filters.specific,
-              item_type: filters.item_type,
+              categoryFunctional: filters.functional,
+              categorySpecific: filters.specific,
+              itemType: filters.itemType,
             }
           : undefined;
         return await itemMutator.search(query, itemFilters);
@@ -414,7 +414,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       if (!imageId) return undefined;
       const image = state.images.get(imageId);
       if (!image) return undefined;
-      return pb.files.getURL(image, image.file as string);
+      return imageMutator.getFileUrl(image);
     },
     [state.images]
   );
@@ -423,16 +423,16 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const getItemImageUrl = useCallback(
     (item: Item): string | undefined => {
       // First try the item's primary image
-      if (item.primary_image) {
-        const url = getImageUrl(item.primary_image);
+      if (item.primaryImage) {
+        const url = getImageUrl(item.primaryImage);
         if (url) return url;
       }
 
       // Fallback to container's primary image if item doesn't have one
       if (item.container) {
         const container = state.containers.find((c) => c.id === item.container);
-        if (container?.primary_image) {
-          return getImageUrl(container.primary_image);
+        if (container?.primaryImage) {
+          return getImageUrl(container.primaryImage);
         }
       }
 

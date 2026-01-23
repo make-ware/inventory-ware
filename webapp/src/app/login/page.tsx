@@ -31,7 +31,7 @@ function LoginContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-md">
+    <div className="container py-8 max-w-md">
       <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center">Sign in</CardTitle>
@@ -51,7 +51,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="container mx-auto px-4 py-8 max-w-md">
+        <div className="container py-8 max-w-md">
           <Card>
             <CardHeader className="space-y-1">
               <CardTitle className="text-2xl text-center">Sign in</CardTitle>

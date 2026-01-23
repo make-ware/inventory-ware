@@ -72,7 +72,7 @@ export default function ContainersPage() {
 
       // Load images for containers
       const imageIds = results
-        .map((container) => container.primary_image)
+        .map((container) => container.primaryImage)
         .filter((id): id is string => Boolean(id));
       await loadImages(imageIds);
     } catch (error) {
@@ -128,7 +128,7 @@ export default function ContainersPage() {
     if (!imageId) return undefined;
     const image = images.get(imageId);
     if (!image) return undefined;
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   const getContainerItemCount = (containerId: string): number => {
@@ -173,7 +173,7 @@ export default function ContainersPage() {
             <ContainerCard
               key={container.id}
               container={container}
-              imageUrl={getImageUrl(container.primary_image)}
+              imageUrl={getImageUrl(container.primaryImage)}
               itemCount={getContainerItemCount(container.id)}
               onClick={() =>
                 router.push(`/inventory/containers/${container.id}`)

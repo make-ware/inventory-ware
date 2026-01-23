@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,13 +19,20 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
+export interface ComboboxOption {
+  label: string;
+  value: string;
+}
+
 export interface ComboboxProps {
-  options: string[];
+  options: (string | ComboboxOption)[];
   value?: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  /** When true (default), allows creating new values not in the options list */
+  allowCreate?: boolean;
 }
 
 export function Combobox({
@@ -35,18 +42,30 @@ export function Combobox({
   placeholder = 'Select option...',
   className,
   disabled = false,
+  allowCreate = true,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [inputValue, setInputValue] = React.useState('');
 
   const handleSelect = (currentValue: string) => {
-    // Find the original casing from options if possible
-    const selectedOption = options.find(
-      (opt) => opt.toLowerCase() === currentValue.toLowerCase()
-    );
-    onChange(selectedOption || currentValue);
+    // currentValue from CommandItem's value is lowered by default if not set explicitly
+    // but here we are setting value={opt.value} so it should match the original value
+    onChange(currentValue);
     setOpen(false);
   };
+
+  const getLabel = (val?: string) => {
+    if (!val) return placeholder;
+    const option = options.find((opt) =>
+      typeof opt === 'string' ? opt === val : opt.value === val
+    );
+    if (!option) return val;
+    return typeof option === 'string' ? option : option.label;
+  };
+
+  const normalizedOptions = options.map((opt) =>
+    typeof opt === 'string' ? { label: opt, value: opt } : opt
+  );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,43 +77,66 @@ export function Combobox({
           className={cn('w-full justify-between', className)}
           disabled={disabled}
         >
-          {value || placeholder}
+          {getLabel(value)}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
-          <CommandInput
-            placeholder={`Search ${placeholder.toLowerCase()}...`}
-            value={inputValue}
-            onValueChange={setInputValue}
-          />
-          <CommandList>
-            <CommandEmpty>
-              <div
-                className="py-2 px-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm"
+          <div className="flex items-center border-b">
+            <CommandInput
+              placeholder={`Search ${placeholder.toLowerCase()}...`}
+              value={inputValue}
+              onValueChange={setInputValue}
+              className="border-none"
+            />
+            {allowCreate && inputValue && (
+              <button
+                type="button"
+                className="mr-2 p-1 rounded-sm hover:bg-accent hover:text-accent-foreground"
                 onClick={() => {
                   onChange(inputValue);
                   setOpen(false);
+                  setInputValue('');
                 }}
+                title={`Add "${inputValue}"`}
               >
-                Create &quot;{inputValue}&quot;
-              </div>
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <CommandList>
+            <CommandEmpty>
+              {allowCreate && inputValue ? (
+                <div
+                  className="py-2 px-2 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground rounded-sm"
+                  onClick={() => {
+                    onChange(inputValue);
+                    setOpen(false);
+                  }}
+                >
+                  Create &quot;{inputValue}&quot;
+                </div>
+              ) : (
+                <div className="py-2 px-2 text-sm text-muted-foreground">
+                  No results found
+                </div>
+              )}
             </CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {normalizedOptions.map((option) => (
                 <CommandItem
-                  key={option}
-                  value={option}
-                  onSelect={handleSelect}
+                  key={option.value}
+                  value={option.value}
+                  onSelect={() => handleSelect(option.value)}
                 >
                   <Check
                     className={cn(
                       'mr-2 h-4 w-4',
-                      value === option ? 'opacity-100' : 'opacity-0'
+                      value === option.value ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  {option}
+                  {option.label}
                 </CommandItem>
               ))}
             </CommandGroup>

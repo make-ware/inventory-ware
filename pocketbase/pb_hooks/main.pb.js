@@ -1,106 +1,293 @@
+/// <reference path="../pb_data/types.d.ts" />
 // PocketBase JavaScript Hooks
 // Documentation: https://pocketbase.io/docs/js-overview/
+// https://pocketbase.io/docs/js-event-hooks/
 
-// Track Item changes
+// ============================================================================
+// ITEMS HOOKS
+// ============================================================================
+
+// Track Item creation and create initial image mapping
 onRecordAfterCreateSuccess((e) => {
-  const collection = $app.findCollectionByNameOrId("ItemRecords");
-  const record = new Record(collection);
+  try {
+    const userId = e.auth ? e.auth.get("id") : undefined;
+    const recordSnapshot = JSON.stringify(e.record.publicExport());
 
-  record.set("Item", e.record.id);
-  record.set("User", e.auth ? e.auth.get("id") : null);
-  record.set("transaction", "create");
-  record.set("new_value", JSON.stringify(e.record.publicExport()));
-  record.set("previous_value", "");
-
-  $app.save(record);
-}, "Items");
-
-onRecordUpdateRequest((e) => {
-  const newRecord = e.record.fresh();
-  const prevRecord = e.record.original();
-  const blacklist = ["created", "updated", "collectionName", "collectionId"];
-  const itemId = newRecord.get("id");
-
-  if (itemId) {
+    // Create audit record inline
     try {
-      const collection = $app.findCollectionByNameOrId("ItemRecords");
-      const userId = e.auth ? e.auth.get("id") : null;
-      const fields = newRecord.publicExport();
-
-      for (const field_name in fields) {
-        if (blacklist.indexOf(field_name) !== -1) continue;
-
-        const currentValue = newRecord.getString(field_name);
-        const previous_value = prevRecord.getString(field_name);
-
-        if (currentValue !== previous_value) {
-          const itemRecord = new Record(collection);
-          itemRecord.set("Item", itemId);
-          itemRecord.set("User", userId);
-          itemRecord.set("field_name", field_name);
-          itemRecord.set("new_value", currentValue);
-          itemRecord.set("previous_value", previous_value);
-          itemRecord.set("transaction", "update");
-
-          $app.save(itemRecord);
-          console.log("Created ItemRecord for " + itemId + ", field: " + field_name + ", transaction: update");
+      const auditCollection = $app.findCollectionByNameOrId("ItemRecords");
+      if (auditCollection) {
+        const auditRecord = new Record(auditCollection);
+        auditRecord.set("ItemRef", e.record.id);
+        auditRecord.set("transactionType", "create");
+        auditRecord.set("fieldName", null);
+        auditRecord.set("newValue", recordSnapshot);
+        if (userId) {
+          auditRecord.set("UserRef", userId);
         }
+        $app.save(auditRecord);
       }
     } catch (error) {
-      console.error("Failed to create ItemRecord for " + itemId + ":", error);
+      console.error(
+        "Failed to create ItemRecords audit record for " + e.record.id + ":",
+        error
+      );
     }
+
+    // Create image mapping if primaryImage is set
+    const primaryImage = e.record.get("primaryImage");
+    if (primaryImage) {
+      try {
+        const mappingCollection = $app.findCollectionByNameOrId("ItemImages");
+        if (mappingCollection) {
+          const mappingRecord = new Record(mappingCollection);
+          mappingRecord.set("ItemRef", e.record.id);
+          mappingRecord.set("ImageRef", primaryImage);
+          const boundingBox = e.record.get("primaryImageBbox");
+          if (boundingBox) {
+            mappingRecord.set("boundingBox", boundingBox);
+          }
+          $app.save(mappingRecord);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to create ItemImages mapping for " + e.record.id + ":",
+          error
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      "Failed to process Item creation for " + e.record.id + ":",
+      error
+    );
   }
   e.next();
 }, "Items");
 
-// Track Container changes
-onRecordAfterCreateSuccess((e) => {
-  const collection = $app.findCollectionByNameOrId("ContainerRecords");
-  const record = new Record(collection);
+// Track Item updates and record old image mappings
+onRecordAfterUpdateSuccess((e) => {
+  try {
+    const newRecord = e.record;
+    const prevRecord = e.record.original();
+    const blacklist = [
+      "created",
+      "updated",
+      "collectionName",
+      "collectionId",
+      "id",
+    ];
+    const itemId = newRecord.id;
+    const userId = e.auth ? e.auth.get("id") : undefined;
+    const fields = newRecord.publicExport();
 
-  record.set("Container", e.record.id);
-  record.set("User", e.auth ? e.auth.get("id") : null);
-  record.set("transaction", "create");
-  record.set("new_value", JSON.stringify(e.record.publicExport()));
-  record.set("previous_value", "");
+    // Track field changes for audit
+    for (const fieldName in fields) {
+      if (blacklist.indexOf(fieldName) !== -1) {
+        continue;
+      }
 
-  $app.save(record);
-}, "Containers");
+      const currentValue = newRecord.getString(fieldName);
+      const previousValue = prevRecord.getString(fieldName);
 
-onRecordUpdateRequest((e) => {
-  const newRecord = e.record.fresh();
-  const prevRecord = e.record.original();
-  const blacklist = ["created", "updated", "collectionName", "collectionId"];
-  const containerId = newRecord.get("id");
-
-  if (containerId) {
-    try {
-      const collection = $app.findCollectionByNameOrId("ContainerRecords");
-      const userId = e.auth ? e.auth.get("id") : null;
-      const fields = newRecord.publicExport();
-
-      for (const field_name in fields) {
-        if (blacklist.indexOf(field_name) !== -1) continue;
-
-        const currentValue = newRecord.getString(field_name);
-        const previous_value = prevRecord.getString(field_name);
-
-        if (currentValue !== previous_value) {
-          const containerRecord = new Record(collection);
-          containerRecord.set("Container", containerId);
-          containerRecord.set("User", userId);
-          containerRecord.set("field_name", field_name);
-          containerRecord.set("new_value", currentValue);
-          containerRecord.set("previous_value", previous_value);
-          containerRecord.set("transaction", "update"); // Default for containers
-
-          $app.save(containerRecord);
-          console.log("Created ContainerRecord for " + containerId + ", field: " + field_name);
+      if (currentValue !== previousValue) {
+        // Create audit record inline
+        try {
+          const auditCollection = $app.findCollectionByNameOrId("ItemRecords");
+          if (auditCollection) {
+            const auditRecord = new Record(auditCollection);
+            auditRecord.set("ItemRef", itemId);
+            auditRecord.set("transactionType", "update");
+            auditRecord.set("fieldName", fieldName);
+            auditRecord.set("newValue", currentValue);
+            if (userId) {
+              auditRecord.set("UserRef", userId);
+            }
+            $app.save(auditRecord);
+          }
+        } catch (error) {
+          console.error(
+            "Failed to create ItemRecords audit record for " + itemId + ":",
+            error
+          );
         }
       }
-    } catch (error) {
-      console.error("Failed to create ContainerRecord for " + containerId + ":", error);
     }
+
+    // Handle primaryImage change - archive the old image
+    const newPrimaryImage = newRecord.get("primaryImage");
+    const oldPrimaryImage = prevRecord.get("primaryImage");
+
+    if (oldPrimaryImage && newPrimaryImage !== oldPrimaryImage) {
+      try {
+        const mappingCollection = $app.findCollectionByNameOrId("ItemImages");
+        if (mappingCollection) {
+          const mappingRecord = new Record(mappingCollection);
+          mappingRecord.set("ItemRef", itemId);
+          mappingRecord.set("ImageRef", oldPrimaryImage);
+          const oldBoundingBox = prevRecord.get("primaryImageBbox");
+          if (oldBoundingBox) {
+            mappingRecord.set("boundingBox", oldBoundingBox);
+          }
+          $app.save(mappingRecord);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to create ItemImages mapping for " + itemId + ":",
+          error
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Failed to track Item update:", error);
+  }
+  e.next();
+}, "Items");
+
+// ============================================================================
+// CONTAINERS HOOKS
+// ============================================================================
+
+// Track Container creation and create initial image mapping
+onRecordAfterCreateSuccess((e) => {
+  try {
+    const userId = e.auth ? e.auth.get("id") : undefined;
+    const recordSnapshot = JSON.stringify(e.record.publicExport());
+
+    // Create audit record inline
+    try {
+      const auditCollection = $app.findCollectionByNameOrId("ContainerRecords");
+      if (auditCollection) {
+        const auditRecord = new Record(auditCollection);
+        auditRecord.set("ContainerRef", e.record.id);
+        auditRecord.set("transactionType", "create");
+        auditRecord.set("fieldName", null);
+        auditRecord.set("newValue", recordSnapshot);
+        if (userId) {
+          auditRecord.set("UserRef", userId);
+        }
+        $app.save(auditRecord);
+      }
+    } catch (error) {
+      console.error(
+        "Failed to create ContainerRecords audit record for " +
+          e.record.id +
+          ":",
+        error
+      );
+    }
+
+    // Create image mapping if primaryImage is set
+    const primaryImage = e.record.get("primaryImage");
+    if (primaryImage) {
+      try {
+        const mappingCollection =
+          $app.findCollectionByNameOrId("ContainerImages");
+        if (mappingCollection) {
+          const mappingRecord = new Record(mappingCollection);
+          mappingRecord.set("ContainerRef", e.record.id);
+          mappingRecord.set("ImageRef", primaryImage);
+          const boundingBox = e.record.get("primaryImageBbox");
+          if (boundingBox) {
+            mappingRecord.set("boundingBox", boundingBox);
+          }
+          $app.save(mappingRecord);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to create ContainerImages mapping for " + e.record.id + ":",
+          error
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      "Failed to process Container creation for " + e.record.id + ":",
+      error
+    );
+  }
+  e.next();
+}, "Containers");
+
+// Track Container updates and record old image mappings
+onRecordAfterUpdateSuccess((e) => {
+  try {
+    const newRecord = e.record;
+    const prevRecord = e.record.original();
+    const blacklist = [
+      "created",
+      "updated",
+      "collectionName",
+      "collectionId",
+      "id",
+    ];
+    const containerId = newRecord.id;
+    const userId = e.auth ? e.auth.get("id") : undefined;
+    const fields = newRecord.publicExport();
+
+    // Track field changes for audit
+    for (const fieldName in fields) {
+      if (blacklist.indexOf(fieldName) !== -1) {
+        continue;
+      }
+
+      const currentValue = newRecord.getString(fieldName);
+      const previousValue = prevRecord.getString(fieldName);
+
+      if (currentValue !== previousValue) {
+        // Create audit record inline
+        try {
+          const auditCollection =
+            $app.findCollectionByNameOrId("ContainerRecords");
+          if (auditCollection) {
+            const auditRecord = new Record(auditCollection);
+            auditRecord.set("ContainerRef", containerId);
+            auditRecord.set("transactionType", "update");
+            auditRecord.set("fieldName", fieldName);
+            auditRecord.set("newValue", currentValue);
+            if (userId) {
+              auditRecord.set("UserRef", userId);
+            }
+            $app.save(auditRecord);
+          }
+        } catch (error) {
+          console.error(
+            "Failed to create ContainerRecords audit record for " +
+              containerId +
+              ":",
+            error
+          );
+        }
+      }
+    }
+
+    // Handle primaryImage change - archive the old image
+    const newPrimaryImage = newRecord.get("primaryImage");
+    const oldPrimaryImage = prevRecord.get("primaryImage");
+
+    if (oldPrimaryImage && newPrimaryImage !== oldPrimaryImage) {
+      try {
+        const mappingCollection =
+          $app.findCollectionByNameOrId("ContainerImages");
+        if (mappingCollection) {
+          const mappingRecord = new Record(mappingCollection);
+          mappingRecord.set("ContainerRef", containerId);
+          mappingRecord.set("ImageRef", oldPrimaryImage);
+          const oldBoundingBox = prevRecord.get("primaryImageBbox");
+          if (oldBoundingBox) {
+            mappingRecord.set("boundingBox", oldBoundingBox);
+          }
+          $app.save(mappingRecord);
+        }
+      } catch (error) {
+        console.error(
+          "Failed to create ContainerImages mapping for " + containerId + ":",
+          error
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Failed to track Container update:", error);
   }
   e.next();
 }, "Containers");

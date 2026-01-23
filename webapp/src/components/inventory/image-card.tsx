@@ -84,7 +84,7 @@ export function ImageCard({
     );
   };
 
-  const status = image.analysis_status || 'pending';
+  const status = image.analysisStatus || 'pending';
 
   return (
     <Card
@@ -167,7 +167,7 @@ export function ImageCard({
         )}
         <div className="flex flex-wrap gap-1 mb-2">
           <Badge variant="outline">
-            {getTypeLabel(image.image_type || 'unprocessed')}
+            {getTypeLabel(image.imageType || 'unprocessed')}
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground">

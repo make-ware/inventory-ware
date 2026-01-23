@@ -5,15 +5,17 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator } from '@project/shared';
 import type { ItemInput, CategoryLibrary } from '@project/shared';
-import { ItemForm } from '@/components/inventory';
+import { ItemCreateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 function NewItemContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { userId } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState<CategoryLibrary>();
   const [defaultValues, setDefaultValues] = useState<Partial<ItemInput>>({});
@@ -40,7 +42,7 @@ function NewItemContent() {
       let defaults: Partial<ItemInput> = {};
 
       if (imageId) {
-        defaults.primary_image = imageId;
+        defaults.primaryImage = imageId;
       }
 
       if (cloneFromId) {
@@ -50,16 +52,16 @@ function NewItemContent() {
           if (item) {
             defaults = {
               ...defaults,
-              item_label: item.item_label + ' (Copy)',
-              item_notes: item.item_notes,
-              category_functional: item.category_functional,
-              category_specific: item.category_specific,
-              item_type: item.item_type,
-              item_manufacturer: item.item_manufacturer,
-              item_attributes: item.item_attributes,
+              itemLabel: item.itemLabel + ' (Copy)',
+              itemNotes: item.itemNotes,
+              categoryFunctional: item.categoryFunctional,
+              categorySpecific: item.categorySpecific,
+              itemType: item.itemType,
+              itemManufacturer: item.itemManufacturer,
+              itemAttributes: item.itemAttributes,
               container: item.container,
-              primary_image: defaults.primary_image || item.primary_image,
-              primary_image_bbox: item.primary_image_bbox,
+              primaryImage: defaults.primaryImage || item.primaryImage,
+              primaryImageBbox: item.primaryImageBbox,
             };
           }
         } catch (error) {
@@ -86,10 +88,17 @@ function NewItemContent() {
     );
   }
 
-  const handleSubmit = async (data: ItemInput) => {
+  const handleSubmit = async (data: Partial<Omit<ItemInput, 'UserRef'>>) => {
     try {
+      if (!userId) {
+        toast.error('No authenticated user');
+        return;
+      }
       setIsSubmitting(true);
-      const newItem = await itemMutator.create(data);
+      const newItem = await itemMutator.create({
+        ...data,
+        UserRef: userId,
+      } as ItemInput);
       toast.success('Item created successfully');
       router.push(`/inventory/items/${newItem.id}`);
     } catch (error) {
@@ -122,7 +131,7 @@ function NewItemContent() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ItemForm
+          <ItemCreateForm
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}

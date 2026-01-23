@@ -49,6 +49,7 @@ function MockAuthProvider({
   isLoading?: boolean;
 }) {
   const mockValue = {
+    userId: user?.id || null,
     user: user || null,
     isLoading,
     isAuthenticated,

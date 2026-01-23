@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 // Export hash utilities
 export * from './hash.js';
+export * from './slugify.js';
 
 /**
  * Validates data against a Zod schema and returns typed result

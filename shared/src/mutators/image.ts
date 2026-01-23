@@ -20,24 +20,25 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
   /**
    * Upload an image file with metadata
    * @param file The image file to upload
+   * @param userId The ID of the authenticated user (required)
    * @param imageType The type of image (item, container, or unprocessed)
    * @returns The created Image record
    */
   async uploadImage(
     file: File,
+    userId: string,
     imageType: 'item' | 'container' | 'unprocessed' = 'unprocessed'
   ): Promise<Image> {
     try {
+      if (!userId) {
+        throw new Error('User ID is required to upload an image');
+      }
+
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('image_type', imageType);
-      formData.append('analysis_status', 'pending');
-
-      // Set the user to the currently authenticated user
-      const userId = this.pb.authStore.record?.id;
-      if (userId) {
-        formData.append('User', userId);
-      }
+      formData.append('imageType', imageType);
+      formData.append('analysisStatus', 'pending');
+      formData.append('UserRef', userId);
 
       // Use the collection directly for FormData upload
       const record = await this.getCollection().create(formData);
@@ -58,7 +59,7 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
     status: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<Image> {
     try {
-      const data: Partial<ImageInput> = { analysis_status: status };
+      const data: Partial<ImageInput> = { analysisStatus: status };
       return await this.update(id, data as Partial<Image>);
     } catch (error) {
       return this.errorWrapper(error);
@@ -74,7 +75,7 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
     status: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<Image[]> {
     try {
-      const result = await this.getList(1, 100, `analysis_status="${status}"`);
+      const result = await this.getList(1, 100, `analysisStatus="${status}"`);
       return result.items;
     } catch (error) {
       return this.errorWrapper(error);
@@ -83,7 +84,7 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
 
   /**
    * Get all images associated with an item
-   * This includes the primary image and any images in ItemImageMappings
+   * This includes the primary image and any images in ItemImages
    * @param itemId The item ID to filter by
    * @returns Array of Image records
    */
@@ -92,11 +93,11 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
       const images: Image[] = [];
       const imageIds = new Set<string>();
 
-      // 1. Get the item to find its primary_image
+      // 1. Get the item to find its primaryImage
       const item = await this.pb.collection('Items').getOne(itemId);
 
-      if (item && item.primary_image) {
-        const primaryImage = await this.getById(item.primary_image);
+      if (item && item.primaryImage) {
+        const primaryImage = await this.getById(item.primaryImage);
         if (primaryImage) {
           images.push(primaryImage);
           imageIds.add(primaryImage.id);
@@ -104,25 +105,23 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
       }
 
       // 2. Get all historical/mapped images for this item
-      const itemMappings = await this.pb
-        .collection('ItemImageMappings')
-        .getFullList({
-          filter: `item = "${itemId}"`,
-          sort: '-created',
-        });
+      const itemMappings = await this.pb.collection('ItemImages').getFullList({
+        filter: `ItemRef = "${itemId}"`,
+        sort: '-created',
+      });
 
       // Fetch the actual image records for these mappings
       for (const mapping of itemMappings) {
-        if (!imageIds.has(mapping.image)) {
+        if (!imageIds.has(mapping.ImageRef)) {
           try {
-            const mappedImage = await this.getById(mapping.image);
+            const mappedImage = await this.getById(mapping.ImageRef);
             if (mappedImage) {
               images.push(mappedImage);
               imageIds.add(mappedImage.id);
             }
           } catch (err) {
             console.error(
-              `Failed to fetch mapped image ${mapping.image}:`,
+              `Failed to fetch mapped image ${mapping.ImageRef}:`,
               err
             );
           }
@@ -137,7 +136,7 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
 
   /**
    * Get all images associated with a container
-   * This includes the primary image and any images in ContainerImageMappings
+   * This includes the primary image and any images in ContainerImages
    * @param containerId The container ID to filter by
    * @returns Array of Image records
    */
@@ -146,13 +145,13 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
       const images: Image[] = [];
       const imageIds = new Set<string>();
 
-      // 1. Get the container to find its primary_image
+      // 1. Get the container to find its primaryImage
       const container = await this.pb
         .collection('Containers')
         .getOne(containerId);
 
-      if (container && container.primary_image) {
-        const primaryImage = await this.getById(container.primary_image);
+      if (container && container.primaryImage) {
+        const primaryImage = await this.getById(container.primaryImage);
         if (primaryImage) {
           images.push(primaryImage);
           imageIds.add(primaryImage.id);
@@ -161,24 +160,24 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
 
       // 2. Get all historical/mapped images for this container
       const containerMappings = await this.pb
-        .collection('ContainerImageMappings')
+        .collection('ContainerImages')
         .getFullList({
-          filter: `container = "${containerId}"`,
+          filter: `ContainerRef = "${containerId}"`,
           sort: '-created',
         });
 
       // Fetch the actual image records for these mappings
       for (const mapping of containerMappings) {
-        if (!imageIds.has(mapping.image)) {
+        if (!imageIds.has(mapping.ImageRef)) {
           try {
-            const mappedImage = await this.getById(mapping.image);
+            const mappedImage = await this.getById(mapping.ImageRef);
             if (mappedImage) {
               images.push(mappedImage);
               imageIds.add(mappedImage.id);
             }
           } catch (err) {
             console.error(
-              `Failed to fetch mapped image ${mapping.image}:`,
+              `Failed to fetch mapped image ${mapping.ImageRef}:`,
               err
             );
           }
@@ -189,5 +188,14 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
     } catch (error) {
       return this.errorWrapper(error);
     }
+  }
+
+  /**
+   * Get the URL for an image file
+   * @param image The Image record
+   * @returns The URL to access the image file
+   */
+  getFileUrl(image: Image): string {
+    return this.pb.files.getURL(image, image.file);
   }
 }

@@ -13,13 +13,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
-import type { CategoryLibrary } from '@project/shared';
+import { type CategoryLibrary, formatCategoryLabel } from '@project/shared';
 
 export interface BulkEditData {
-  category_functional?: string;
-  category_specific?: string;
-  item_type?: string;
-  item_manufacturer?: string;
+  categoryFunctional?: string;
+  categorySpecific?: string;
+  itemType?: string;
+  itemManufacturer?: string;
 }
 
 interface BulkEditDialogProps {
@@ -45,13 +45,13 @@ export function BulkEditDialog({
       setIsSubmitting(true);
       // Filter out empty strings to avoid overwriting with empty
       const cleanData: BulkEditData = {};
-      if (data.category_functional)
-        cleanData.category_functional = data.category_functional;
-      if (data.category_specific)
-        cleanData.category_specific = data.category_specific;
-      if (data.item_type) cleanData.item_type = data.item_type;
-      if (data.item_manufacturer)
-        cleanData.item_manufacturer = data.item_manufacturer;
+      if (data.categoryFunctional)
+        cleanData.categoryFunctional = data.categoryFunctional;
+      if (data.categorySpecific)
+        cleanData.categorySpecific = data.categorySpecific;
+      if (data.itemType) cleanData.itemType = data.itemType;
+      if (data.itemManufacturer)
+        cleanData.itemManufacturer = data.itemManufacturer;
 
       await onConfirm(cleanData);
       onOpenChange(false);
@@ -78,10 +78,13 @@ export function BulkEditDialog({
             </Label>
             <div className="col-span-3">
               <Combobox
-                options={categories.functional}
-                value={data.category_functional}
+                options={(categories.functional || []).map((cat) => ({
+                  label: formatCategoryLabel(cat),
+                  value: cat,
+                }))}
+                value={data.categoryFunctional}
                 onChange={(val) =>
-                  setData({ ...data, category_functional: val })
+                  setData({ ...data, categoryFunctional: val })
                 }
                 placeholder="No Change"
               />
@@ -93,9 +96,12 @@ export function BulkEditDialog({
             </Label>
             <div className="col-span-3">
               <Combobox
-                options={categories.specific}
-                value={data.category_specific}
-                onChange={(val) => setData({ ...data, category_specific: val })}
+                options={(categories.specific || []).map((cat) => ({
+                  label: formatCategoryLabel(cat),
+                  value: cat,
+                }))}
+                value={data.categorySpecific}
+                onChange={(val) => setData({ ...data, categorySpecific: val })}
                 placeholder="No Change"
               />
             </div>
@@ -106,9 +112,12 @@ export function BulkEditDialog({
             </Label>
             <div className="col-span-3">
               <Combobox
-                options={categories.item_type}
-                value={data.item_type}
-                onChange={(val) => setData({ ...data, item_type: val })}
+                options={(categories.itemType || []).map((cat) => ({
+                  label: formatCategoryLabel(cat),
+                  value: cat,
+                }))}
+                value={data.itemType}
+                onChange={(val) => setData({ ...data, itemType: val })}
                 placeholder="No Change"
               />
             </div>
@@ -119,9 +128,9 @@ export function BulkEditDialog({
             </Label>
             <Input
               id="manufacturer"
-              value={data.item_manufacturer || ''}
+              value={data.itemManufacturer || ''}
               onChange={(e) =>
-                setData({ ...data, item_manufacturer: e.target.value })
+                setData({ ...data, itemManufacturer: e.target.value })
               }
               className="col-span-3"
               placeholder="No Change"

@@ -6,16 +6,17 @@ import {
 } from '@/lib/pocketbase-server';
 
 /**
- * API route to process an image server-side
- * This ensures environment variables (like OPENAI_API_KEY) are available
+ * API route to analyze an existing image server-side
  */
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const { imageId } = await request.json();
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    if (!imageId) {
+      return NextResponse.json(
+        { error: 'No imageId provided' },
+        { status: 400 }
+      );
     }
 
     // Create a new PocketBase client instance for this request
@@ -46,21 +47,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Debug: Log that we're in server context (don't log the actual key value)
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn(
-        'OPENAI_API_KEY not found in API route. Available env vars:',
-        Object.keys(process.env)
-          .filter((k) => k.includes('OPENAI') || k.includes('API'))
-          .join(', ') || 'none'
-      );
-    }
-
     // Create service server-side where env vars are available
     const service = createInventoryService(pb);
 
-    // Process the image
-    const result = await service.processImageUpload(file, userId);
+    // Process the existing image
+    const result = await service.processExistingImage(imageId, userId);
 
     return NextResponse.json({
       success: true,
@@ -69,11 +60,11 @@ export async function POST(request: NextRequest) {
       container: result.container,
     });
   } catch (error) {
-    console.error('Error processing image:', error);
+    console.error('Error analyzing image:', error);
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : 'Failed to process image',
+          error instanceof Error ? error.message : 'Failed to analyze image',
       },
       { status: 500 }
     );

@@ -35,7 +35,7 @@ vi.mock('@/lib/pocketbase-client', () => {
   const mockPb = {
     authStore: {
       isValid: false,
-      model: null,
+      record: null,
       onChange: vi.fn(() => vi.fn()),
       clear: vi.fn(),
     },

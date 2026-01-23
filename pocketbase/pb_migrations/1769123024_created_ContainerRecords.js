@@ -1,11 +1,11 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
-  const collection_ImageMetadata = new Collection({
-    id: "pb_62mnrfn5t0rh5ti",
-    name: "ImageMetadata",
+  const collection_ContainerRecords = new Collection({
+    id: "pb_ghau1tmq2keoea4",
+    name: "ContainerRecords",
     type: "base",
-    listRule: "",
-    viewRule: "",
+    listRule: "@request.auth.id != \"\"",
+    viewRule: "@request.auth.id != \"\"",
     createRule: "@request.auth.id != \"\"",
     updateRule: "@request.auth.id != \"\"",
     deleteRule: "@request.auth.id != \"\"",
@@ -48,45 +48,46 @@ migrate((app) => {
       system: false,
     },
     {
-      name: "Image",
+      name: "ContainerRef",
       type: "relation",
-      required: false,
-      collectionId: "pb_tkwz9j2iq4zlit0",
+      required: true,
+      collectionId: "pb_7mbdu2xml9nggre",
+      maxSelect: 1,
+      minSelect: 0,
+      cascadeDelete: true,
+    },
+    {
+      name: "UserRef",
+      type: "relation",
+      required: true,
+      collectionId: "_pb_users_auth_",
       maxSelect: 1,
       minSelect: 0,
       cascadeDelete: false,
     },
     {
-      name: "file_hash",
+      name: "transactionType",
+      type: "select",
+      required: true,
+      maxSelect: 1,
+      values: ["create", "update", "delete"],
+    },
+    {
+      name: "fieldName",
+      type: "text",
+      required: false,
+    },
+    {
+      name: "newValue",
       type: "text",
       required: true,
     },
-    {
-      name: "metadata",
-      type: "json",
-      required: true,
-    },
-    {
-      name: "version",
-      type: "number",
-      required: false,
-    },
-    {
-      name: "image_type",
-      type: "select",
-      required: false,
-      maxSelect: 1,
-      values: ["item", "container", "unprocessed"],
-    },
   ],
-    indexes: [
-    "CREATE UNIQUE INDEX `idx_file_hash_image_metadata` ON `ImageMetadata` (`file_hash`)",
-    "CREATE INDEX `idx_image_image_metadata` ON `ImageMetadata` (`Image`)",
-  ],
+    indexes: [],
   });
 
-  return app.save(collection_ImageMetadata);
+  return app.save(collection_ContainerRecords);
 }, (app) => {
-  const collection_ImageMetadata = app.findCollectionByNameOrId("ImageMetadata");
-  return app.delete(collection_ImageMetadata);
+  const collection_ContainerRecords = app.findCollectionByNameOrId("ContainerRecords");
+  return app.delete(collection_ContainerRecords);
 });

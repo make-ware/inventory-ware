@@ -42,7 +42,7 @@ export default function Home() {
 
 function AuthenticatedView({ user }: { user: User }) {
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container py-8">
       {/* Welcome Section */}
       <div className="mb-12">
         <h1 className="text-4xl font-bold text-foreground mb-4">
@@ -144,7 +144,7 @@ function UnauthenticatedView() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
       {/* Hero Section */}
-      <div className="container mx-auto px-4 py-16 max-w-6xl">
+      <div className="container py-16">
         <div className="text-center mb-16">
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
             Inventory Ware

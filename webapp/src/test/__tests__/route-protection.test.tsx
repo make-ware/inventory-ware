@@ -63,6 +63,7 @@ describe('Property Test: Route Protection', () => {
 
       // Setup: unauthenticated user
       mockUseAuth.mockReturnValue({
+        userId: null,
         user: null,
         isLoading: false,
         isAuthenticated: false,
@@ -134,6 +135,7 @@ describe('Property Test: Route Protection', () => {
     for (const user of testUsers) {
       // Setup: authenticated user
       mockUseAuth.mockReturnValue({
+        userId: user.id,
         user,
         isLoading: false,
         isAuthenticated: true,
@@ -173,6 +175,7 @@ describe('Property Test: Route Protection', () => {
     for (const pathname of testPaths) {
       // Setup: loading state
       mockUseAuth.mockReturnValue({
+        userId: null,
         user: null,
         isLoading: true,
         isAuthenticated: false,
@@ -213,6 +216,7 @@ describe('Property Test: Route Protection', () => {
 
       // Setup: unauthenticated user
       mockUseAuth.mockReturnValue({
+        userId: null,
         user: null,
         isLoading: false,
         isAuthenticated: false,

@@ -25,7 +25,7 @@ export default function ItemsPage() {
   const [categories, setCategories] = useState<CategoryLibrary>({
     functional: [],
     specific: [],
-    item_type: [],
+    itemType: [],
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
@@ -78,16 +78,16 @@ export default function ItemsPage() {
   const loadItems = useCallback(async () => {
     try {
       const results = await itemMutator.search(searchQuery, {
-        category_functional: searchFilters.functional,
-        category_specific: searchFilters.specific,
-        item_type: searchFilters.item_type,
+        categoryFunctional: searchFilters.functional,
+        categorySpecific: searchFilters.specific,
+        itemType: searchFilters.itemType,
       });
       setItems(results);
       setCurrentPage(1); // Reset to first page on new search
 
       // Load images for items
       const imageIds = results
-        .map((item) => item.primary_image)
+        .map((item) => item.primaryImage)
         .filter((id): id is string => Boolean(id));
       await loadImages(imageIds);
     } catch (error) {
@@ -104,7 +104,7 @@ export default function ItemsPage() {
 
       // Load images for containers (needed for item image fallback)
       const containerImageIds = results
-        .map((container) => container.primary_image)
+        .map((container) => container.primaryImage)
         .filter((id): id is string => Boolean(id));
       await loadImages(containerImageIds);
     } catch (error) {
@@ -218,21 +218,21 @@ export default function ItemsPage() {
     if (!imageId) return undefined;
     const image = images.get(imageId);
     if (!image) return undefined;
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
     // First try the item's primary image
-    if (item.primary_image) {
-      const url = getImageUrl(item.primary_image);
+    if (item.primaryImage) {
+      const url = getImageUrl(item.primaryImage);
       if (url) return url;
     }
 
     // Fallback to container's primary image if item doesn't have one
     if (item.container) {
       const container = containers.find((c) => c.id === item.container);
-      if (container?.primary_image) {
-        return getImageUrl(container.primary_image);
+      if (container?.primaryImage) {
+        return getImageUrl(container.primaryImage);
       }
     }
 

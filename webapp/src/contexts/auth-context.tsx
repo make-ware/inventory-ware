@@ -14,6 +14,7 @@ import pb from '@/lib/pocketbase-client';
 import { createAuthService } from '@/services';
 
 interface AuthContextType {
+  userId: string | null;
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -75,8 +76,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initAuth();
 
     // Listen for auth store changes
-    const unsubscribe = pb.authStore.onChange((token, model) => {
-      setUser(model as User | null);
+    const unsubscribe = pb.authStore.onChange((token, record) => {
+      setUser(record as User | null);
     });
 
     return () => {
@@ -232,6 +233,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const value: AuthContextType = {
+    userId: user?.id || null,
     user,
     isLoading,
     isAuthenticated: !!user && pb.authStore.isValid,

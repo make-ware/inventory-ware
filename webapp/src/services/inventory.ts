@@ -21,9 +21,10 @@ import type {
  */
 async function downloadImageAsBase64(
   pb: TypedPocketBase,
+  imageMutatorInstance: ImageMutator,
   image: Image
 ): Promise<string> {
-  const imageUrl = pb.files.getURL(image, image.file);
+  const imageUrl = imageMutatorInstance.getFileUrl(image);
 
   // Download the image
   const response = await fetch(imageUrl, {
@@ -80,9 +81,10 @@ export interface InventoryService {
   /**
    * Process an uploaded image: upload → analyze → create entities
    * @param file - The image file to upload
+   * @param userId - ID of the authenticated user
    * @returns Processing result with created entities
    */
-  processImageUpload(file: File): Promise<ProcessImageResult>;
+  processImageUpload(file: File, userId: string): Promise<ProcessImageResult>;
 
   /**
    * Re-analyze an existing image
@@ -95,15 +97,30 @@ export interface InventoryService {
    * Process an existing image: analyze → create entities
    * This is useful for re-queuing images that failed or were uploaded without processing
    * @param imageId - ID of the existing image to process
+   * @param userId - ID of the authenticated user
    * @returns Processing result with created entities
    */
-  processExistingImage(imageId: string): Promise<ProcessImageResult>;
+  processExistingImage(
+    imageId: string,
+    userId: string
+  ): Promise<ProcessImageResult>;
 
   /**
    * Get the category library (distinct category values from all items)
-   * @returns Category library with functional, specific, and item_type arrays
+   * @returns Category library with functional, specific, and itemType arrays
    */
   getCategoryLibrary(): Promise<CategoryLibrary>;
+
+  /**
+   * Search for existing categories to avoid duplicates
+   * @param query - Search query
+   * @param type - Category type
+   * @returns List of matching category values
+   */
+  searchCategories(
+    query: string,
+    type: 'functional' | 'specific' | 'itemType'
+  ): Promise<string[]>;
 }
 
 /**
@@ -128,7 +145,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
   };
 
   return {
-    async processImageUpload(file: File): Promise<ProcessImageResult> {
+    async processImageUpload(
+      file: File,
+      userId: string
+    ): Promise<ProcessImageResult> {
       // 1. Compute file hash for deduplication/caching
       const fileHash = await computeFileHash(file);
 
@@ -137,7 +157,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
       const cachedMetadata = cachedEntry?.metadata;
 
       // 3. Upload the new image (always create a new record for this user)
-      const image = await imageMutator.uploadImage(file);
+      const image = await imageMutator.uploadImage(file, userId);
+
+      // 4. Update the image's fileHash field
+      await imageMutator.update(image.id, { fileHash });
 
       // Convert file to base64 for AI analysis (if needed)
       const imageData = await fileToBase64(file);
@@ -162,7 +185,11 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           await imageMutator.updateAnalysisStatus(image.id, 'processing');
 
           // Analyze with AI
-          result = await getAIService().analyzeImage(imageData, categories);
+          result = await getAIService().analyzeImage(
+            imageData,
+            categories,
+            this.searchCategories.bind(this)
+          );
 
           // Save AI metadata to ImageMetadata collection for future cache hits
           await imageMetadataMutator.saveMetadata(
@@ -173,68 +200,149 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           );
         }
 
-        // 4. Create records based on result type
+        // 5. Create records based on result type
         const items: Item[] = [];
         let container: Container | undefined;
 
         if (result.type === 'item') {
-          // Create single item
+          // Create single item - check if it already exists for this image (safety check)
           const itemData: ItemInput = {
-            item_label: result.data.item.item_label,
-            item_notes: result.data.item.item_notes,
-            category_functional: result.data.item.category_functional,
-            category_specific: result.data.item.category_specific,
-            item_type: result.data.item.item_type,
-            item_manufacturer: result.data.item.item_manufacturer,
-            item_attributes: result.data.item.item_attributes,
-            primary_image: image.id,
+            itemLabel: result.data.item.itemLabel,
+            itemName: result.data.item.itemName,
+            itemNotes: result.data.item.itemNotes,
+            categoryFunctional: result.data.item.categoryFunctional,
+            categorySpecific: result.data.item.categorySpecific,
+            itemType: result.data.item.itemType,
+            itemManufacturer: result.data.item.itemManufacturer,
+            itemAttributes: result.data.item.itemAttributes,
+            primaryImage: image.id,
+            UserRef: userId,
           };
 
-          const item = await itemMutator.create(itemData);
+          const existingItems = await itemMutator.getList(
+            1,
+            1,
+            `primaryImage="${image.id}"`
+          );
+
+          let item: Item;
+          if (existingItems.items.length > 0) {
+            console.log(
+              `Item already exists for image ${image.id}, updating...`
+            );
+            item = await itemMutator.update(
+              existingItems.items[0].id,
+              itemData
+            );
+          } else {
+            console.log(
+              `Creating new item for image ${image.id} for user ${userId}`
+            );
+            item = await itemMutator.create(itemData);
+          }
           items.push(item);
 
           // Update image type and mark as completed
           await imageMutator.update(image.id, {
-            image_type: 'item',
-            analysis_status: 'completed',
+            imageType: 'item',
+            analysisStatus: 'completed',
           });
         } else {
-          // Create container
-          container = await containerMutator.create({
-            container_label: result.data.container.container_label,
-            container_notes: result.data.container.container_notes,
-            primary_image: image.id,
-          });
+          // Create container - safety check if it already exists
+          const existingContainers = await containerMutator.getList(
+            1,
+            1,
+            `primaryImage="${image.id}"`
+          );
 
-          // Create items for each item in the container
-          for (const itemMetadata of result.data.container.container_items) {
+          let containerObj: Container;
+          if (existingContainers.items.length > 0) {
+            console.log(
+              `Container already exists for image ${image.id}, updating...`
+            );
+            containerObj = await containerMutator.update(
+              existingContainers.items[0].id,
+              {
+                containerLabel: result.data.container.containerLabel,
+                containerNotes: result.data.container.containerNotes,
+                primaryImage: image.id,
+              }
+            );
+          } else {
+            console.log(
+              `Creating new container for image ${image.id} for user ${userId}`
+            );
+            containerObj = await containerMutator.create({
+              containerLabel: result.data.container.containerLabel,
+              containerNotes: result.data.container.containerNotes,
+              primaryImage: image.id,
+              UserRef: userId,
+            });
+          }
+          container = containerObj;
+
+          // Create items for each item in the container - safety check for each
+          for (const itemMetadata of result.data.container.containerItems) {
             const itemData: ItemInput = {
-              item_label: itemMetadata.item_label,
-              item_notes: itemMetadata.item_notes,
-              category_functional: itemMetadata.category_functional,
-              category_specific: itemMetadata.category_specific,
-              item_type: itemMetadata.item_type,
-              item_manufacturer: itemMetadata.item_manufacturer,
-              item_attributes: itemMetadata.item_attributes,
+              itemLabel: itemMetadata.itemLabel,
+              itemName: itemMetadata.itemName,
+              itemNotes: itemMetadata.itemNotes,
+              categoryFunctional: itemMetadata.categoryFunctional,
+              categorySpecific: itemMetadata.categorySpecific,
+              itemType: itemMetadata.itemType,
+              itemManufacturer: itemMetadata.itemManufacturer,
+              itemAttributes: itemMetadata.itemAttributes,
               container: container.id,
-              primary_image: image.id,
+              primaryImage: image.id,
+              UserRef: userId,
             };
 
-            const item = await itemMutator.create(itemData);
-            items.push(item);
+            // Check if this specific item already exists in this container
+            // Use itemLabel and container as uniqueness heuristic
+            const existingItemResult = await itemMutator.getList(
+              1,
+              1,
+              `container="${container.id}" && itemLabel="${itemData.itemLabel}"`
+            );
+
+            if (existingItemResult.items.length > 0) {
+              console.log(
+                `Item ${itemData.itemLabel} already exists in container ${container.id}, updating...`
+              );
+              const existingItem = existingItemResult.items[0];
+              const item = await itemMutator.update(existingItem.id, itemData);
+              items.push(item);
+            } else {
+              console.log(
+                `Creating new item ${itemData.itemLabel} in container ${container.id} for user ${userId}`
+              );
+              const item = await itemMutator.create(itemData);
+              items.push(item);
+            }
           }
 
           // Update image type and mark as completed
           await imageMutator.update(image.id, {
-            image_type: 'container',
-            analysis_status: 'completed',
+            imageType: 'container',
+            analysisStatus: 'completed',
           });
         }
 
         return { image, result, items, container };
       } catch (error) {
+        console.error(
+          `Error in processImageUpload for image ${image.id}:`,
+          error
+        );
         // Mark image as failed if analysis or creation fails
-        await imageMutator.updateAnalysisStatus(image.id, 'failed');
+        try {
+          await imageMutator.updateAnalysisStatus(image.id, 'failed');
+        } catch (updateError) {
+          console.error(
+            'Failed to update image status to failed:',
+            updateError
+          );
+        }
         throw error;
       }
     },
@@ -248,18 +356,25 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
       }
 
       // Download image and convert to base64 for AI analysis (OpenAI cannot access localhost URLs)
-      const imageData = await downloadImageAsBase64(pb, image);
+      const imageData = await downloadImageAsBase64(pb, imageMutator, image);
 
       // Get existing categories for context
       const categories = await this.getCategoryLibrary();
 
       // Analyze the image
-      const result = await getAIService().analyzeImage(imageData, categories);
+      const result = await getAIService().analyzeImage(
+        imageData,
+        categories,
+        this.searchCategories.bind(this)
+      );
 
       return result;
     },
 
-    async processExistingImage(imageId: string): Promise<ProcessImageResult> {
+    async processExistingImage(
+      imageId: string,
+      userId: string
+    ): Promise<ProcessImageResult> {
       // Get the image record
       const image = await imageMutator.getById(imageId);
 
@@ -288,22 +403,35 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
         throw error;
       }
 
+      // Compute file hash first for cache lookup
+      const imageBlob = await fetch(imageMutator.getFileUrl(image)).then((r) =>
+        r.blob()
+      );
+      const fileHash = await computeFileHash(await imageBlob.arrayBuffer());
+
+      // Update the image's fileHash field if it's not set or different
+      if (image.fileHash !== fileHash) {
+        await imageMutator.update(image.id, { fileHash });
+      }
+
+      // Check for cached metadata with same hash
+      const cachedEntry = await imageMetadataMutator.findByHash(fileHash);
+      const cachedMetadata = cachedEntry?.metadata;
+
       // Download image and convert to base64 for AI analysis (OpenAI cannot access localhost URLs)
-      const imageData = await downloadImageAsBase64(pb, image);
+      const imageData = await downloadImageAsBase64(pb, imageMutator, image);
 
       try {
         let result: AnalysisResult;
 
-        // Check if there's cached metadata for this image
-        const cachedEntry = await imageMetadataMutator.getByImageId(imageId);
-        if (cachedEntry?.metadata) {
+        if (cachedMetadata) {
           // Cache hit: reuse cached AI metadata
-          console.log(`Using cached AI metadata for image ${imageId}`);
-          result = cachedEntry.metadata as AnalysisResult;
+          console.log(`Cache hit for file hash ${fileHash.substring(0, 8)}...`);
+          result = cachedMetadata as AnalysisResult;
         } else {
           // Cache miss: call AI API
           console.log(
-            `No cached AI metadata for image ${imageId}, calling AI API`
+            `Cache miss for file hash ${fileHash.substring(0, 8)}..., calling AI API`
           );
 
           // Get existing categories for AI context
@@ -328,13 +456,11 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           }
 
           // Analyze with AI
-          result = await getAIService().analyzeImage(imageData, categories);
-
-          // Compute file hash for caching (need to download/compute)
-          const imageBlob = await fetch(
-            pb.files.getURL(image, image.file)
-          ).then((r) => r.blob());
-          const fileHash = await computeFileHash(await imageBlob.arrayBuffer());
+          result = await getAIService().analyzeImage(
+            imageData,
+            categories,
+            this.searchCategories.bind(this)
+          );
 
           // Save AI metadata to ImageMetadata collection for future cache hits
           await imageMetadataMutator.saveMetadata(
@@ -345,99 +471,124 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           );
         }
 
-        // 4. Create records based on result type
+        // 5. Create records based on result type
         const items: Item[] = [];
         let container: Container | undefined;
 
         if (result.type === 'item') {
-          // Check if item already exists for this image by querying items with this image as primary_image
+          // Check if item already exists for this image by querying items with this image as primaryImage
           let item: Item;
           const existingItems = await itemMutator.getList(
             1,
             1,
-            `primary_image="${image.id}"`
+            `primaryImage="${image.id}"`
           );
+
+          const itemData: ItemInput = {
+            itemLabel: result.data.item.itemLabel,
+            itemName: result.data.item.itemName,
+            itemNotes: result.data.item.itemNotes,
+            categoryFunctional: result.data.item.categoryFunctional,
+            categorySpecific: result.data.item.categorySpecific,
+            itemType: result.data.item.itemType,
+            itemManufacturer: result.data.item.itemManufacturer,
+            itemAttributes: result.data.item.itemAttributes,
+            primaryImage: image.id,
+            UserRef: userId,
+          };
 
           if (existingItems.items.length > 0) {
             // Update existing item
+            console.log(`Updating existing item for image ${imageId}`);
             const existingItem = existingItems.items[0];
-            item = await itemMutator.update(existingItem.id, {
-              item_label: result.data.item.item_label,
-              item_notes: result.data.item.item_notes,
-              category_functional: result.data.item.category_functional,
-              category_specific: result.data.item.category_specific,
-              item_type: result.data.item.item_type,
-              item_manufacturer: result.data.item.item_manufacturer,
-              item_attributes: result.data.item.item_attributes,
-              primary_image: image.id,
-            });
+            item = await itemMutator.update(existingItem.id, itemData);
           } else {
             // Create new item
-            item = await itemMutator.create({
-              item_label: result.data.item.item_label,
-              item_notes: result.data.item.item_notes,
-              category_functional: result.data.item.category_functional,
-              category_specific: result.data.item.category_specific,
-              item_type: result.data.item.item_type,
-              item_manufacturer: result.data.item.item_manufacturer,
-              item_attributes: result.data.item.item_attributes,
-              primary_image: image.id,
-            });
+            console.log(
+              `Creating new item for image ${imageId} for user ${userId}`
+            );
+            item = await itemMutator.create(itemData);
           }
           items.push(item);
 
           // Update image type and mark as completed
           await imageMutator.update(image.id, {
-            image_type: 'item',
-            analysis_status: 'completed',
+            imageType: 'item',
+            analysisStatus: 'completed',
           });
         } else {
           // Create container - check if one already exists for this image
           const existingContainers = await containerMutator.getList(
             1,
             1,
-            `primary_image="${image.id}"`
+            `primaryImage="${image.id}"`
           );
 
           if (existingContainers.items.length > 0) {
             // Update existing container
+            console.log(`Updating existing container for image ${imageId}`);
             const existingContainer = existingContainers.items[0];
             container = await containerMutator.update(existingContainer.id, {
-              container_label: result.data.container.container_label,
-              container_notes: result.data.container.container_notes,
-              primary_image: image.id,
+              containerLabel: result.data.container.containerLabel,
+              containerNotes: result.data.container.containerNotes,
+              primaryImage: image.id,
             });
           } else {
             // Create new container
+            console.log(
+              `Creating new container for image ${imageId} for user ${userId}`
+            );
             container = await containerMutator.create({
-              container_label: result.data.container.container_label,
-              container_notes: result.data.container.container_notes,
-              primary_image: image.id,
+              containerLabel: result.data.container.containerLabel,
+              containerNotes: result.data.container.containerNotes,
+              primaryImage: image.id,
+              UserRef: userId,
             });
           }
 
           // Create items for each item in the container
-          for (const itemMetadata of result.data.container.container_items) {
+          for (const itemMetadata of result.data.container.containerItems) {
             const itemData: ItemInput = {
-              item_label: itemMetadata.item_label,
-              item_notes: itemMetadata.item_notes,
-              category_functional: itemMetadata.category_functional,
-              category_specific: itemMetadata.category_specific,
-              item_type: itemMetadata.item_type,
-              item_manufacturer: itemMetadata.item_manufacturer,
-              item_attributes: itemMetadata.item_attributes,
+              itemLabel: itemMetadata.itemLabel,
+              itemName: itemMetadata.itemName,
+              itemNotes: itemMetadata.itemNotes,
+              categoryFunctional: itemMetadata.categoryFunctional,
+              categorySpecific: itemMetadata.categorySpecific,
+              itemType: itemMetadata.itemType,
+              itemManufacturer: itemMetadata.itemManufacturer,
+              itemAttributes: itemMetadata.itemAttributes,
               container: container.id,
-              primary_image: image.id,
+              primaryImage: image.id,
+              UserRef: userId,
             };
 
-            const item = await itemMutator.create(itemData);
-            items.push(item);
+            // Check if this specific item already exists in this container
+            const existingItemResult = await itemMutator.getList(
+              1,
+              1,
+              `container="${container.id}" && itemLabel="${itemData.itemLabel}"`
+            );
+
+            if (existingItemResult.items.length > 0) {
+              console.log(
+                `Updating existing item ${itemData.itemLabel} in container ${container.id}`
+              );
+              const existingItem = existingItemResult.items[0];
+              const item = await itemMutator.update(existingItem.id, itemData);
+              items.push(item);
+            } else {
+              console.log(
+                `Creating new item ${itemData.itemLabel} in container ${container.id} for user ${userId}`
+              );
+              const item = await itemMutator.create(itemData);
+              items.push(item);
+            }
           }
 
           // Update image type and mark as completed
           await imageMutator.update(image.id, {
-            image_type: 'container',
-            analysis_status: 'completed',
+            imageType: 'container',
+            analysisStatus: 'completed',
           });
         }
 
@@ -450,7 +601,74 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
     },
 
     async getCategoryLibrary(): Promise<CategoryLibrary> {
-      return itemMutator.getDistinctCategories();
+      const all = await itemMutator.getDistinctCategories();
+
+      // Default values to provide context if the database is empty
+      const defaults: CategoryLibrary = {
+        functional: [
+          'Tools',
+          'Electronics',
+          'Materials',
+          'Technology',
+          'Office',
+          'Furniture',
+          'Kitchen',
+          'Outdoor',
+          'Automotive',
+          'Hardware',
+        ],
+        specific: [
+          'Power Tools',
+          'Hand Tools',
+          'Computer Components',
+          'Fasteners',
+          'Sensors',
+          'Lab Equipment',
+          'Stationary',
+          'Kitchenware',
+          'Gardening',
+          'Safety Gear',
+        ],
+        itemType: [
+          'Drill',
+          'Screwdriver',
+          'CPU Heatsink',
+          'Screws',
+          'Proximity Sensor',
+          'Oscilloscope',
+          'Pen',
+          'Plate',
+          'Shovel',
+          'Safety Glasses',
+        ],
+      };
+
+      return {
+        functional:
+          all.functional.length > 0
+            ? all.functional.slice(0, 10)
+            : defaults.functional,
+        specific:
+          all.specific.length > 0
+            ? all.specific.slice(0, 10)
+            : defaults.specific,
+        itemType:
+          all.itemType.length > 0
+            ? all.itemType.slice(0, 10)
+            : defaults.itemType,
+      };
+    },
+
+    async searchCategories(
+      query: string,
+      type: 'functional' | 'specific' | 'itemType'
+    ): Promise<string[]> {
+      const all = await itemMutator.getDistinctCategories();
+      const categories = all[type] || [];
+      const lowerQuery = query.toLowerCase();
+      return categories
+        .filter((cat) => cat.toLowerCase().includes(lowerQuery))
+        .slice(0, 10); // Limit to 10 results
     },
   };
 }

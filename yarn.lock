@@ -1166,6 +1166,10 @@ __metadata:
 "@project/pb@workspace:pocketbase":
   version: 0.0.0-use.local
   resolution: "@project/pb@workspace:pocketbase"
+  dependencies:
+    "@eslint/js": "npm:^9.39.2"
+    eslint: "npm:^9.39.2"
+    prettier: "npm:^3.8.1"
   languageName: unknown
   linkType: soft
 

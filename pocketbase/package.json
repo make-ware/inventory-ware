@@ -2,19 +2,31 @@
   "name": "@project/pb",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "./pocketbase serve",
     "build": "echo 'PocketBase workspace - no build needed'",
-    "test": "echo 'PocketBase workspace - no tests needed'",
-    "test:watch": "echo 'PocketBase workspace - no tests needed'",
-    "lint": "echo 'PocketBase workspace - no lint needed'",
-    "lint:fix": "echo 'PocketBase workspace - no lint needed'",
-    "typecheck": "echo 'PocketBase workspace - no typecheck needed'",
-    "format": "echo 'PocketBase workspace - no format needed'",
-    "format:check": "echo 'PocketBase workspace - no format check needed'",
+    "test": "echo 'PocketBase workspace - no tests'",
+    "test:watch": "echo 'PocketBase workspace - no tests'",
+    "lint": "eslint pb_hooks/",
+    "lint:fix": "eslint pb_hooks/ --fix",
+    "typecheck": "echo 'PocketBase hooks use JSDoc for type hints - see pb_data/types.d.ts'",
+    "format": "prettier --write 'pb_hooks/**/*.js'",
+    "format:check": "prettier --check 'pb_hooks/**/*.js'",
     "serve": "./pocketbase serve",
     "admin": "./pocketbase admin",
     "clean": "rm -rf pb_data"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "prettier": "^3.8.1"
+  },
+  "prettier": {
+    "semi": true,
+    "singleQuote": false,
+    "tabWidth": 2,
+    "trailingComma": "es5"
   },
   "packageManager": "yarn@4.12.0"
 }

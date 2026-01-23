@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator } from '@project/shared';
 import type { Container, ContainerInput } from '@project/shared';
-import { ContainerForm } from '@/components/inventory';
+import { ContainerUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -20,7 +20,7 @@ export default function EditContainerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const containerMutator = new ContainerMutator(pb);
+  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
 
   const loadContainer = useCallback(async () => {
     try {
@@ -37,14 +37,15 @@ export default function EditContainerPage() {
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerId, router]);
+  }, [containerId, router, containerMutator]);
 
   useEffect(() => {
     loadContainer();
   }, [loadContainer]);
 
-  const handleSubmit = async (data: ContainerInput) => {
+  const handleSubmit = async (
+    data: Partial<Omit<ContainerInput, 'UserRef'>>
+  ) => {
     try {
       setIsSubmitting(true);
       await containerMutator.update(containerId, data);
@@ -75,7 +76,7 @@ export default function EditContainerPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-3xl space-y-6">
+    <div className="container py-8 max-w-3xl space-y-6">
       <Button
         variant="ghost"
         onClick={() => router.push(`/inventory/containers/${containerId}`)}
@@ -90,11 +91,11 @@ export default function EditContainerPage() {
           <CardTitle>Edit Container</CardTitle>
         </CardHeader>
         <CardContent>
-          <ContainerForm
+          <ContainerUpdateForm
             defaultValues={{
-              container_label: container.container_label,
-              container_notes: container.container_notes,
-              primary_image: container.primary_image,
+              containerLabel: container.containerLabel,
+              containerNotes: container.containerNotes,
+              primaryImage: container.primaryImage,
             }}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

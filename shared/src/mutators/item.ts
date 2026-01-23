@@ -4,16 +4,16 @@ import type { TypedPocketBase } from '../types';
 import { BaseMutator } from './base';
 
 export interface ItemSearchFilters {
-  category_functional?: string;
-  category_specific?: string;
-  item_type?: string;
+  categoryFunctional?: string;
+  categorySpecific?: string;
+  itemType?: string;
   container?: string;
 }
 
 export interface CategoryLibrary {
   functional: string[];
   specific: string[];
-  item_type: string[];
+  itemType: string[];
 }
 
 export class ItemMutator extends BaseMutator<Item, ItemInput> {
@@ -30,56 +30,21 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
     return ItemInputSchema.parse(input);
   }
 
-  /**
-   * Create a new item and record the initial image mapping
-   */
-  async create(input: ItemInput): Promise<Item> {
-    try {
-      // Set the user to the currently authenticated user
-      const userId = this.pb.authStore.record?.id;
-      const inputWithUser = { ...input, User: userId };
-      const record = await super.create(inputWithUser);
-
-      // Record the initial mapping if primary_image is provided
-      if (record && input.primary_image) {
-        await this.pb.collection('ItemImageMappings').create({
-          item: record.id,
-          image: input.primary_image,
-          bounding_box: input.primary_image_bbox,
-        });
-      }
-
-      return record;
-    } catch (error) {
-      return this.errorWrapper(error);
-    }
-  }
+  // Note: ItemImages mapping is now handled by PocketBase hooks in pb_hooks/main.pb.js
 
   /**
-   * Update an item and record the old image if changed
+   * Update an item
+   * @param id The item ID
+   * @param input Partial item input (UserRef is omitted as it cannot be changed)
+   * @returns Updated Item record
    */
-  async update(id: string, input: Partial<ItemInput>): Promise<Item> {
+  async update(
+    id: string,
+    input: Partial<Omit<ItemInput, 'UserRef'>>
+  ): Promise<Item> {
     try {
-      // Get the current record to check if primary_image is changing
-      // Using getById from BaseMutator which is equivalent to get(id)
-      const current = await this.getById(id);
-
-      // If primary_image is being updated and it's different from current
-      if (
-        current &&
-        input.primary_image &&
-        current.primary_image &&
-        input.primary_image !== current.primary_image
-      ) {
-        // Record the historical mapping
-        await this.pb.collection('ItemImageMappings').create({
-          item: id,
-          image: current.primary_image,
-          bounding_box: current.primary_image_bbox,
-        });
-      }
-
-      return await super.update(id, input);
+      // UserRef should never be updated, so we ensure it's not included
+      return await super.update(id, input as Partial<Item>);
     } catch (error) {
       return this.errorWrapper(error);
     }
@@ -99,22 +64,22 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
       if (query && query.trim()) {
         const escapedQuery = query.replace(/"/g, '\\"');
         filterParts.push(
-          `(item_label~"${escapedQuery}" || item_notes~"${escapedQuery}" || item_manufacturer~"${escapedQuery}")`
+          `(itemLabel~"${escapedQuery}" || itemName~"${escapedQuery}" || itemNotes~"${escapedQuery}" || itemManufacturer~"${escapedQuery}")`
         );
       }
 
       // Add category filters
-      if (filters?.category_functional) {
-        const escaped = filters.category_functional.replace(/"/g, '\\"');
-        filterParts.push(`category_functional="${escaped}"`);
+      if (filters?.categoryFunctional) {
+        const escaped = filters.categoryFunctional.replace(/"/g, '\\"');
+        filterParts.push(`categoryFunctional="${escaped}"`);
       }
-      if (filters?.category_specific) {
-        const escaped = filters.category_specific.replace(/"/g, '\\"');
-        filterParts.push(`category_specific="${escaped}"`);
+      if (filters?.categorySpecific) {
+        const escaped = filters.categorySpecific.replace(/"/g, '\\"');
+        filterParts.push(`categorySpecific="${escaped}"`);
       }
-      if (filters?.item_type) {
-        const escaped = filters.item_type.replace(/"/g, '\\"');
-        filterParts.push(`item_type="${escaped}"`);
+      if (filters?.itemType) {
+        const escaped = filters.itemType.replace(/"/g, '\\"');
+        filterParts.push(`itemType="${escaped}"`);
       }
       if (filters?.container) {
         const escaped = filters.container.replace(/"/g, '\\"');
@@ -160,7 +125,7 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
       const functional = [
         ...new Set(
           items
-            .map((i) => i.category_functional)
+            .map((i) => i.categoryFunctional)
             .filter((c): c is string => Boolean(c))
         ),
       ];
@@ -168,21 +133,21 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
       const specific = [
         ...new Set(
           items
-            .map((i) => i.category_specific)
+            .map((i) => i.categorySpecific)
             .filter((c): c is string => Boolean(c))
         ),
       ];
 
-      const item_type = [
+      const itemType = [
         ...new Set(
-          items.map((i) => i.item_type).filter((c): c is string => Boolean(c))
+          items.map((i) => i.itemType).filter((c): c is string => Boolean(c))
         ),
       ];
 
       return {
         functional: functional.sort(),
         specific: specific.sort(),
-        item_type: item_type.sort(),
+        itemType: itemType.sort(),
       };
     } catch (error) {
       return this.errorWrapper(error);

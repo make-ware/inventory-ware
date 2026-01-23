@@ -13,7 +13,7 @@ import type { AnalysisResult } from '@project/shared';
 export interface CategoryLibrary {
   functional: string[];
   specific: string[];
-  item_type: string[];
+  itemType: string[];
 }
 
 /**
@@ -23,12 +23,17 @@ export interface AIAnalysisService {
   /**
    * Analyze an image and extract structured metadata
    * @param imageData - Base64-encoded image data (data URL format: data:image/jpeg;base64,...)
-   * @param existingCategories - Existing category values for consistency
+   * @param existingCategories - Existing category values for consistency (3 examples of each)
+   * @param searchCategories - Tool function for AI to search all existing categories
    * @returns Structured analysis result (item or container)
    */
   analyzeImage(
     imageData: string,
-    existingCategories: CategoryLibrary
+    existingCategories: CategoryLibrary,
+    searchCategories: (
+      query: string,
+      type: 'functional' | 'specific' | 'itemType'
+    ) => Promise<string[]>
   ): Promise<AnalysisResult>;
 
   /**
@@ -122,12 +127,22 @@ export function createAIAnalysisService(): AIAnalysisService {
 
       // Build category context for AI
       const categoryContext = `
-Existing categories for consistency:
+IMPORTANT CATEGORY & ATTRIBUTE RULES:
+1. Categories AND Attributes allow alphanumeric (A-Z, a-z, 0-9), hyphens (-), and SPACES ( ). 
+2. Use human-readable formats: "Anti-Static Bags", "CPU Cooler", "Input Voltage" are all valid.
+3. Use existing categories whenever possible to avoid duplicates.
+4. If you are unsure, use the 'searchCategories' tool to find similar existing categories.
+5. If you must create a new category or attribute, keep it concise but descriptive.
+
+DISPLAY NAME RULES:
+- 'itemType' is the PRIMARY DISPLAY NAME. It should be a concise, generic noun (e.g., "Drill", "Screws", "Bin").
+- 'itemName' is the SPECIFIC IDENTITY. It should include the brand and record if possible (e.g., "DeWalt DCD771", "Grizzly G8688").
+- 'itemLabel' is a descriptive tag for the specific instance (e.g., "Main Workshop Drill").
+
+Existing example categories for your reference:
 - Functional: ${existingCategories.functional.join(', ') || 'None yet'}
 - Specific: ${existingCategories.specific.join(', ') || 'None yet'}
-- Item Types: ${existingCategories.item_type.join(', ') || 'None yet'}
-
-Use existing categories when appropriate, or create new ones if needed.
+- Item Types: ${existingCategories.itemType.join(', ') || 'None yet'}
 `;
 
       if (imageType === 'item') {
@@ -146,7 +161,8 @@ Use existing categories when appropriate, or create new ones if needed.
 
 ${categoryContext}
 
-Be thorough and specific in your analysis. Include relevant attributes like dimensions, specifications, quantities, colors, or other distinguishing features.`,
+Be thorough and specific in your analysis. Include relevant attributes like dimensions, specifications, quantities, colors, or other distinguishing features.
+Return the final result as a structured object.`,
                 },
                 { type: 'image', image: imageData },
               ],
@@ -170,7 +186,8 @@ Be thorough and specific in your analysis. Include relevant attributes like dime
 
 ${categoryContext}
 
-For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.`,
+For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.
+Return the final result as a structured object.`,
                 },
                 { type: 'image', image: imageData },
               ],

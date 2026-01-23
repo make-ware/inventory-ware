@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
-import { ItemMutator } from '@project/shared';
+import { ItemMutator, formatPocketBaseError } from '@project/shared';
 import type { Item, ItemInput, CategoryLibrary } from '@project/shared';
-import { ItemForm } from '@/components/inventory';
+import { ItemUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -28,12 +28,25 @@ export default function EditItemPage() {
       setIsLoading(true);
       const itemData = await itemMutator.getById(itemId);
       if (!itemData) {
-        throw new Error('Item not found');
+        toast.error('Item not found');
+        router.push('/inventory');
+        return;
       }
       setItem(itemData);
     } catch (error) {
       console.error('Failed to load item:', error);
-      toast.error('Failed to load item');
+      let errorMessage = 'Failed to load item. Please try again.';
+
+      // Try to extract a meaningful error message
+      if (error && typeof error === 'object' && 'data' in error) {
+        errorMessage = formatPocketBaseError(
+          error as { data?: Record<string, string[]>; message?: string }
+        );
+      } else if (error instanceof Error) {
+        errorMessage = `Failed to load item: ${error.message}`;
+      }
+
+      toast.error(errorMessage);
       router.push('/inventory');
     } finally {
       setIsLoading(false);
@@ -45,10 +58,15 @@ export default function EditItemPage() {
     itemMutator
       .getDistinctCategories()
       .then(setCategories)
-      .catch((err) => console.error('Failed to load categories', err));
+      .catch((err) => {
+        console.error('Failed to load categories', err);
+        toast.error(
+          'Failed to load categories. Some fields may not be available.'
+        );
+      });
   }, [loadItem, itemMutator]);
 
-  const handleSubmit = async (data: ItemInput) => {
+  const handleSubmit = async (data: Partial<Omit<ItemInput, 'UserRef'>>) => {
     try {
       setIsSubmitting(true);
       await itemMutator.update(itemId, data);
@@ -56,7 +74,18 @@ export default function EditItemPage() {
       router.push(`/inventory/items/${itemId}`);
     } catch (error) {
       console.error('Failed to update item:', error);
-      toast.error('Failed to update item');
+      let errorMessage = 'Failed to update item. Please try again.';
+
+      // Try to extract a meaningful error message
+      if (error && typeof error === 'object' && 'data' in error) {
+        errorMessage = formatPocketBaseError(
+          error as { data?: Record<string, string[]>; message?: string }
+        );
+      } else if (error instanceof Error) {
+        errorMessage = error.message || errorMessage;
+      }
+
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +108,7 @@ export default function EditItemPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-3xl space-y-6">
+    <div className="container py-8 max-w-3xl space-y-6">
       <Button
         variant="ghost"
         onClick={() => router.push(`/inventory/items/${itemId}`)}
@@ -94,17 +123,17 @@ export default function EditItemPage() {
           <CardTitle>Edit Item</CardTitle>
         </CardHeader>
         <CardContent>
-          <ItemForm
+          <ItemUpdateForm
             defaultValues={{
-              item_label: item.item_label,
-              item_notes: item.item_notes,
-              category_functional: item.category_functional,
-              category_specific: item.category_specific,
-              item_type: item.item_type,
-              item_manufacturer: item.item_manufacturer,
-              item_attributes: item.item_attributes,
+              itemLabel: item.itemLabel,
+              itemNotes: item.itemNotes,
+              categoryFunctional: item.categoryFunctional,
+              categorySpecific: item.categorySpecific,
+              itemType: item.itemType,
+              itemManufacturer: item.itemManufacturer,
+              itemAttributes: item.itemAttributes,
               container: item.container,
-              primary_image: item.primary_image,
+              primaryImage: item.primaryImage,
             }}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

@@ -17,7 +17,7 @@ const { mockPb, mockAuthHelpers, mockCollection } = vi.hoisted(() => {
 
   const mockAuthStore = {
     isValid: false,
-    model: null,
+    record: null,
     onChange: vi.fn(() => vi.fn()), // Returns unsubscribe function
     clear: vi.fn(),
   };

@@ -1,7 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const collection_ItemRecords = new Collection({
-    id: "pb_vym88wa3c9m6vxl",
+    id: "pb_1k1ox5bm0jm63op",
     name: "ItemRecords",
     type: "base",
     listRule: "@request.auth.id != \"\"",
@@ -48,50 +48,42 @@ migrate((app) => {
       system: false,
     },
     {
-      name: "Item",
+      name: "ItemRef",
       type: "relation",
       required: true,
-      collectionId: "pb_7b27uzhylt0gqi8",
+      collectionId: "pb_n7q78k4cjdxwfdf",
       maxSelect: 1,
       minSelect: 0,
       cascadeDelete: true,
     },
     {
-      name: "User",
+      name: "UserRef",
       type: "relation",
-      required: false,
+      required: true,
       collectionId: "_pb_users_auth_",
       maxSelect: 1,
       minSelect: 0,
       cascadeDelete: false,
     },
     {
-      name: "transaction",
+      name: "transactionType",
       type: "select",
       required: true,
       maxSelect: 1,
       values: ["create", "update", "delete"],
     },
     {
-      name: "field_name",
+      name: "fieldName",
       type: "text",
       required: false,
     },
     {
-      name: "new_value",
+      name: "newValue",
       type: "text",
       required: true,
     },
-    {
-      name: "previous_value",
-      type: "text",
-      required: false,
-    },
   ],
-    indexes: [
-    "CREATE INDEX `idx_item_item_records` ON `item_records` (`item`)",
-    "CREATE INDEX `idx_created_item_records` ON `item_records` (`created`)",
-  ],
+    indexes: [],
   });
 
   return app.save(collection_ItemRecords);

@@ -3,13 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Simple mock for PocketBase AuthStore behavior
 class MockAuthStore {
   isValid = false;
-  model = null;
-  get record() {
-    return this.model;
-  }
-  private listeners: Array<(token: string | null, model: any) => void> = [];
+  record = null;
+  private listeners: Array<(token: string | null, record: any) => void> = [];
 
-  onChange(callback: (token: string | null, model: any) => void) {
+  onChange(callback: (token: string | null, record: any) => void) {
     this.listeners.push(callback);
     return () => {
       const index = this.listeners.indexOf(callback);
@@ -21,18 +18,18 @@ class MockAuthStore {
 
   clear() {
     this.isValid = false;
-    this.model = null;
+    this.record = null;
     this.notifyListeners(null, null);
   }
 
-  setAuth(token: string, model: any) {
+  setAuth(token: string, record: any) {
     this.isValid = true;
-    this.model = model;
-    this.notifyListeners(token, model);
+    this.record = record;
+    this.notifyListeners(token, record);
   }
 
-  private notifyListeners(token: string | null, model: any) {
-    this.listeners.forEach((listener) => listener(token, model));
+  private notifyListeners(token: string | null, record: any) {
+    this.listeners.forEach((listener) => listener(token, record));
   }
 }
 
@@ -73,9 +70,9 @@ describe('Authentication State Reactivity Property Tests', () => {
     const testUsers = Array.from({ length: 3 }, generateRandomUser);
 
     // Track state changes
-    const stateChanges: Array<{ token: string | null; model: any }> = [];
-    const unsubscribe = authStore.onChange((token, model) => {
-      stateChanges.push({ token, model });
+    const stateChanges: Array<{ token: string | null; record: any }> = [];
+    const unsubscribe = authStore.onChange((token, record) => {
+      stateChanges.push({ token, record });
     });
 
     for (const testUser of testUsers) {
@@ -103,10 +100,10 @@ describe('Authentication State Reactivity Property Tests', () => {
       const logoutChange = stateChanges[i * 2 + 1];
 
       expect(loginChange.token).toBe('mock-token');
-      expect(loginChange.model).toEqual(testUsers[i]);
+      expect(loginChange.record).toEqual(testUsers[i]);
 
       expect(logoutChange.token).toBe(null);
-      expect(logoutChange.model).toBe(null);
+      expect(logoutChange.record).toBe(null);
     }
 
     unsubscribe();
@@ -119,12 +116,12 @@ describe('Authentication State Reactivity Property Tests', () => {
     const listener1Changes: any[] = [];
     const listener2Changes: any[] = [];
 
-    const unsubscribe1 = authStore.onChange((token, model) => {
-      listener1Changes.push({ token, model });
+    const unsubscribe1 = authStore.onChange((token, record) => {
+      listener1Changes.push({ token, record });
     });
 
-    const unsubscribe2 = authStore.onChange((token, model) => {
-      listener2Changes.push({ token, model });
+    const unsubscribe2 = authStore.onChange((token, record) => {
+      listener2Changes.push({ token, record });
     });
 
     // Trigger state change
@@ -133,8 +130,8 @@ describe('Authentication State Reactivity Property Tests', () => {
     // Both listeners should receive the change
     expect(listener1Changes).toHaveLength(1);
     expect(listener2Changes).toHaveLength(1);
-    expect(listener1Changes[0]).toEqual({ token: 'token', model: testUser });
-    expect(listener2Changes[0]).toEqual({ token: 'token', model: testUser });
+    expect(listener1Changes[0]).toEqual({ token: 'token', record: testUser });
+    expect(listener2Changes[0]).toEqual({ token: 'token', record: testUser });
 
     unsubscribe1();
     unsubscribe2();
@@ -155,8 +152,8 @@ describe('Authentication State Reactivity Property Tests', () => {
     const users = Array.from({ length: 5 }, generateRandomUser);
 
     const stateChanges: any[] = [];
-    const unsubscribe = authStore.onChange((token, model) => {
-      stateChanges.push({ token, model });
+    const unsubscribe = authStore.onChange((token, record) => {
+      stateChanges.push({ token, record });
     });
 
     // Rapidly change between different authenticated users
@@ -173,12 +170,12 @@ describe('Authentication State Reactivity Property Tests', () => {
     // Verify each user change
     for (let i = 0; i < users.length; i++) {
       expect(stateChanges[i].token).toBe(`token-${users[i].id}`);
-      expect(stateChanges[i].model).toEqual(users[i]);
+      expect(stateChanges[i].record).toEqual(users[i]);
     }
 
     // Verify final logout
     expect(stateChanges[users.length].token).toBe(null);
-    expect(stateChanges[users.length].model).toBe(null);
+    expect(stateChanges[users.length].record).toBe(null);
 
     unsubscribe();
   });

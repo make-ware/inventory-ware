@@ -20,7 +20,7 @@ export default function ProfilePage() {
   // Show loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="container py-8 max-w-2xl">
         <div className="space-y-6">
           <div className="space-y-2">
             <Skeleton className="h-8 w-48" />

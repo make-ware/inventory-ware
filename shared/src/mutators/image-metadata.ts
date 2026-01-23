@@ -7,10 +7,10 @@ export type { ImageMetadata };
 
 export type ImageMetadataInput = {
   Image?: string;
-  file_hash: string;
+  fileHash: string;
   metadata?: AnalysisResult | null;
   version?: number;
-  image_type?: 'item' | 'container' | 'unprocessed';
+  imageType?: 'item' | 'container' | 'unprocessed';
 };
 
 export class ImageMetadataMutator {
@@ -28,7 +28,7 @@ export class ImageMetadataMutator {
   async findByHash(hash: string): Promise<ImageMetadata | null> {
     try {
       const result = await this.getCollection().getList(1, 1, {
-        filter: `file_hash="${hash}"`,
+        filter: `fileHash="${hash}"`,
         sort: '-created',
       });
       return result.items.length > 0 ? result.items[0] : null;
@@ -60,16 +60,16 @@ export class ImageMetadataMutator {
       return await this.getCollection().update(existing.id, {
         Image: imageId,
         metadata,
-        image_type: imageType,
+        imageType: imageType,
         version: (existing.version ?? 1) + 1,
       });
     } else {
       // Create new entry
       return await this.getCollection().create({
         Image: imageId,
-        file_hash: hash,
+        fileHash: hash,
         metadata,
-        image_type: imageType,
+        imageType: imageType,
         version: 1,
       });
     }
