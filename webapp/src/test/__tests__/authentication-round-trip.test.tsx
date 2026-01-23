@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth';
 vi.mock('@/lib/pocketbase', () => {
   const mockAuthStore = {
     isValid: false,
-    model: null,
+    record: null,
     token: '',
     clear: vi.fn(),
     onChange: vi.fn(() => vi.fn()),

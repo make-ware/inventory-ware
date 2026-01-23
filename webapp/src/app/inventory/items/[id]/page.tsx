@@ -4,7 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import NextImage from 'next/image';
 import pb from '@/lib/pocketbase-client';
-import { ItemMutator, ImageMutator, ContainerMutator } from '@project/shared';
+import {
+  ItemMutator,
+  ImageMutator,
+  ContainerMutator,
+  formatCategoryLabel,
+} from '@project/shared';
 import type { Item, Image, Container } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +23,7 @@ import {
   Trash2,
   Package,
   Image as ImageIcon,
+  Copy,
 } from 'lucide-react';
 
 export default function ItemDetailPage() {
@@ -86,7 +92,7 @@ export default function ItemDetailPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   if (isLoading) {
@@ -102,7 +108,7 @@ export default function ItemDetailPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className="container py-8 space-y-6">
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
@@ -113,6 +119,15 @@ export default function ItemDetailPage() {
           Back to Inventory
         </Button>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              router.push(`/inventory/items/new?clone_from=${itemId}`)
+            }
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Clone
+          </Button>
           <Button
             variant="outline"
             onClick={() => router.push(`/inventory/items/${itemId}/edit`)}
@@ -132,14 +147,30 @@ export default function ItemDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">{item.item_label}</CardTitle>
+              <CardTitle className="text-2xl">
+                {formatCategoryLabel(item.itemType)}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {item.item_notes && (
+              {item.itemName && (
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Product Name</h3>
+                  <p className="text-lg font-semibold">{item.itemName}</p>
+                </div>
+              )}
+              {item.itemLabel && (
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Label</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {item.itemLabel}
+                  </p>
+                </div>
+              )}
+              {item.itemNotes && (
                 <div>
                   <h3 className="text-sm font-medium mb-2">Notes</h3>
                   <p className="text-sm text-muted-foreground">
-                    {item.item_notes}
+                    {item.itemNotes}
                   </p>
                 </div>
               )}
@@ -149,31 +180,35 @@ export default function ItemDetailPage() {
               <div>
                 <h3 className="text-sm font-medium mb-2">Categories</h3>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{item.category_functional}</Badge>
-                  <Badge variant="secondary">{item.category_specific}</Badge>
-                  <Badge>{item.item_type}</Badge>
+                  <Badge variant="outline">
+                    {formatCategoryLabel(item.categoryFunctional)}
+                  </Badge>
+                  <Badge variant="secondary">
+                    {formatCategoryLabel(item.categorySpecific)}
+                  </Badge>
+                  <Badge>{formatCategoryLabel(item.itemType)}</Badge>
                 </div>
               </div>
 
-              {item.item_manufacturer && (
+              {item.itemManufacturer && (
                 <>
                   <Separator />
                   <div>
                     <h3 className="text-sm font-medium mb-2">Manufacturer</h3>
                     <p className="text-sm text-muted-foreground">
-                      {item.item_manufacturer}
+                      {item.itemManufacturer}
                     </p>
                   </div>
                 </>
               )}
 
-              {item.item_attributes && item.item_attributes.length > 0 && (
+              {item.itemAttributes && item.itemAttributes.length > 0 && (
                 <>
                   <Separator />
                   <div>
                     <h3 className="text-sm font-medium mb-2">Attributes</h3>
                     <div className="grid grid-cols-2 gap-3">
-                      {item.item_attributes.map((attr, index) => (
+                      {item.itemAttributes.map((attr, index) => (
                         <div key={index} className="space-y-1">
                           <p className="text-xs font-medium text-muted-foreground">
                             {attr.name}
@@ -199,7 +234,7 @@ export default function ItemDetailPage() {
                       }
                     >
                       <Package className="h-4 w-4" />
-                      {container.container_label}
+                      {container.containerLabel}
                     </Button>
                   </div>
                 </>
@@ -236,7 +271,7 @@ export default function ItemDetailPage() {
                         className="object-cover"
                         unoptimized
                       />
-                      {image.id === item.primary_image && (
+                      {image.id === item.primaryImage && (
                         <Badge className="absolute top-2 right-2 z-10">
                           Primary
                         </Badge>

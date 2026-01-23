@@ -11,13 +11,15 @@ function createTestItem(overrides: Partial<Item> = {}): Item {
     collectionId: 'items',
     collectionName: 'Items',
     expand: {},
-    item_label: overrides.item_label || 'Test Item',
-    item_notes: overrides.item_notes || '',
-    category_functional: overrides.category_functional || 'Tools',
-    category_specific: overrides.category_specific || 'Power Tools',
-    item_type: overrides.item_type || 'Drill',
-    item_manufacturer: overrides.item_manufacturer || '',
-    item_attributes: overrides.item_attributes || [],
+    itemLabel: overrides.itemLabel || 'Test Item',
+    itemName: overrides.itemName || '',
+    itemNotes: overrides.itemNotes || '',
+    categoryFunctional: overrides.categoryFunctional || 'Tools',
+    categorySpecific: overrides.categorySpecific || 'Power Tools',
+    itemType: overrides.itemType || 'Drill',
+    itemManufacturer: overrides.itemManufacturer || '',
+    itemAttributes: overrides.itemAttributes || [],
+    UserRef: overrides.UserRef || 'test-user',
     created: overrides.created || new Date().toISOString(),
     updated: overrides.updated || new Date().toISOString(),
     ...overrides,
@@ -49,19 +51,19 @@ function generateRandomItems(count: number): Item[] {
     items.push(
       createTestItem({
         id: `item-${i}`,
-        item_label: `Item ${i}`,
-        item_notes: `Notes for item ${i}`,
-        category_functional:
+        itemLabel: `Item ${i}`,
+        itemNotes: `Notes for item ${i}`,
+        categoryFunctional:
           functionalCategories[
             Math.floor(Math.random() * functionalCategories.length)
           ],
-        category_specific:
+        categorySpecific:
           specificCategories[
             Math.floor(Math.random() * specificCategories.length)
           ],
-        item_type: itemTypes[Math.floor(Math.random() * itemTypes.length)],
-        item_manufacturer: `Manufacturer ${i % 3}`,
-        item_attributes: [],
+        itemType: itemTypes[Math.floor(Math.random() * itemTypes.length)],
+        itemManufacturer: `Manufacturer ${i % 3}`,
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       })
@@ -75,23 +77,23 @@ function generateRandomItems(count: number): Item[] {
  */
 function deriveCategoriesFromItems(items: Item[]): CategoryLibrary {
   const functional = [
-    ...new Set(items.map((i) => i.category_functional).filter(Boolean)),
+    ...new Set(items.map((i) => i.categoryFunctional).filter(Boolean)),
   ].sort();
   const specific = [
-    ...new Set(items.map((i) => i.category_specific).filter(Boolean)),
+    ...new Set(items.map((i) => i.categorySpecific).filter(Boolean)),
   ].sort();
-  const item_type = [
-    ...new Set(items.map((i) => i.item_type).filter(Boolean)),
+  const itemType = [
+    ...new Set(items.map((i) => i.itemType).filter(Boolean)),
   ].sort();
 
-  return { functional, specific, item_type };
+  return { functional, specific, itemType };
 }
 
 describe('Category Derivation Property Tests', () => {
   /**
    * Property 7: Category Derivation from Items
    * For any set of Items in the system, the category library SHALL contain exactly
-   * the distinct values of category_functional, category_specific, and item_type
+   * the distinct values of categoryFunctional, categorySpecific, and itemType
    * from those Items, with no additional or missing values.
    * Validates: Requirements 5.1, 5.4, 5.5
    *
@@ -115,8 +117,8 @@ describe('Category Derivation Property Tests', () => {
       expect(actual.specific.length).toBe(expected.specific.length);
 
       // Verify item types match exactly
-      expect(actual.item_type).toEqual(expected.item_type);
-      expect(actual.item_type.length).toBe(expected.item_type.length);
+      expect(actual.itemType).toEqual(expected.itemType);
+      expect(actual.itemType.length).toBe(expected.itemType.length);
     }
   });
 
@@ -126,20 +128,20 @@ describe('Category Derivation Property Tests', () => {
 
     expect(categories.functional).toEqual([]);
     expect(categories.specific).toEqual([]);
-    expect(categories.item_type).toEqual([]);
+    expect(categories.itemType).toEqual([]);
   });
 
   it('Property 7: Category Derivation - should handle single item', () => {
     const items: Item[] = [
       createTestItem({
         id: 'item-1',
-        item_label: 'Test Item',
-        item_notes: 'Test notes',
-        category_functional: 'Tools',
-        category_specific: 'Power Tools',
-        item_type: 'Drill',
-        item_manufacturer: 'TestCo',
-        item_attributes: [],
+        itemLabel: 'Test Item',
+        itemNotes: 'Test notes',
+        categoryFunctional: 'Tools',
+        categorySpecific: 'Power Tools',
+        itemType: 'Drill',
+        itemManufacturer: 'TestCo',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
@@ -149,44 +151,44 @@ describe('Category Derivation Property Tests', () => {
 
     expect(categories.functional).toEqual(['Tools']);
     expect(categories.specific).toEqual(['Power Tools']);
-    expect(categories.item_type).toEqual(['Drill']);
+    expect(categories.itemType).toEqual(['Drill']);
   });
 
   it('Property 7: Category Derivation - should deduplicate categories', () => {
     const items: Item[] = [
       createTestItem({
         id: 'item-1',
-        item_label: 'Item 1',
-        item_notes: '',
-        category_functional: 'Tools',
-        category_specific: 'Power Tools',
-        item_type: 'Drill',
-        item_manufacturer: '',
-        item_attributes: [],
+        itemLabel: 'Item 1',
+        itemNotes: '',
+        categoryFunctional: 'Tools',
+        categorySpecific: 'Power Tools',
+        itemType: 'Drill',
+        itemManufacturer: '',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
       createTestItem({
         id: 'item-2',
-        item_label: 'Item 2',
-        item_notes: '',
-        category_functional: 'Tools',
-        category_specific: 'Power Tools',
-        item_type: 'Drill',
-        item_manufacturer: '',
-        item_attributes: [],
+        itemLabel: 'Item 2',
+        itemNotes: '',
+        categoryFunctional: 'Tools',
+        categorySpecific: 'Power Tools',
+        itemType: 'Drill',
+        itemManufacturer: '',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
       createTestItem({
         id: 'item-3',
-        item_label: 'Item 3',
-        item_notes: '',
-        category_functional: 'Electronics',
-        category_specific: 'Sensors',
-        item_type: 'Arduino',
-        item_manufacturer: '',
-        item_attributes: [],
+        itemLabel: 'Item 3',
+        itemNotes: '',
+        categoryFunctional: 'Electronics',
+        categorySpecific: 'Sensors',
+        itemType: 'Arduino',
+        itemManufacturer: '',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
@@ -203,45 +205,45 @@ describe('Category Derivation Property Tests', () => {
     expect(categories.specific.length).toBe(2);
 
     // Should have exactly 2 item types (Arduino, Drill)
-    expect(categories.item_type).toEqual(['Arduino', 'Drill']);
-    expect(categories.item_type.length).toBe(2);
+    expect(categories.itemType).toEqual(['Arduino', 'Drill']);
+    expect(categories.itemType.length).toBe(2);
   });
 
   it('Property 7: Category Derivation - should sort categories alphabetically', () => {
     const items: Item[] = [
       createTestItem({
         id: 'item-1',
-        item_label: 'Item 1',
-        item_notes: '',
-        category_functional: 'Zebra',
-        category_specific: 'Yankee',
-        item_type: 'Xray',
-        item_manufacturer: '',
-        item_attributes: [],
+        itemLabel: 'Item 1',
+        itemNotes: '',
+        categoryFunctional: 'Zebra',
+        categorySpecific: 'Yankee',
+        itemType: 'Xray',
+        itemManufacturer: '',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
       createTestItem({
         id: 'item-2',
-        item_label: 'Item 2',
-        item_notes: '',
-        category_functional: 'Alpha',
-        category_specific: 'Bravo',
-        item_type: 'Charlie',
-        item_manufacturer: '',
-        item_attributes: [],
+        itemLabel: 'Item 2',
+        itemNotes: '',
+        categoryFunctional: 'Alpha',
+        categorySpecific: 'Bravo',
+        itemType: 'Charlie',
+        itemManufacturer: '',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
       createTestItem({
         id: 'item-3',
-        item_label: 'Item 3',
-        item_notes: '',
-        category_functional: 'Mike',
-        category_specific: 'November',
-        item_type: 'Oscar',
-        item_manufacturer: '',
-        item_attributes: [],
+        itemLabel: 'Item 3',
+        itemNotes: '',
+        categoryFunctional: 'Mike',
+        categorySpecific: 'November',
+        itemType: 'Oscar',
+        itemManufacturer: '',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
@@ -252,20 +254,20 @@ describe('Category Derivation Property Tests', () => {
     // Verify alphabetical sorting
     expect(categories.functional).toEqual(['Alpha', 'Mike', 'Zebra']);
     expect(categories.specific).toEqual(['Bravo', 'November', 'Yankee']);
-    expect(categories.item_type).toEqual(['Charlie', 'Oscar', 'Xray']);
+    expect(categories.itemType).toEqual(['Charlie', 'Oscar', 'Xray']);
   });
 
   it('Property 7: Category Derivation - should handle items with missing optional fields', () => {
     const items: Item[] = [
       createTestItem({
         id: 'item-1',
-        item_label: 'Item 1',
-        item_notes: '',
-        category_functional: 'Tools',
-        category_specific: 'Power Tools',
-        item_type: 'Drill',
-        item_manufacturer: '',
-        item_attributes: [],
+        itemLabel: 'Item 1',
+        itemNotes: '',
+        categoryFunctional: 'Tools',
+        categorySpecific: 'Power Tools',
+        itemType: 'Drill',
+        itemManufacturer: '',
+        itemAttributes: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
       }),
@@ -276,7 +278,7 @@ describe('Category Derivation Property Tests', () => {
     // Should still extract all categories
     expect(categories.functional).toEqual(['Tools']);
     expect(categories.specific).toEqual(['Power Tools']);
-    expect(categories.item_type).toEqual(['Drill']);
+    expect(categories.itemType).toEqual(['Drill']);
   });
 
   it('Property 7: Category Derivation - should maintain consistency across multiple derivations', () => {
@@ -303,12 +305,12 @@ describe('Category Derivation Property Tests', () => {
     expect(categories.specific.length).toBeGreaterThan(0);
     expect(categories.specific.length).toBeLessThanOrEqual(5);
 
-    expect(categories.item_type.length).toBeGreaterThan(0);
-    expect(categories.item_type.length).toBeLessThanOrEqual(5);
+    expect(categories.itemType.length).toBeGreaterThan(0);
+    expect(categories.itemType.length).toBeLessThanOrEqual(5);
 
     // All categories should be sorted
     expect(categories.functional).toEqual([...categories.functional].sort());
     expect(categories.specific).toEqual([...categories.specific].sort());
-    expect(categories.item_type).toEqual([...categories.item_type].sort());
+    expect(categories.itemType).toEqual([...categories.itemType].sort());
   });
 });

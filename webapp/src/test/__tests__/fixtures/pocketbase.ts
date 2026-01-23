@@ -6,11 +6,12 @@ import type { User } from '@project/shared';
  */
 export class MockAuthStore {
   isValid = false;
-  model: User | null = null;
-  private listeners: Array<(token: string | null, model: User | null) => void> =
-    [];
+  record: User | null = null;
+  private listeners: Array<
+    (token: string | null, record: User | null) => void
+  > = [];
 
-  onChange(callback: (token: string | null, model: User | null) => void) {
+  onChange(callback: (token: string | null, record: User | null) => void) {
     this.listeners.push(callback);
     return () => {
       const index = this.listeners.indexOf(callback);
@@ -22,18 +23,18 @@ export class MockAuthStore {
 
   clear() {
     this.isValid = false;
-    this.model = null;
+    this.record = null;
     this.notifyListeners(null, null);
   }
 
-  setAuth(token: string, model: User) {
+  setAuth(token: string, record: User) {
     this.isValid = true;
-    this.model = model;
-    this.notifyListeners(token, model);
+    this.record = record;
+    this.notifyListeners(token, record);
   }
 
-  private notifyListeners(token: string | null, model: User | null) {
-    this.listeners.forEach((listener) => listener(token, model));
+  private notifyListeners(token: string | null, record: User | null) {
+    this.listeners.forEach((listener) => listener(token, record));
   }
 }
 

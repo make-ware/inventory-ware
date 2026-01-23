@@ -9,16 +9,18 @@ import { BoundingBoxSchema } from '../types/bounding-box.js';
 // Mapping for Container image history
 export const ContainerImageMappingSchema = z
   .object({
-    container: RelationField({ collection: 'Containers', cascadeDelete: true }),
-    image: RelationField({ collection: 'Images', cascadeDelete: true }),
-    bounding_box: BoundingBoxSchema.optional(),
-    primary_image_bbox: BoundingBoxSchema.optional(),
+    ContainerRef: RelationField({
+      collection: 'Containers',
+      cascadeDelete: true,
+    }),
+    ImageRef: RelationField({ collection: 'Images', cascadeDelete: true }),
+    boundingBox: BoundingBoxSchema.optional(),
   })
   .extend(baseSchema);
 
 export const ContainerImageMappingCollection = defineCollection({
   schema: ContainerImageMappingSchema,
-  collectionName: 'ContainerImageMappings',
+  collectionName: 'ContainerImages',
   type: 'base',
   permissions: {
     listRule: '@request.auth.id != ""',
@@ -27,8 +29,5 @@ export const ContainerImageMappingCollection = defineCollection({
     updateRule: '@request.auth.id != ""',
     deleteRule: '@request.auth.id != ""',
   },
-  indexes: [
-    'CREATE INDEX `idx_container_container_image_mappings` ON `container_image_mappings` (`container`)',
-    'CREATE INDEX `idx_image_container_image_mappings` ON `container_image_mappings` (`image`)',
-  ],
+  indexes: [],
 });

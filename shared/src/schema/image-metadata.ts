@@ -11,10 +11,10 @@ export const ImageMetadataInputSchema = z.object({
   Image: RelationField({
     collection: 'Images',
   }).optional(),
-  file_hash: z.string(),
+  fileHash: z.string(),
   metadata: JSONField(AnalysisResultSchema),
   version: z.number().default(1),
-  image_type: z
+  imageType: z
     .enum(['item', 'container', 'unprocessed'])
     .default('unprocessed'),
 });
@@ -38,8 +38,8 @@ export const ImageMetadataCollection = defineCollection({
     deleteRule: '@request.auth.id != ""',
   },
   indexes: [
-    // Unique index on file_hash for cache lookups
-    'CREATE UNIQUE INDEX `idx_file_hash_image_metadata` ON `ImageMetadata` (`file_hash`)',
+    // Unique index on fileHash for cache lookups
+    'CREATE UNIQUE INDEX `idx_fileHash_image_metadata` ON `ImageMetadata` (`fileHash`)',
     // Index on Image relation for lookups by image
     'CREATE INDEX `idx_image_image_metadata` ON `ImageMetadata` (`Image`)',
   ],

@@ -71,17 +71,17 @@ export default function ContainerDetailPage() {
 
       // Load container images - get primary image if it exists
       const allContainerImages: Image[] = [];
-      if (containerData.primary_image) {
+      if (containerData.primaryImage) {
         try {
           const containerPrimaryImage = await imageMutator.getById(
-            containerData.primary_image
+            containerData.primaryImage
           );
           if (containerPrimaryImage) {
             allContainerImages.push(containerPrimaryImage);
           }
         } catch {
           console.error(
-            `Failed to load container primary image ${containerData.primary_image}`
+            `Failed to load container primary image ${containerData.primaryImage}`
           );
         }
       }
@@ -90,14 +90,14 @@ export default function ContainerDetailPage() {
       // Load images for items
       const imageMap = new Map<string, Image>();
       for (const item of items) {
-        if (item.primary_image) {
+        if (item.primaryImage) {
           try {
-            const image = await imageMutator.getById(item.primary_image);
+            const image = await imageMutator.getById(item.primaryImage);
             if (image) {
-              imageMap.set(item.primary_image, image);
+              imageMap.set(item.primaryImage, image);
             }
           } catch {
-            console.error(`Failed to load image ${item.primary_image}`);
+            console.error(`Failed to load image ${item.primaryImage}`);
           }
         }
       }
@@ -171,25 +171,25 @@ export default function ContainerDetailPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
     // First try the item's primary image
-    if (item.primary_image) {
-      const image = itemImages.get(item.primary_image);
+    if (item.primaryImage) {
+      const image = itemImages.get(item.primaryImage);
       if (image) {
-        return pb.files.getURL(image, image.file);
+        return imageMutator.getFileUrl(image);
       }
     }
 
     // Fallback to container's primary image if item doesn't have one
-    if (container?.primary_image) {
+    if (container?.primaryImage) {
       const containerImage = images.find(
-        (img) => img.id === container.primary_image
+        (img) => img.id === container.primaryImage
       );
       if (containerImage) {
-        return pb.files.getURL(containerImage, containerImage.file);
+        return imageMutator.getFileUrl(containerImage);
       }
     }
 
@@ -209,7 +209,7 @@ export default function ContainerDetailPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
+    <div className="container py-8 space-y-6">
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
@@ -244,16 +244,16 @@ export default function ContainerDetailPage() {
               <div className="flex items-center gap-2">
                 <Package className="h-6 w-6 text-muted-foreground" />
                 <CardTitle className="text-2xl">
-                  {container.container_label}
+                  {container.containerLabel}
                 </CardTitle>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {container.container_notes && (
+              {container.containerNotes && (
                 <div>
                   <h3 className="text-sm font-medium mb-2">Notes</h3>
                   <p className="text-sm text-muted-foreground">
-                    {container.container_notes}
+                    {container.containerNotes}
                   </p>
                 </div>
               )}
@@ -289,7 +289,7 @@ export default function ContainerDetailPage() {
                   <SelectContent>
                     {allItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
-                        {item.item_label}
+                        {item.itemLabel}
                       </SelectItem>
                     ))}
                   </SelectContent>

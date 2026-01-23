@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ContainerInputSchema, type ContainerInput } from '@project/shared';
+import { ContainerUpdateSchema, type ContainerUpdate } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,32 +17,35 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 
-interface ContainerFormProps {
-  defaultValues?: Partial<ContainerInput>;
-  onSubmit: (data: ContainerInput) => void | Promise<void>;
+interface ContainerUpdateFormProps {
+  defaultValues?: Partial<ContainerUpdate>;
+  onSubmit: (
+    data: Partial<Omit<ContainerUpdate, 'UserRef'>>
+  ) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
 }
 
-export function ContainerForm({
+export function ContainerUpdateForm({
   defaultValues,
   onSubmit,
   onCancel,
   isSubmitting,
-}: ContainerFormProps) {
-  const form = useForm<z.input<typeof ContainerInputSchema>>({
-    resolver: zodResolver(ContainerInputSchema),
+}: ContainerUpdateFormProps) {
+  // Create a form schema without UserRef since it's not part of the form
+  const FormSchema = ContainerUpdateSchema.omit({ UserRef: true });
+
+  const form = useForm<z.input<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
     defaultValues: {
-      container_label: '',
-      container_notes: '',
+      containerLabel: '',
+      containerNotes: '',
       ...defaultValues,
     },
   });
 
-  const handleSubmit = async (data: z.input<typeof ContainerInputSchema>) => {
-    // Parse and validate the data to ensure it matches the output type
-    const validatedData = ContainerInputSchema.parse(data);
-    await onSubmit(validatedData);
+  const handleSubmit = async (data: z.input<typeof FormSchema>) => {
+    await onSubmit(data);
   };
 
   return (
@@ -50,10 +53,10 @@ export function ContainerForm({
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <FormField
           control={form.control}
-          name="container_label"
+          name="containerLabel"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Container Label *</FormLabel>
+              <FormLabel>Container Label</FormLabel>
               <FormControl>
                 <Input
                   placeholder="e.g., Tool Box A, Electronics Drawer"
@@ -71,7 +74,7 @@ export function ContainerForm({
 
         <FormField
           control={form.control}
-          name="container_notes"
+          name="containerNotes"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Notes</FormLabel>
@@ -103,7 +106,7 @@ export function ContainerForm({
             </Button>
           )}
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save Container'}
+            {isSubmitting ? 'Updating...' : 'Update Container'}
           </Button>
         </div>
       </form>

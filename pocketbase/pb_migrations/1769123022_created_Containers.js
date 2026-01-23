@@ -1,14 +1,14 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
-  const collection_Images = new Collection({
-    id: "pb_tkwz9j2iq4zlit0",
-    name: "Images",
+  const collection_Containers = new Collection({
+    id: "pb_7mbdu2xml9nggre",
+    name: "Containers",
     type: "base",
-    listRule: "User = @request.auth.id",
-    viewRule: "User = @request.auth.id",
+    listRule: "UserRef = @request.auth.id",
+    viewRule: "UserRef = @request.auth.id",
     createRule: "@request.auth.id != \"\"",
-    updateRule: "User = @request.auth.id",
-    deleteRule: "User = @request.auth.id",
+    updateRule: "UserRef = @request.auth.id",
+    deleteRule: "UserRef = @request.auth.id",
     manageRule: null,
     fields: [
     {
@@ -48,33 +48,34 @@ migrate((app) => {
       system: false,
     },
     {
-      name: "file",
-      type: "file",
+      name: "containerLabel",
+      type: "text",
       required: true,
+      min: 1,
     },
     {
-      name: "file_hash",
+      name: "containerNotes",
       type: "text",
       required: false,
     },
     {
-      name: "image_type",
-      type: "select",
-      required: false,
-      maxSelect: 1,
-      values: ["item", "container", "unprocessed"],
-    },
-    {
-      name: "analysis_status",
-      type: "select",
-      required: false,
-      maxSelect: 1,
-      values: ["pending", "processing", "completed", "failed"],
-    },
-    {
-      name: "User",
+      name: "primaryImage",
       type: "relation",
       required: false,
+      collectionId: "pb_z3gb21s9dht9tr2",
+      maxSelect: 1,
+      minSelect: 0,
+      cascadeDelete: false,
+    },
+    {
+      name: "primaryImageBbox",
+      type: "json",
+      required: false,
+    },
+    {
+      name: "UserRef",
+      type: "relation",
+      required: true,
       collectionId: "_pb_users_auth_",
       maxSelect: 1,
       minSelect: 0,
@@ -82,15 +83,14 @@ migrate((app) => {
     },
   ],
     indexes: [
-    "CREATE INDEX `idx_User_images` ON `images` (`User`)",
-    "CREATE INDEX `idx_image_type_images` ON `images` (`image_type`)",
-    "CREATE INDEX `idx_analysis_status_images` ON `images` (`analysis_status`)",
-    "CREATE INDEX `idx_created_images` ON `images` (`created`)",
+    "CREATE INDEX `idx_UserRef_containers` ON `containers` (`UserRef`)",
+    "CREATE INDEX `idx_created_containers` ON `containers` (`created`)",
+    "CREATE INDEX `idx_label_containers` ON `containers` (`containerLabel`)",
   ],
   });
 
-  return app.save(collection_Images);
+  return app.save(collection_Containers);
 }, (app) => {
-  const collection_Images = app.findCollectionByNameOrId("Images");
-  return app.delete(collection_Images);
+  const collection_Containers = app.findCollectionByNameOrId("Containers");
+  return app.delete(collection_Containers);
 });

@@ -5,11 +5,15 @@ import { useRouter } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
 import type { Item, Container, Image } from '@project/shared';
-import type { CategoryLibrary, SearchFilters } from '@/components/inventory';
-import { SearchFilter, ItemCard } from '@/components/inventory';
+import type {
+  CategoryLibrary,
+  SearchFilters,
+  BulkEditData,
+} from '@/components/inventory';
+import { SearchFilter, ItemCard, BulkEditDialog } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus, CheckSquare, X } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -21,12 +25,17 @@ export default function ItemsPage() {
   const [categories, setCategories] = useState<CategoryLibrary>({
     functional: [],
     specific: [],
-    item_type: [],
+    itemType: [],
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Bulk Edit State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
 
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
@@ -69,16 +78,16 @@ export default function ItemsPage() {
   const loadItems = useCallback(async () => {
     try {
       const results = await itemMutator.search(searchQuery, {
-        category_functional: searchFilters.functional,
-        category_specific: searchFilters.specific,
-        item_type: searchFilters.item_type,
+        categoryFunctional: searchFilters.functional,
+        categorySpecific: searchFilters.specific,
+        itemType: searchFilters.itemType,
       });
       setItems(results);
       setCurrentPage(1); // Reset to first page on new search
 
       // Load images for items
       const imageIds = results
-        .map((item) => item.primary_image)
+        .map((item) => item.primaryImage)
         .filter((id): id is string => Boolean(id));
       await loadImages(imageIds);
     } catch (error) {
@@ -95,7 +104,7 @@ export default function ItemsPage() {
 
       // Load images for containers (needed for item image fallback)
       const containerImageIds = results
-        .map((container) => container.primary_image)
+        .map((container) => container.primaryImage)
         .filter((id): id is string => Boolean(id));
       await loadImages(containerImageIds);
     } catch (error) {
@@ -149,25 +158,81 @@ export default function ItemsPage() {
     }
   };
 
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      if (prev) {
+        setSelectedItems(new Set()); // Clear on exit
+      }
+      return !prev;
+    });
+  };
+
+  const toggleItemSelection = (id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (
+      !confirm(`Are you sure you want to delete ${selectedItems.size} items?`)
+    )
+      return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedItems).map((id) => itemMutator.delete(id))
+      );
+      toast.success(`Deleted ${selectedItems.size} items`);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to bulk delete items');
+    }
+  };
+
+  const handleBulkEditConfirm = async (data: BulkEditData) => {
+    try {
+      await Promise.all(
+        Array.from(selectedItems).map((id) => itemMutator.update(id, data))
+      );
+      toast.success(`Updated ${selectedItems.size} items`);
+      setSelectedItems(new Set());
+      setIsSelectionMode(false);
+      await loadItems();
+    } catch (error) {
+      console.error('Failed to bulk update:', error);
+      toast.error('Failed to bulk update items');
+    }
+  };
+
   const getImageUrl = (imageId?: string): string | undefined => {
     if (!imageId) return undefined;
     const image = images.get(imageId);
     if (!image) return undefined;
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
     // First try the item's primary image
-    if (item.primary_image) {
-      const url = getImageUrl(item.primary_image);
+    if (item.primaryImage) {
+      const url = getImageUrl(item.primaryImage);
       if (url) return url;
     }
 
     // Fallback to container's primary image if item doesn't have one
     if (item.container) {
       const container = containers.find((c) => c.id === item.container);
-      if (container?.primary_image) {
-        return getImageUrl(container.primary_image);
+      if (container?.primaryImage) {
+        return getImageUrl(container.primaryImage);
       }
     }
 
@@ -190,7 +255,7 @@ export default function ItemsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="container mx-auto py-8 space-y-8 relative">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Items</h1>
@@ -198,13 +263,26 @@ export default function ItemsPage() {
             Manage your inventory items ({items.length} total)
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => router.push('/inventory/items/new')}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          New Item
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant={isSelectionMode ? 'secondary' : 'outline'}
+            onClick={toggleSelectionMode}
+          >
+            {isSelectionMode ? (
+              <X className="h-4 w-4 mr-2" />
+            ) : (
+              <CheckSquare className="h-4 w-4 mr-2" />
+            )}
+            {isSelectionMode ? 'Cancel Selection' : 'Select Items'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push('/inventory/items/new')}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Item
+          </Button>
+        </div>
       </div>
 
       <SearchFilter
@@ -233,7 +311,13 @@ export default function ItemsPage() {
                 imageUrl={getItemImageUrl(item)}
                 onClick={() => router.push(`/inventory/items/${item.id}`)}
                 onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
+                onClone={() =>
+                  router.push(`/inventory/items/new?clone_from=${item.id}`)
+                }
                 onDelete={() => handleDeleteItem(item.id)}
+                isSelectionMode={isSelectionMode}
+                isSelected={selectedItems.has(item.id)}
+                onToggleSelect={() => toggleItemSelection(item.id)}
               />
             ))}
           </div>
@@ -263,6 +347,24 @@ export default function ItemsPage() {
           )}
         </>
       )}
+
+      {selectedItems.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-background border rounded-lg shadow-lg p-4 flex items-center gap-4 z-50">
+          <span className="font-medium">{selectedItems.size} selected</span>
+          <Button onClick={() => setIsBulkEditDialogOpen(true)}>Edit</Button>
+          <Button variant="destructive" onClick={handleBulkDelete}>
+            Delete
+          </Button>
+        </div>
+      )}
+
+      <BulkEditDialog
+        open={isBulkEditDialogOpen}
+        onOpenChange={setIsBulkEditDialogOpen}
+        selectedCount={selectedItems.size}
+        onConfirm={handleBulkEditConfirm}
+        categories={categories}
+      />
     </div>
   );
 }

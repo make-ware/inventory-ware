@@ -51,11 +51,11 @@ export default function ImagesPage() {
     let filtered = [...images];
 
     if (imageTypeFilter !== 'all') {
-      filtered = filtered.filter((img) => img.image_type === imageTypeFilter);
+      filtered = filtered.filter((img) => img.imageType === imageTypeFilter);
     }
 
     if (statusFilter !== 'all') {
-      filtered = filtered.filter((img) => img.analysis_status === statusFilter);
+      filtered = filtered.filter((img) => img.analysisStatus === statusFilter);
     }
 
     setFilteredImages(filtered);
@@ -75,7 +75,7 @@ export default function ImagesPage() {
   // Poll for status updates on processing images
   useEffect(() => {
     const processing = images.filter(
-      (img) => img.analysis_status === 'processing'
+      (img) => img.analysisStatus === 'processing'
     );
     if (processing.length === 0) return;
 
@@ -138,7 +138,7 @@ export default function ImagesPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   // Pagination

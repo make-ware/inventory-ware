@@ -34,7 +34,7 @@ export function ContainerCard({
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-lg">
-              {container.container_label}
+              {container.containerLabel}
             </CardTitle>
           </div>
           <div className="flex gap-1">
@@ -70,7 +70,7 @@ export function ContainerCard({
           <div className="relative w-full h-32 rounded mb-3 overflow-hidden">
             <Image
               src={imageUrl}
-              alt={container.container_label}
+              alt={container.containerLabel}
               fill
               className="object-cover"
               unoptimized
@@ -87,9 +87,9 @@ export function ContainerCard({
             {itemCount} {itemCount === 1 ? 'item' : 'items'}
           </Badge>
         </div>
-        {container.container_notes && (
+        {container.containerNotes && (
           <p className="text-sm text-muted-foreground line-clamp-2">
-            {container.container_notes}
+            {container.containerNotes}
           </p>
         )}
       </CardContent>

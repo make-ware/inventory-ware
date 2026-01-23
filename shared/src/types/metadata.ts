@@ -1,38 +1,43 @@
 import { z } from 'zod';
 import { ItemAttributeSchema } from '../schema/item.js';
+import { slugify, formatCategoryLabel } from '../utils/slugify.js';
+
+export { slugify, formatCategoryLabel };
 
 // Schema for AI to extract item metadata from images
 // Note: This is for AI analysis output, not database storage
 export const ItemMetadataSchema = z.object({
-  item_label: z.string().describe('Label of the item'),
-  item_notes: z.string().describe('Additional notes about the item'),
-  category_functional: z
+  itemLabel: z.string().describe('Label of the item'),
+  itemNotes: z.string().describe('Additional notes about the item'),
+  categoryFunctional: z
     .string()
     .describe(
       'Functional category (e.g., Tools, Electronics, Materials, Technology)'
-    ),
-  category_specific: z
+    )
+    .transform(slugify),
+  categorySpecific: z
     .string()
     .describe(
       'Specific category (e.g., Power Tools, Fasteners, Sensors, Computer Components)'
-    ),
-  item_type: z
+    )
+    .transform(slugify),
+  itemType: z
     .string()
-    .describe(
-      'Type of object (e.g., Drill, Screws, 9DOF Sensor, CPU Heatsink)'
-    ),
-  item_manufacturer: z
+    .describe('Type of object (e.g., Drill, Screws, CPU Heatsink)')
+    .transform(slugify),
+  itemName: z.string().describe('The specific name of the item'),
+  itemManufacturer: z
     .string()
     .describe('Specific brand or manufacturer of item'),
-  item_attributes: z
+  itemAttributes: z
     .array(ItemAttributeSchema)
     .describe('Array of key-value pairs for item-specific attributes'),
 });
 
 // Schema for item image metadata (includes image-level fields)
 export const ItemImageMetadataSchema = z.object({
-  image_label: z.string().describe('Descriptive label for the image'),
-  image_notes: z
+  imageLabel: z.string().describe('Descriptive label for the image'),
+  imageNotes: z
     .string()
     .describe('Additional notes about the image content or context'),
   item: ItemMetadataSchema,
@@ -40,17 +45,17 @@ export const ItemImageMetadataSchema = z.object({
 
 // Schema for container metadata
 export const ContainerMetadataSchema = z.object({
-  container_label: z.string().describe('Label of the container'),
-  container_notes: z.string().describe('Notes about the container'),
-  container_items: z
+  containerLabel: z.string().describe('Label of the container'),
+  containerNotes: z.string().describe('Notes about the container'),
+  containerItems: z
     .array(ItemMetadataSchema)
     .describe('Array of items contained within this container'),
 });
 
 // Schema for container image metadata (includes image-level fields)
 export const ContainerImageMetadataSchema = z.object({
-  image_label: z.string().describe('Descriptive label for the container image'),
-  image_notes: z
+  imageLabel: z.string().describe('Descriptive label for the container image'),
+  imageNotes: z
     .string()
     .describe('Notes about the container image content or context'),
   container: ContainerMetadataSchema,

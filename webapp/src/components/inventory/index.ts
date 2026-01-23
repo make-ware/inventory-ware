@@ -1,9 +1,12 @@
 export { AttributesEditor } from './attributes-editor';
 export { ContainerCard } from './container-card';
-export { ContainerForm } from './container-form';
+export { ContainerCreateForm } from './container-create-form';
+export { ContainerUpdateForm } from './container-update-form';
 export { ImageCard } from './image-card';
 export { ImageUpload } from './image-upload';
 export { ItemCard } from './item-card';
-export { ItemForm } from './item-form';
+export { ItemCreateForm } from './item-create-form';
+export { ItemUpdateForm } from './item-update-form';
 export { SearchFilter } from './search-filter';
 export type { CategoryLibrary, SearchFilters } from './search-filter';
+export { BulkEditDialog, type BulkEditData } from './bulk-edit-dialog';

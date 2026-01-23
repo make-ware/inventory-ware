@@ -3,10 +3,16 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ItemInputSchema, type ItemInput } from '@project/shared';
+import {
+  ItemUpdateSchema,
+  type ItemUpdate,
+  type CategoryLibrary,
+  formatCategoryLabel,
+} from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Combobox } from '@/components/ui/combobox';
 import {
   Form,
   FormControl,
@@ -18,37 +24,43 @@ import {
 } from '@/components/ui/form';
 import { AttributesEditor } from './attributes-editor';
 
-interface ItemFormProps {
-  defaultValues?: Partial<ItemInput>;
-  onSubmit: (data: ItemInput) => void | Promise<void>;
+interface ItemUpdateFormProps {
+  defaultValues?: Partial<ItemUpdate>;
+  onSubmit: (
+    data: Partial<Omit<ItemUpdate, 'UserRef'>>
+  ) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
+  categories?: CategoryLibrary;
 }
 
-export function ItemForm({
+export function ItemUpdateForm({
   defaultValues,
   onSubmit,
   onCancel,
   isSubmitting,
-}: ItemFormProps) {
-  const form = useForm<z.input<typeof ItemInputSchema>>({
-    resolver: zodResolver(ItemInputSchema),
+  categories,
+}: ItemUpdateFormProps) {
+  // Create a form schema without UserRef since it's not part of the form
+  const FormSchema = ItemUpdateSchema.omit({ UserRef: true });
+
+  const form = useForm<z.input<typeof FormSchema>>({
+    resolver: zodResolver(FormSchema),
     defaultValues: {
-      item_label: '',
-      item_notes: '',
-      category_functional: '',
-      category_specific: '',
-      item_type: '',
-      item_manufacturer: '',
-      item_attributes: [],
+      itemLabel: '',
+      itemName: '',
+      itemNotes: '',
+      categoryFunctional: '',
+      categorySpecific: '',
+      itemType: '',
+      itemManufacturer: '',
+      itemAttributes: [],
       ...defaultValues,
     },
   });
 
-  const handleSubmit = async (data: z.input<typeof ItemInputSchema>) => {
-    // Parse and validate the data to ensure it matches the output type
-    const validatedData = ItemInputSchema.parse(data);
-    await onSubmit(validatedData);
+  const handleSubmit = async (data: z.input<typeof FormSchema>) => {
+    await onSubmit(data);
   };
 
   return (
@@ -56,19 +68,19 @@ export function ItemForm({
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <FormField
           control={form.control}
-          name="item_label"
+          name="itemName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Item Label *</FormLabel>
+              <FormLabel>Item Name</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="e.g., Cordless Drill"
+                  placeholder="e.g., DeWalt DCD771"
                   {...field}
                   disabled={isSubmitting}
                 />
               </FormControl>
               <FormDescription>
-                A clear, descriptive name for the item
+                Specific product identity (Brand, Model, etc.)
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -77,7 +89,28 @@ export function ItemForm({
 
         <FormField
           control={form.control}
-          name="item_notes"
+          name="itemLabel"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Item Label</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="e.g., Cordless Drill"
+                  {...field}
+                  disabled={isSubmitting}
+                />
+              </FormControl>
+              <FormDescription>
+                A clear, descriptive tag for this specific item
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="itemNotes"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Notes</FormLabel>
@@ -99,14 +132,19 @@ export function ItemForm({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FormField
             control={form.control}
-            name="category_functional"
+            name="categoryFunctional"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Functional Category *</FormLabel>
+                <FormLabel>Functional Category</FormLabel>
                 <FormControl>
-                  <Input
+                  <Combobox
+                    options={(categories?.functional || []).map((cat) => ({
+                      label: formatCategoryLabel(cat),
+                      value: cat,
+                    }))}
+                    value={field.value}
+                    onChange={field.onChange}
                     placeholder="e.g., Tools"
-                    {...field}
                     disabled={isSubmitting}
                   />
                 </FormControl>
@@ -118,14 +156,19 @@ export function ItemForm({
 
           <FormField
             control={form.control}
-            name="category_specific"
+            name="categorySpecific"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Specific Category *</FormLabel>
+                <FormLabel>Specific Category</FormLabel>
                 <FormControl>
-                  <Input
+                  <Combobox
+                    options={(categories?.specific || []).map((cat) => ({
+                      label: formatCategoryLabel(cat),
+                      value: cat,
+                    }))}
+                    value={field.value}
+                    onChange={field.onChange}
                     placeholder="e.g., Power Tools"
-                    {...field}
                     disabled={isSubmitting}
                   />
                 </FormControl>
@@ -137,14 +180,19 @@ export function ItemForm({
 
           <FormField
             control={form.control}
-            name="item_type"
+            name="itemType"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Item Type *</FormLabel>
+                <FormLabel>Item Type</FormLabel>
                 <FormControl>
-                  <Input
+                  <Combobox
+                    options={(categories?.itemType || []).map((cat) => ({
+                      label: formatCategoryLabel(cat),
+                      value: cat,
+                    }))}
+                    value={field.value}
+                    onChange={field.onChange}
                     placeholder="e.g., Drill"
-                    {...field}
                     disabled={isSubmitting}
                   />
                 </FormControl>
@@ -157,7 +205,7 @@ export function ItemForm({
 
         <FormField
           control={form.control}
-          name="item_manufacturer"
+          name="itemManufacturer"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Manufacturer</FormLabel>
@@ -176,7 +224,7 @@ export function ItemForm({
 
         <FormField
           control={form.control}
-          name="item_attributes"
+          name="itemAttributes"
           render={({ field }) => (
             <FormItem>
               <AttributesEditor
@@ -204,7 +252,7 @@ export function ItemForm({
             </Button>
           )}
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save Item'}
+            {isSubmitting ? 'Updating...' : 'Update Item'}
           </Button>
         </div>
       </form>

@@ -37,6 +37,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get the authenticated user ID
+    const userId = pb.authStore.record?.id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User authentication required' },
+        { status: 401 }
+      );
+    }
+
     // Debug: Log that we're in server context (don't log the actual key value)
     if (!process.env.OPENAI_API_KEY) {
       console.warn(
@@ -51,7 +60,7 @@ export async function POST(request: NextRequest) {
     const service = createInventoryService(pb);
 
     // Process the image
-    const result = await service.processImageUpload(file);
+    const result = await service.processImageUpload(file, userId);
 
     return NextResponse.json({
       success: true,

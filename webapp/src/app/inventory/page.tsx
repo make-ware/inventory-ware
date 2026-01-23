@@ -37,7 +37,7 @@ export default function InventoryPage() {
   const [categories, setCategories] = useState<CategoryLibrary>({
     functional: [],
     specific: [],
-    item_type: [],
+    itemType: [],
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFilters, setSearchFilters] = useState<SearchFilters>({});
@@ -91,16 +91,16 @@ export default function InventoryPage() {
   const loadItems = useCallback(async () => {
     try {
       const results = await itemMutator.search(searchQuery, {
-        category_functional: searchFilters.functional,
-        category_specific: searchFilters.specific,
-        item_type: searchFilters.item_type,
+        categoryFunctional: searchFilters.functional,
+        categorySpecific: searchFilters.specific,
+        itemType: searchFilters.itemType,
       });
       setItems(results);
       setCurrentPage(1); // Reset to first page on new search
 
       // Load images for items
       const imageIds = results
-        .map((item) => item.primary_image)
+        .map((item) => item.primaryImage)
         .filter((id): id is string => Boolean(id));
       await loadImages(imageIds);
     } catch (error) {
@@ -117,7 +117,7 @@ export default function InventoryPage() {
 
       // Load images for containers
       const imageIds = results
-        .map((container) => container.primary_image)
+        .map((container) => container.primaryImage)
         .filter((id): id is string => Boolean(id));
       await loadImages(imageIds);
     } catch (error) {
@@ -154,46 +154,21 @@ export default function InventoryPage() {
     loadData();
   }, [loadData]);
 
+  // Listen for background upload completion events to refresh data
+  useEffect(() => {
+    const handleUpdate = () => {
+      loadData();
+    };
+    window.addEventListener('inventory-updated', handleUpdate);
+    return () => window.removeEventListener('inventory-updated', handleUpdate);
+  }, [loadData]);
+
   // Reload data when search/filters change
   useEffect(() => {
     loadItems();
   }, [loadItems]);
 
-  const handleImageUpload = async (file: File) => {
-    if (isManualMode) {
-      try {
-        // Upload image but don't process it with AI yet
-        const image = await imageMutator.uploadImage(file);
-        setManualDialog({ open: true, imageId: image.id });
-      } catch (error) {
-        console.error('Failed to upload image:', error);
-        toast.error('Failed to upload image');
-      }
-      return;
-    }
-
-    // Upload image and trigger AI analysis via API route
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const authToken = pb.authStore.token;
-    const response = await fetch('/api-next/process-image', {
-      method: 'POST',
-      headers: {
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to upload and process image');
-    }
-
-    // Reload data after each successful upload
-    // The ImageUpload component will handle showing progress per file
-    await loadData();
-  };
+  // Removed local scale-out logic as it is now handled by UploadContext
 
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm('Are you sure you want to delete this item?')) return;
@@ -238,21 +213,21 @@ export default function InventoryPage() {
     if (!imageId) return undefined;
     const image = images.get(imageId);
     if (!image) return undefined;
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
     // First try the item's primary image
-    if (item.primary_image) {
-      const url = getImageUrl(item.primary_image);
+    if (item.primaryImage) {
+      const url = getImageUrl(item.primaryImage);
       if (url) return url;
     }
 
     // Fallback to container's primary image if item doesn't have one
     if (item.container) {
       const container = containers.find((c) => c.id === item.container);
-      if (container?.primary_image) {
-        return getImageUrl(container.primary_image);
+      if (container?.primaryImage) {
+        return getImageUrl(container.primaryImage);
       }
     }
 
@@ -279,7 +254,7 @@ export default function InventoryPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="container py-8 space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Inventory Manager</h1>
@@ -317,10 +292,7 @@ export default function InventoryPage() {
           </Label>
         </div>
 
-        <ImageUpload
-          onUpload={handleImageUpload}
-          isProcessing={!isManualMode && false} // Let parent handle processing state for AI mode
-        />
+        <ImageUpload isManualMode={isManualMode} />
       </div>
 
       <Tabs
@@ -409,7 +381,7 @@ export default function InventoryPage() {
                 <ContainerCard
                   key={container.id}
                   container={container}
-                  imageUrl={getImageUrl(container.primary_image)}
+                  imageUrl={getImageUrl(container.primaryImage)}
                   itemCount={getContainerItemCount(container.id)}
                   onClick={() =>
                     router.push(`/inventory/containers/${container.id}`)

@@ -16,7 +16,7 @@ export interface MutatorOptions {
   sort: string[];
 }
 
-// T represents the output model type that extends RecordModel
+// T represents the output record type that extends RecordModel
 // InputType represents the input type for creation operations
 export abstract class BaseMutator<T extends RecordModel, InputType> {
   protected pb: TypedPocketBase;
@@ -315,6 +315,10 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    * Perform the actual create operation
    */
   protected async entityCreate(data: InputType): Promise<T> {
+    console.log(
+      `[${this.constructor.name}] Creating record with data:`,
+      JSON.stringify(data, null, 2)
+    );
     return await this.getCollection().create(data as Record<string, unknown>);
   }
 

@@ -51,12 +51,12 @@ export default function ImageDetailPage() {
       }
       setImage(imageData);
 
-      // Find associated item by querying items with this image as primary_image
+      // Find associated item by querying items with this image as primaryImage
       try {
         const items = await itemMutator.getList(
           1,
           100,
-          `primary_image="${imageId}"`
+          `primaryImage="${imageId}"`
         );
         if (items.items.length > 0) {
           setItem(items.items[0]);
@@ -65,12 +65,12 @@ export default function ImageDetailPage() {
         console.error('Failed to load item:', error);
       }
 
-      // Find associated container by querying containers with this image as primary_image
+      // Find associated container by querying containers with this image as primaryImage
       try {
         const containers = await containerMutator.getList(
           1,
           100,
-          `primary_image="${imageId}"`
+          `primaryImage="${imageId}"`
         );
         if (containers.items.length > 0) {
           setContainer(containers.items[0]);
@@ -94,7 +94,7 @@ export default function ImageDetailPage() {
 
   // Poll for status updates if image is processing
   useEffect(() => {
-    if (image?.analysis_status !== 'processing') return;
+    if (image?.analysisStatus !== 'processing') return;
 
     const intervalId = setInterval(() => {
       loadImageDetails();
@@ -103,7 +103,7 @@ export default function ImageDetailPage() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [image?.analysis_status, loadImageDetails]);
+  }, [image?.analysisStatus, loadImageDetails]);
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this image?')) return;
@@ -155,7 +155,7 @@ export default function ImageDetailPage() {
   };
 
   const getImageUrl = (image: Image): string => {
-    return pb.files.getURL(image, image.file);
+    return imageMutator.getFileUrl(image);
   };
 
   const getStatusColor = (status: string) => {
@@ -188,12 +188,6 @@ export default function ImageDetailPage() {
     }
   };
 
-  const canRequeue = (status: string) => {
-    return (
-      status === 'pending' || status === 'failed' || status === 'unprocessed'
-    );
-  };
-
   const getTypeLabel = (type: string) => {
     switch (type) {
       case 'item':
@@ -219,7 +213,7 @@ export default function ImageDetailPage() {
     return null;
   }
 
-  const status = image.analysis_status || 'pending';
+  const status = image.analysisStatus || 'pending';
 
   return (
     <div className="container mx-auto py-8 space-y-6">
@@ -233,25 +227,24 @@ export default function ImageDetailPage() {
           Back to Images
         </Button>
         <div className="flex gap-2">
-          {canRequeue(status) && (
-            <Button
-              onClick={handleProcessImage}
-              disabled={isProcessing}
-              variant="default"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Process Image
-                </>
-              )}
-            </Button>
-          )}
+          <Button
+            onClick={handleProcessImage}
+            disabled={isProcessing}
+            variant="default"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Process Image
+              </>
+            )}
+          </Button>
+
           <Button variant="destructive" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
@@ -317,7 +310,7 @@ export default function ImageDetailPage() {
               <div>
                 <h3 className="text-sm font-medium mb-2">Type</h3>
                 <Badge variant="outline">
-                  {getTypeLabel(image.image_type || 'unprocessed')}
+                  {getTypeLabel(image.imageType || 'unprocessed')}
                 </Badge>
               </div>
 
@@ -327,13 +320,13 @@ export default function ImageDetailPage() {
                 <h3 className="text-sm font-medium mb-2">Analysis Status</h3>
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant={getStatusColor(image.analysis_status || 'pending')}
+                    variant={getStatusColor(image.analysisStatus || 'pending')}
                     className="flex items-center gap-1"
                   >
-                    {getStatusIcon(image.analysis_status || 'pending')}
-                    {image.analysis_status || 'pending'}
+                    {getStatusIcon(image.analysisStatus || 'pending')}
+                    {image.analysisStatus || 'pending'}
                   </Badge>
-                  {image.analysis_status === 'processing' && (
+                  {image.analysisStatus === 'processing' && (
                     <span className="text-xs text-muted-foreground">
                       Processing...
                     </span>
@@ -354,7 +347,7 @@ export default function ImageDetailPage() {
                       onClick={() => router.push(`/inventory/items/${item.id}`)}
                     >
                       <Box className="h-4 w-4" />
-                      {item.item_label}
+                      {item.itemLabel}
                     </Button>
                   </div>
                 </>
@@ -375,7 +368,7 @@ export default function ImageDetailPage() {
                       }
                     >
                       <Package className="h-4 w-4" />
-                      {container.container_label}
+                      {container.containerLabel}
                     </Button>
                   </div>
                 </>

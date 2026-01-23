@@ -1,5 +1,7 @@
 import {
   RelationField,
+  SelectField,
+  TextField,
   defineCollection,
   baseSchema,
 } from 'pocketbase-zod-schema/schema';
@@ -8,15 +10,14 @@ import { z } from 'zod';
 // Schema for tracking snapshots of Container history
 export const ContainerRecordSchema = z
   .object({
-    Container: RelationField({ collection: 'Containers' }),
-    User: RelationField({ collection: 'Users' }).optional(),
-    transaction: z.enum(['create', 'update', 'delete']),
-    field_name: z.string().nullish().describe('Name of the field that changed'),
-    new_value: z.string().describe('New value of the changed field'),
-    previous_value: z
-      .string()
-      .optional()
-      .describe('Previous value of the changed field'),
+    ContainerRef: RelationField({
+      collection: 'Containers',
+      cascadeDelete: true,
+    }),
+    UserRef: RelationField({ collection: 'Users' }),
+    transactionType: SelectField(['create', 'update', 'delete']),
+    fieldName: TextField().nullish().describe('Name of the field that changed'),
+    newValue: TextField().describe('New value of the changed field'),
   })
   .extend(baseSchema);
 
@@ -31,8 +32,5 @@ export const ContainerRecordCollection = defineCollection({
     updateRule: '@request.auth.id != ""',
     deleteRule: '@request.auth.id != ""',
   },
-  indexes: [
-    'CREATE INDEX `idx_container_container_records` ON `container_records` (`container`)',
-    'CREATE INDEX `idx_created_container_records` ON `container_records` (`created`)',
-  ],
+  indexes: [],
 });

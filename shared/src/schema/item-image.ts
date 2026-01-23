@@ -9,16 +9,15 @@ import { BoundingBoxSchema } from '../types/bounding-box.js';
 // Mapping for Item image history
 export const ItemImageMappingSchema = z
   .object({
-    item: RelationField({ collection: 'Items', cascadeDelete: true }),
-    image: RelationField({ collection: 'Images', cascadeDelete: true }),
-    bounding_box: BoundingBoxSchema.optional(),
-    primary_image_bbox: BoundingBoxSchema.optional(),
+    ItemRef: RelationField({ collection: 'Items', cascadeDelete: true }),
+    ImageRef: RelationField({ collection: 'Images', cascadeDelete: true }),
+    boundingBox: BoundingBoxSchema.optional(),
   })
   .extend(baseSchema);
 
 export const ItemImageMappingCollection = defineCollection({
   schema: ItemImageMappingSchema,
-  collectionName: 'ItemImageMappings',
+  collectionName: 'ItemImages',
   type: 'base',
   permissions: {
     listRule: '@request.auth.id != ""',
@@ -27,8 +26,5 @@ export const ItemImageMappingCollection = defineCollection({
     updateRule: '@request.auth.id != ""',
     deleteRule: '@request.auth.id != ""',
   },
-  indexes: [
-    'CREATE INDEX `idx_item_item_image_mappings` ON `item_image_mappings` (`item`)',
-    'CREATE INDEX `idx_image_item_image_mappings` ON `item_image_mappings` (`image`)',
-  ],
+  indexes: [],
 });
