@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.1...inventory-ware-v0.2.2) (2026-01-23)
+
+
+### Bug Fixes
+
+* broken deploy command ([bcd1c8e](https://github.com/make-ware/inventory-ware/commit/bcd1c8ea2784a16c59a6d0d128e56704fc3e9b6f))
+
 ## [0.2.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.0...inventory-ware-v0.2.1) (2026-01-23)
 
 
