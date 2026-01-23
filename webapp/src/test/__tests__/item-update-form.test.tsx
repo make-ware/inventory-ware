@@ -1,6 +1,36 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+
+// Mock useInventory hook before importing the component
+vi.mock('@/hooks/use-inventory', () => ({
+  useInventory: vi.fn(() => ({
+    items: [],
+    containers: [],
+    images: new Map(),
+    categories: { functional: [], specific: [], itemType: [] },
+    isLoading: false,
+    error: null,
+    uploadAndAnalyze: vi.fn(),
+    refreshItems: vi.fn(),
+    refreshContainers: vi.fn(),
+    refreshCategories: vi.fn(),
+    searchItems: vi.fn(),
+    updateItem: vi.fn(),
+    deleteItem: vi.fn(),
+    createItem: vi.fn(),
+    updateContainer: vi.fn(),
+    deleteContainer: vi.fn(),
+    createContainer: vi.fn(),
+    getImageUrl: (imageId?: string) =>
+      imageId ? `/images/${imageId}` : undefined,
+    getItemImageUrl: vi.fn(),
+    getItemsByContainer: vi.fn(),
+    addItemToContainer: vi.fn(),
+    removeItemFromContainer: vi.fn(),
+  })),
+}));
+
 import { ItemUpdateForm } from '@/components/inventory/item-update-form';
 
 // Mock ResizeObserver for Combobox/cmdk

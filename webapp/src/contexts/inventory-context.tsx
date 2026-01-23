@@ -87,8 +87,30 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const refreshItems = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
-      const result = await itemMutator.getList(1, 500);
-      setState((prev) => ({ ...prev, items: result.items, isLoading: false }));
+      // Fetch items and expand primaryImage to avoid separate requests
+      const result = await itemMutator.getList(1, 500, undefined, undefined, [
+        'primaryImage',
+      ]);
+
+      setState((prev) => {
+        // Update image cache with expanded images
+        const newImages = new Map(prev.images);
+        result.items.forEach((item: any) => {
+          if (item.expand?.primaryImage) {
+            newImages.set(
+              item.expand.primaryImage.id,
+              item.expand.primaryImage as Image
+            );
+          }
+        });
+
+        return {
+          ...prev,
+          items: result.items,
+          isLoading: false,
+          images: newImages,
+        };
+      });
     } catch (error) {
       setState((prev) => ({
         ...prev,
@@ -102,12 +124,34 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const refreshContainers = useCallback(async () => {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
-      const result = await containerMutator.getList(1, 500);
-      setState((prev) => ({
-        ...prev,
-        containers: result.items,
-        isLoading: false,
-      }));
+      // Fetch containers and expand primaryImage to avoid separate requests
+      const result = await containerMutator.getList(
+        1,
+        500,
+        undefined,
+        undefined,
+        ['primaryImage']
+      );
+
+      setState((prev) => {
+        // Update image cache with expanded images
+        const newImages = new Map(prev.images);
+        result.items.forEach((container: any) => {
+          if (container.expand?.primaryImage) {
+            newImages.set(
+              container.expand.primaryImage.id,
+              container.expand.primaryImage as Image
+            );
+          }
+        });
+
+        return {
+          ...prev,
+          containers: result.items,
+          isLoading: false,
+          images: newImages,
+        };
+      });
     } catch (error) {
       setState((prev) => ({
         ...prev,
