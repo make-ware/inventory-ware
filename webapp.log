@@ -1,8 +1,0 @@
-▲ Next.js 16.1.4 (Turbopack)
-- Local:         http://localhost:3000
-- Network:       http://192.168.0.2:3000
-
-✓ Starting...
-✓ Ready in 1137ms
- GET /test-bbox 200 in 1631ms (compile: 764ms, render: 866ms)
-[?25h
