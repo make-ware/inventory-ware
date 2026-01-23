@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  Suspense,
+  useRef,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
@@ -25,13 +32,30 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Loader2, Plus, Box, Package } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  Box,
+  Package,
+  Image as ImageIcon,
+  PenTool,
+  Sparkles,
+  HelpCircle,
+} from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import { useUpload } from '@/contexts/upload-context';
 
 const ITEMS_PER_PAGE = 12;
 
 function InventoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { queue, clearCompleted, addFiles } = useUpload();
 
   // Initialize state from query string
   const initialPage = Math.max(
@@ -56,15 +80,76 @@ function InventoryPageContent() {
   const [activeTab, setActiveTab] = useState<'items' | 'containers'>(
     initialTab === 'containers' ? 'containers' : 'items'
   );
-  const [isManualMode, setIsManualMode] = useState(false);
-  const [manualDialog, setManualDialog] = useState<{
+
+  // Logic state
+  const [useAIAnalysis, setUseAIAnalysis] = useState(true);
+  const [isSystemAIEnabled, setIsSystemAIEnabled] = useState(false);
+  const handledUploads = useRef<Set<string>>(new Set());
+
+  // Dialog state
+  const [createOptionDialog, setCreateOptionDialog] = useState<{
     open: boolean;
-    imageId?: string;
-  }>({ open: false });
+    type: 'item' | 'container';
+  }>({ open: false, type: 'item' });
 
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
+
+  // Fetch Config & User Preference
+  useEffect(() => {
+    const storedPref = localStorage.getItem('inventory_use_ai_analysis');
+    const userPref = storedPref === null ? true : storedPref === 'true';
+
+    fetch('/api-next/config')
+      .then((res) => res.json())
+      .then((data) => {
+        setIsSystemAIEnabled(data.isAIEnabled);
+        if (!data.isAIEnabled) {
+          setUseAIAnalysis(false);
+        } else {
+          setUseAIAnalysis(userPref);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  const handleAIToggle = (checked: boolean) => {
+    setUseAIAnalysis(checked);
+    localStorage.setItem('inventory_use_ai_analysis', String(checked));
+  };
+
+  // Watch Upload Queue for Manual Completions
+  useEffect(() => {
+    const newManualCompleted = queue.filter(
+      (item) =>
+        item.status === 'completed' &&
+        item.isManualMode &&
+        item.imageId &&
+        !handledUploads.current.has(item.id)
+    );
+
+    if (newManualCompleted.length > 0) {
+      newManualCompleted.forEach((item) => handledUploads.current.add(item.id));
+
+      if (newManualCompleted.length === 1) {
+        // Redirect to wizard for single item
+        const imageId = newManualCompleted[0].imageId;
+        router.push(`/inventory/images/${imageId}/wizard`);
+      } else {
+        // Show toast for multiple items
+        const firstImageId = newManualCompleted[0].imageId;
+        toast.success(`${newManualCompleted.length} images uploaded.`, {
+          action: {
+            label: 'Label First',
+            onClick: () =>
+              router.push(`/inventory/images/${firstImageId}/wizard`),
+          },
+          duration: 5000,
+        });
+      }
+    }
+  }, [queue, router]);
 
   const loadItems = useCallback(async () => {
     try {
@@ -294,6 +379,20 @@ function InventoryPageContent() {
     }
   }, [totalPages, currentPage, handlePageChange]);
 
+  const handleStartWithImage = () => {
+    setCreateOptionDialog((prev) => ({ ...prev, open: false }));
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/webp';
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        addFiles(Array.from(files), true); // Force manual mode
+      }
+    };
+    input.click();
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -314,7 +413,7 @@ function InventoryPageContent() {
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
             variant="outline"
-            onClick={() => router.push('/inventory/items/new')}
+            onClick={() => setCreateOptionDialog({ open: true, type: 'item' })}
             className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -322,7 +421,9 @@ function InventoryPageContent() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push('/inventory/containers/new')}
+            onClick={() =>
+              setCreateOptionDialog({ open: true, type: 'container' })
+            }
             className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -333,17 +434,44 @@ function InventoryPageContent() {
 
       <div className="space-y-4">
         <div className="flex items-center space-x-2 justify-end">
-          <Switch
-            id="manual-mode"
-            checked={isManualMode}
-            onCheckedChange={setIsManualMode}
-          />
-          <Label htmlFor="manual-mode" className="text-sm sm:text-base">
-            Manual Labeling Mode {isManualMode ? '(On)' : '(Off)'}
-          </Label>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="ai-mode"
+              checked={useAIAnalysis}
+              onCheckedChange={handleAIToggle}
+              disabled={!isSystemAIEnabled}
+            />
+            <Label
+              htmlFor="ai-mode"
+              className={cn(
+                'text-sm sm:text-base flex items-center gap-2 transition-colors',
+                useAIAnalysis ? 'font-bold' : 'text-muted-foreground'
+              )}
+            >
+              AI Image Analysis {useAIAnalysis ? '(On)' : '(Off)'}
+              {useAIAnalysis && <Sparkles className="h-4 w-4 text-green-600" />}
+            </Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help opacity-50 hover:opacity-100 transition-opacity" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">
+                  When enabled, images are automatically analyzed by AI to
+                  detect items and details. Turn off to manually label images
+                  via the wizard instead.
+                  {!isSystemAIEnabled && (
+                    <span className="block mt-1 text-red-400 font-semibold">
+                      AI is currently disabled by system configuration.
+                    </span>
+                  )}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
-        <ImageUpload isManualMode={isManualMode} />
+        <ImageUpload isManualMode={!useAIAnalysis} />
       </div>
 
       <Tabs
@@ -457,51 +585,47 @@ function InventoryPageContent() {
       </Tabs>
 
       <Dialog
-        open={manualDialog.open}
-        onOpenChange={(open) => setManualDialog((prev) => ({ ...prev, open }))}
+        open={createOptionDialog.open}
+        onOpenChange={(open) =>
+          setCreateOptionDialog((prev) => ({ ...prev, open }))
+        }
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New Entry</DialogTitle>
+            <DialogTitle>
+              Create New{' '}
+              {createOptionDialog.type === 'item' ? 'Item' : 'Container'}
+            </DialogTitle>
             <DialogDescription>
-              What would you like to create from this image?
+              How would you like to create this {createOptionDialog.type}?
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-4">
             <Button
               variant="outline"
               className="h-32 flex flex-col items-center justify-center gap-4 hover:bg-primary/5 hover:border-primary"
-              onClick={() => {
-                if (manualDialog.imageId) {
-                  router.push(
-                    `/inventory/items/new?imageId=${manualDialog.imageId}`
-                  );
-                }
-              }}
+              onClick={handleStartWithImage}
             >
-              <Package className="h-10 w-10 text-primary" />
-              <span className="font-semibold">New Item</span>
+              <ImageIcon className="h-10 w-10 text-primary" />
+              <span className="font-semibold">Start with Image</span>
             </Button>
             <Button
               variant="outline"
               className="h-32 flex flex-col items-center justify-center gap-4 hover:bg-primary/5 hover:border-primary"
               onClick={() => {
-                if (manualDialog.imageId) {
-                  router.push(
-                    `/inventory/containers/new?imageId=${manualDialog.imageId}`
-                  );
-                }
+                setCreateOptionDialog((prev) => ({ ...prev, open: false }));
+                router.push(`/inventory/${createOptionDialog.type}s/new`);
               }}
             >
-              <Box className="h-10 w-10 text-primary" />
-              <span className="font-semibold">New Container</span>
+              <PenTool className="h-10 w-10 text-primary" />
+              <span className="font-semibold">Manual Entry</span>
             </Button>
           </div>
           <DialogFooter>
             <Button
               variant="ghost"
               onClick={() =>
-                setManualDialog((prev) => ({ ...prev, open: false }))
+                setCreateOptionDialog((prev) => ({ ...prev, open: false }))
               }
             >
               Cancel

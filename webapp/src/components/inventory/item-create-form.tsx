@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,6 +9,7 @@ import {
   type ItemInput,
   type CategoryLibrary,
   formatCategoryLabel,
+  BoundingBox,
 } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +32,8 @@ interface ItemCreateFormProps {
   onCancel?: () => void;
   isSubmitting?: boolean;
   categories?: CategoryLibrary;
+  selectedBbox?: BoundingBox;
+  primaryImageId?: string;
 }
 
 export function ItemCreateForm({
@@ -38,6 +42,8 @@ export function ItemCreateForm({
   onCancel,
   isSubmitting,
   categories,
+  selectedBbox,
+  primaryImageId,
 }: ItemCreateFormProps) {
   // Create a form schema without UserRef since it's not part of the form
   const FormSchema = ItemInputSchema.omit({ UserRef: true });
@@ -53,9 +59,24 @@ export function ItemCreateForm({
       itemType: '',
       itemManufacturer: '',
       itemAttributes: [],
+      primaryImage: primaryImageId,
+      primaryImageBbox: selectedBbox,
       ...defaultValues,
     },
   });
+
+  // Update form values when props change
+  useEffect(() => {
+    if (primaryImageId) {
+      form.setValue('primaryImage', primaryImageId);
+    }
+  }, [primaryImageId, form]);
+
+  useEffect(() => {
+    if (selectedBbox) {
+      form.setValue('primaryImageBbox', selectedBbox);
+    }
+  }, [selectedBbox, form]);
 
   const handleSubmit = async (data: z.input<typeof FormSchema>) => {
     await onSubmit(data);
