@@ -634,10 +634,7 @@ function InventoryPageContent() {
           {paginatedList.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">
-                {searchParam ||
-                functionalParam ||
-                specificParam ||
-                typeParam
+                {searchParam || functionalParam || specificParam || typeParam
                   ? 'No items match your search criteria'
                   : 'No items yet. Upload an image or create an item manually.'}
               </p>
@@ -655,9 +652,7 @@ function InventoryPageContent() {
                       : undefined
                   }
                   onClick={() => router.push(`/inventory/items/${item.id}`)}
-                  onEdit={() =>
-                    router.push(`/inventory/items/${item.id}/edit`)
-                  }
+                  onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
                   onClone={() =>
                     router.push(`/inventory/items/new?clone_from=${item.id}`)
                   }

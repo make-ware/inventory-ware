@@ -8,7 +8,6 @@ import type { Image } from '@project/shared';
 import { ImageCard } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -67,7 +66,8 @@ function ImagesPageContent() {
         filters.push(`file~"${searchParam}"`);
       }
 
-      const filterString = filters.length > 0 ? filters.join(' && ') : undefined;
+      const filterString =
+        filters.length > 0 ? filters.join(' && ') : undefined;
 
       const result = await imageMutator.getList(
         currentPage,
