@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  Suspense,
+  useRef,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
@@ -25,7 +32,14 @@ import {
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Loader2, Plus, Box, Package, Image as ImageIcon, PenTool } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  Box,
+  Package,
+  Image as ImageIcon,
+  PenTool,
+} from 'lucide-react';
 import { useUpload } from '@/contexts/upload-context';
 
 const ITEMS_PER_PAGE = 12;
@@ -77,8 +91,8 @@ function InventoryPageContent() {
   // Fetch Config
   useEffect(() => {
     fetch('/api-next/config')
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         setIsAIEnabled(data.isAIEnabled);
         if (!data.isAIEnabled) {
           setIsManualMode(true);
@@ -90,30 +104,34 @@ function InventoryPageContent() {
   // Watch Upload Queue for Manual Completions
   useEffect(() => {
     const newManualCompleted = queue.filter(
-        item => item.status === 'completed' && item.isManualMode && item.imageId && !handledUploads.current.has(item.id)
+      (item) =>
+        item.status === 'completed' &&
+        item.isManualMode &&
+        item.imageId &&
+        !handledUploads.current.has(item.id)
     );
 
     if (newManualCompleted.length > 0) {
-        newManualCompleted.forEach(item => handledUploads.current.add(item.id));
+      newManualCompleted.forEach((item) => handledUploads.current.add(item.id));
 
-        if (newManualCompleted.length === 1) {
-             // Redirect to wizard for single item
-             const imageId = newManualCompleted[0].imageId;
-             router.push(`/inventory/images/${imageId}/wizard`);
-        } else {
-             // Show toast for multiple items
-             const firstImageId = newManualCompleted[0].imageId;
-             toast.success(`${newManualCompleted.length} images uploaded.`, {
-                action: {
-                    label: 'Label First',
-                    onClick: () => router.push(`/inventory/images/${firstImageId}/wizard`)
-                },
-                duration: 5000,
-             });
-        }
+      if (newManualCompleted.length === 1) {
+        // Redirect to wizard for single item
+        const imageId = newManualCompleted[0].imageId;
+        router.push(`/inventory/images/${imageId}/wizard`);
+      } else {
+        // Show toast for multiple items
+        const firstImageId = newManualCompleted[0].imageId;
+        toast.success(`${newManualCompleted.length} images uploaded.`, {
+          action: {
+            label: 'Label First',
+            onClick: () =>
+              router.push(`/inventory/images/${firstImageId}/wizard`),
+          },
+          duration: 5000,
+        });
+      }
     }
   }, [queue, router]);
-
 
   const loadItems = useCallback(async () => {
     try {
@@ -344,15 +362,15 @@ function InventoryPageContent() {
   }, [totalPages, currentPage, handlePageChange]);
 
   const handleStartWithImage = () => {
-    setCreateOptionDialog(prev => ({ ...prev, open: false }));
+    setCreateOptionDialog((prev) => ({ ...prev, open: false }));
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/jpeg,image/png,image/webp';
     input.onchange = (e) => {
-        const files = (e.target as HTMLInputElement).files;
-        if (files && files.length > 0) {
-            addFiles(Array.from(files), true); // Force manual mode
-        }
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files.length > 0) {
+        addFiles(Array.from(files), true); // Force manual mode
+      }
     };
     input.click();
   };
@@ -385,7 +403,9 @@ function InventoryPageContent() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => setCreateOptionDialog({ open: true, type: 'container' })}
+            onClick={() =>
+              setCreateOptionDialog({ open: true, type: 'container' })
+            }
             className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -522,11 +542,16 @@ function InventoryPageContent() {
 
       <Dialog
         open={createOptionDialog.open}
-        onOpenChange={(open) => setCreateOptionDialog((prev) => ({ ...prev, open }))}
+        onOpenChange={(open) =>
+          setCreateOptionDialog((prev) => ({ ...prev, open }))
+        }
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create New {createOptionDialog.type === 'item' ? 'Item' : 'Container'}</DialogTitle>
+            <DialogTitle>
+              Create New{' '}
+              {createOptionDialog.type === 'item' ? 'Item' : 'Container'}
+            </DialogTitle>
             <DialogDescription>
               How would you like to create this {createOptionDialog.type}?
             </DialogDescription>
@@ -544,7 +569,7 @@ function InventoryPageContent() {
               variant="outline"
               className="h-32 flex flex-col items-center justify-center gap-4 hover:bg-primary/5 hover:border-primary"
               onClick={() => {
-                setCreateOptionDialog(prev => ({ ...prev, open: false }));
+                setCreateOptionDialog((prev) => ({ ...prev, open: false }));
                 router.push(`/inventory/${createOptionDialog.type}s/new`);
               }}
             >

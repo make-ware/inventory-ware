@@ -4,7 +4,15 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
-import type { Image, Item, Container, BoundingBox, CategoryLibrary, ItemInput, ContainerInput } from '@project/shared';
+import type {
+  Image,
+  Item,
+  Container,
+  BoundingBox,
+  CategoryLibrary,
+  ItemInput,
+  ContainerInput,
+} from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -29,7 +37,9 @@ export default function ImageLabelingWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State for the wizard
-  const [selectedBbox, setSelectedBbox] = useState<BoundingBox | undefined>(undefined);
+  const [selectedBbox, setSelectedBbox] = useState<BoundingBox | undefined>(
+    undefined
+  );
   const [isEditingBbox, setIsEditingBbox] = useState(false);
 
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
@@ -48,17 +58,24 @@ export default function ImageLabelingWizard() {
       setImage(imageData);
 
       // Load items linked to this image
-      const linkedItems = await itemMutator.getList(1, 100, `primaryImage="${imageId}"`);
+      const linkedItems = await itemMutator.getList(
+        1,
+        100,
+        `primaryImage="${imageId}"`
+      );
       setItems(linkedItems.items);
 
       // Load containers linked to this image
-      const linkedContainers = await containerMutator.getList(1, 100, `primaryImage="${imageId}"`);
+      const linkedContainers = await containerMutator.getList(
+        1,
+        100,
+        `primaryImage="${imageId}"`
+      );
       setContainers(linkedContainers.items);
 
       // Load categories
       const categoryLibrary = await itemMutator.getDistinctCategories();
       setCategories(categoryLibrary);
-
     } catch (error) {
       console.error('Failed to load wizard data:', error);
       toast.error('Failed to load data');
@@ -80,7 +97,9 @@ export default function ImageLabelingWizard() {
     setIsEditingBbox(false);
   };
 
-  const handleItemSubmit = async (data: Partial<Omit<ItemInput, 'UserRef'>>) => {
+  const handleItemSubmit = async (
+    data: Partial<Omit<ItemInput, 'UserRef'>>
+  ) => {
     try {
       if (!userId) {
         toast.error('No authenticated user');
@@ -91,15 +110,18 @@ export default function ImageLabelingWizard() {
         ...data,
         UserRef: userId,
         primaryImage: imageId,
-        primaryImageBbox: selectedBbox
+        primaryImageBbox: selectedBbox,
       } as ItemInput);
       toast.success('Item created successfully');
 
       // Refresh lists and reset bbox
-      const linkedItems = await itemMutator.getList(1, 100, `primaryImage="${imageId}"`);
+      const linkedItems = await itemMutator.getList(
+        1,
+        100,
+        `primaryImage="${imageId}"`
+      );
       setItems(linkedItems.items);
       setSelectedBbox(undefined);
-
     } catch (error) {
       console.error('Failed to create item:', error);
       toast.error('Failed to create item');
@@ -108,7 +130,9 @@ export default function ImageLabelingWizard() {
     }
   };
 
-  const handleContainerSubmit = async (data: Partial<Omit<ContainerInput, 'UserRef'>>) => {
+  const handleContainerSubmit = async (
+    data: Partial<Omit<ContainerInput, 'UserRef'>>
+  ) => {
     try {
       if (!userId) {
         toast.error('No authenticated user');
@@ -119,15 +143,18 @@ export default function ImageLabelingWizard() {
         ...data,
         UserRef: userId,
         primaryImage: imageId,
-        primaryImageBbox: selectedBbox
+        primaryImageBbox: selectedBbox,
       } as ContainerInput);
       toast.success('Container created successfully');
 
       // Refresh lists and reset bbox
-      const linkedContainers = await containerMutator.getList(1, 100, `primaryImage="${imageId}"`);
+      const linkedContainers = await containerMutator.getList(
+        1,
+        100,
+        `primaryImage="${imageId}"`
+      );
       setContainers(linkedContainers.items);
       setSelectedBbox(undefined);
-
     } catch (error) {
       console.error('Failed to create container:', error);
       toast.error('Failed to create container');
@@ -183,7 +210,7 @@ export default function ImageLabelingWizard() {
                     className="w-full h-full object-contain"
                   />
                   {selectedBbox && (
-                     <div
+                    <div
                       className="absolute border-2 border-primary bg-primary/20"
                       style={{
                         left: `${selectedBbox.x * 100}%`,
@@ -195,17 +222,22 @@ export default function ImageLabelingWizard() {
                   )}
                 </div>
                 <div className="flex justify-between items-center">
-                    <Button onClick={() => setIsEditingBbox(true)}>
+                  <Button onClick={() => setIsEditingBbox(true)}>
                     {selectedBbox ? 'Edit Bounding Box' : 'Add Bounding Box'}
+                  </Button>
+                  {selectedBbox && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedBbox(undefined)}
+                    >
+                      Clear Box
                     </Button>
-                    {selectedBbox && (
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedBbox(undefined)}>
-                            Clear Box
-                        </Button>
-                    )}
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Draw a box around the object you want to create. This will be saved with the new item or container.
+                  Draw a box around the object you want to create. This will be
+                  saved with the new item or container.
                 </p>
               </div>
             )}
@@ -218,70 +250,107 @@ export default function ImageLabelingWizard() {
             <CardTitle>Create Entities</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto min-h-0">
-             <Tabs defaultValue="item" className="h-full flex flex-col">
+            <Tabs defaultValue="item" className="h-full flex flex-col">
               <TabsList className="w-full">
-                <TabsTrigger value="item" className="flex-1">New Item</TabsTrigger>
-                <TabsTrigger value="container" className="flex-1">New Container</TabsTrigger>
+                <TabsTrigger value="item" className="flex-1">
+                  New Item
+                </TabsTrigger>
+                <TabsTrigger value="container" className="flex-1">
+                  New Container
+                </TabsTrigger>
                 <TabsTrigger value="created" className="flex-1">
                   Created ({items.length + containers.length})
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="item" className="flex-1 mt-4 overflow-y-auto pr-2">
-                 <ItemCreateForm
-                    onSubmit={handleItemSubmit}
-                    isSubmitting={isSubmitting}
-                    categories={categories}
-                    selectedBbox={selectedBbox}
-                    primaryImageId={imageId}
-                 />
-              </TabsContent>
-
-              <TabsContent value="container" className="flex-1 mt-4 overflow-y-auto pr-2">
-                <ContainerCreateForm
-                    onSubmit={handleContainerSubmit}
-                    isSubmitting={isSubmitting}
-                    selectedBbox={selectedBbox}
-                    primaryImageId={imageId}
+              <TabsContent
+                value="item"
+                className="flex-1 mt-4 overflow-y-auto pr-2"
+              >
+                <ItemCreateForm
+                  onSubmit={handleItemSubmit}
+                  isSubmitting={isSubmitting}
+                  categories={categories}
+                  selectedBbox={selectedBbox}
+                  primaryImageId={imageId}
                 />
               </TabsContent>
 
-              <TabsContent value="created" className="flex-1 mt-4 overflow-y-auto">
+              <TabsContent
+                value="container"
+                className="flex-1 mt-4 overflow-y-auto pr-2"
+              >
+                <ContainerCreateForm
+                  onSubmit={handleContainerSubmit}
+                  isSubmitting={isSubmitting}
+                  selectedBbox={selectedBbox}
+                  primaryImageId={imageId}
+                />
+              </TabsContent>
+
+              <TabsContent
+                value="created"
+                className="flex-1 mt-4 overflow-y-auto"
+              >
                 <div className="space-y-6">
                   <div>
                     <h3 className="font-semibold flex items-center gap-2 mb-2">
-                        <Package className="h-4 w-4" /> Items
+                      <Package className="h-4 w-4" /> Items
                     </h3>
-                    {items.length === 0 ? <p className="text-sm text-muted-foreground ml-6">No items created yet.</p> : (
-                        <div className="space-y-2">
-                        {items.map(i => (
-                            <div key={i.id} className="flex items-center justify-between p-3 bg-muted rounded-md cursor-pointer hover:bg-muted/80" onClick={() => router.push(`/inventory/items/${i.id}`)}>
-                                <span>{i.itemLabel}</span>
-                                {i.primaryImageBbox && <Box className="h-3 w-3 text-muted-foreground" />}
-                            </div>
+                    {items.length === 0 ? (
+                      <p className="text-sm text-muted-foreground ml-6">
+                        No items created yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {items.map((i) => (
+                          <div
+                            key={i.id}
+                            className="flex items-center justify-between p-3 bg-muted rounded-md cursor-pointer hover:bg-muted/80"
+                            onClick={() =>
+                              router.push(`/inventory/items/${i.id}`)
+                            }
+                          >
+                            <span>{i.itemLabel}</span>
+                            {i.primaryImageBbox && (
+                              <Box className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </div>
                         ))}
-                        </div>
+                      </div>
                     )}
                   </div>
 
                   <div>
                     <h3 className="font-semibold flex items-center gap-2 mb-2">
-                        <Box className="h-4 w-4" /> Containers
+                      <Box className="h-4 w-4" /> Containers
                     </h3>
-                    {containers.length === 0 ? <p className="text-sm text-muted-foreground ml-6">No containers created yet.</p> : (
-                        <div className="space-y-2">
-                        {containers.map(c => (
-                            <div key={c.id} className="flex items-center justify-between p-3 bg-muted rounded-md cursor-pointer hover:bg-muted/80" onClick={() => router.push(`/inventory/containers/${c.id}`)}>
-                                <span>{c.containerLabel}</span>
-                                {c.primaryImageBbox && <Box className="h-3 w-3 text-muted-foreground" />}
-                            </div>
+                    {containers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground ml-6">
+                        No containers created yet.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {containers.map((c) => (
+                          <div
+                            key={c.id}
+                            className="flex items-center justify-between p-3 bg-muted rounded-md cursor-pointer hover:bg-muted/80"
+                            onClick={() =>
+                              router.push(`/inventory/containers/${c.id}`)
+                            }
+                          >
+                            <span>{c.containerLabel}</span>
+                            {c.primaryImageBbox && (
+                              <Box className="h-3 w-3 text-muted-foreground" />
+                            )}
+                          </div>
                         ))}
-                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
               </TabsContent>
-             </Tabs>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
