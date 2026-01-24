@@ -4,6 +4,7 @@ import { z } from 'zod';
 import {
   ItemImageMetadataSchema,
   ContainerImageMetadataSchema,
+  AnalysisResultSchema,
 } from '@project/shared';
 import type { AnalysisResult } from '@project/shared';
 
@@ -122,9 +123,6 @@ export function createAIAnalysisService(): AIAnalysisService {
       imageData: string,
       existingCategories: CategoryLibrary
     ): Promise<AnalysisResult> {
-      // First determine the image type
-      const imageType = await this.determineImageType(imageData);
-
       // Build category context for AI
       const categoryContext = `
 IMPORTANT CATEGORY & ATTRIBUTE RULES:
@@ -145,57 +143,35 @@ Existing example categories for your reference:
 - Item Types: ${existingCategories.itemType.join(', ') || 'None yet'}
 `;
 
-      if (imageType === 'item') {
-        // Analyze single item
-        const openai = getOpenAI();
-        const { object } = await generateObject({
-          model: openai('gpt-5.2-2025-12-11'),
-          schema: ItemImageMetadataSchema,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Analyze this image of an inventory item. Extract detailed metadata including label, notes, categories, manufacturer, and attributes.
+      const openai = getOpenAI();
+      const { object } = await generateObject({
+        model: openai('gpt-5.2-2025-12-11'),
+        schema: AnalysisResultSchema,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Analyze this image to determine if it shows a single inventory item or a container with multiple items, then extract the appropriate metadata.
+
+If it is a single item:
+Extract detailed metadata including label, notes, categories, manufacturer, and attributes. Be thorough and specific. Include relevant attributes like dimensions, specifications, quantities, colors, or other distinguishing features.
+
+If it is a container with multiple items:
+Extract metadata for the container and each visible item inside. For each item, provide detailed metadata including label, categories, manufacturer, and attributes.
 
 ${categoryContext}
 
-Be thorough and specific in your analysis. Include relevant attributes like dimensions, specifications, quantities, colors, or other distinguishing features.
-Return the final result as a structured object.`,
-                },
-                { type: 'image', image: imageData },
-              ],
-            },
-          ],
-        });
-        return { type: 'item', data: object };
-      } else {
-        // Analyze container with multiple items
-        const openai = getOpenAI();
-        const { object } = await generateObject({
-          model: openai('gpt-5.2-2025-12-11'),
-          schema: ContainerImageMetadataSchema,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Analyze this image of a container with multiple items. Extract metadata for the container and each visible item inside.
+Return the final result as a structured object with the correct type ('item' or 'container').`,
+              },
+              { type: 'image', image: imageData },
+            ],
+          },
+        ],
+      });
 
-${categoryContext}
-
-For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.
-Return the final result as a structured object.`,
-                },
-                { type: 'image', image: imageData },
-              ],
-            },
-          ],
-        });
-        return { type: 'container', data: object };
-      }
+      return object;
     },
   };
 }
