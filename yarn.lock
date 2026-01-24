@@ -1261,6 +1261,7 @@ __metadata:
     react-hook-form: "npm:^7.71.1"
     react-resizable-panels: "npm:^4.4.1"
     recharts: "npm:3.6.0"
+    sharp: "npm:^0.34.5"
     sonner: "npm:^2.0.7"
     tailwind-merge: "npm:^3.4.0"
     tailwindcss: "npm:^4.1.18"
@@ -8548,7 +8549,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"sharp@npm:^0.34.4":
+"sharp@npm:^0.34.4, sharp@npm:^0.34.5":
   version: 0.34.5
   resolution: "sharp@npm:0.34.5"
   dependencies:

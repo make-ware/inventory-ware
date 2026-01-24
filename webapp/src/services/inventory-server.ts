@@ -1,3 +1,5 @@
+'use server';
+
 import {
   type TypedPocketBase,
   ImageMutator,
@@ -6,7 +8,9 @@ import {
   ContainerMutator,
   computeFileHash,
 } from '@project/shared';
-import { createAIAnalysisService, type CategoryLibrary } from './ai-analysis';
+import sharp from 'sharp';
+import { createAIAnalysisService } from './ai-analysis';
+import type { CategoryLibrary } from './ai-analysis';
 import type {
   Item,
   Container,
@@ -14,10 +18,15 @@ import type {
   AnalysisResult,
   ItemInput,
 } from '@project/shared';
+import type {
+  InventoryServerService,
+  ProcessImageResult,
+} from './inventory-types';
 
 /**
  * Download an image from PocketBase and convert it to base64 data URL
  * This is needed because OpenAI cannot access localhost URLs
+ * Converts all images to optimized JPEG format using sharp to reduce bandwidth
  */
 async function downloadImageAsBase64(
   pb: TypedPocketBase,
@@ -31,27 +40,36 @@ async function downloadImageAsBase64(
     headers: {
       // Include auth token if available
       ...(pb.authStore.token
-        ? { Authorization: `Bearer ${pb.authStore.token} ` }
+        ? { Authorization: `Bearer ${pb.authStore.token}` }
         : {}),
     },
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to download image: ${response.statusText} `);
+    throw new Error(`Failed to download image: ${response.statusText}`);
   }
 
   // Get the image as blob
   const blob = await response.blob();
 
-  // Convert blob to base64
+  // Convert blob to buffer
   const arrayBuffer = await blob.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString('base64');
+  const buffer = Buffer.from(arrayBuffer);
 
-  // Determine MIME type from blob or default to jpeg
-  const mimeType = blob.type || 'image/jpeg';
+  // Convert image to optimized JPEG using sharp (handles PNG, WebP, etc.)
+  // This reduces bandwidth by converting to a lower quality JPEG format
+  const convertedBuffer = await sharp(buffer)
+    .jpeg({ quality: 50, mozjpeg: true })
+    .toBuffer();
+
+  // Convert to base64
+  const base64 = convertedBuffer.toString('base64');
+
+  // Always use JPEG MIME type since we've converted it
+  const mimeType = 'image/jpeg';
 
   // Return as data URL
-  return `data:${mimeType}; base64, ${base64} `;
+  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
@@ -61,74 +79,20 @@ async function fileToBase64(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString('base64');
   const mimeType = file.type || 'image/jpeg';
-  return `data:${mimeType}; base64, ${base64} `;
+  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
- * Result of processing an image upload
- */
-export interface ProcessImageResult {
-  image: Image;
-  result: AnalysisResult;
-  items: Item[];
-  container?: Container;
-}
-
-/**
- * Inventory Service for managing inventory operations
- */
-export interface InventoryService {
-  /**
-   * Process an uploaded image: upload → analyze → create entities
-   * @param file - The image file to upload
-   * @param userId - ID of the authenticated user
-   * @returns Processing result with created entities
-   */
-  processImageUpload(file: File, userId: string): Promise<ProcessImageResult>;
-
-  /**
-   * Re-analyze an existing image
-   * @param imageId - ID of the image to re-analyze
-   * @returns Analysis result with updated metadata
-   */
-  reanalyzeImage(imageId: string): Promise<AnalysisResult>;
-
-  /**
-   * Process an existing image: analyze → create entities
-   * This is useful for re-queuing images that failed or were uploaded without processing
-   * @param imageId - ID of the existing image to process
-   * @param userId - ID of the authenticated user
-   * @returns Processing result with created entities
-   */
-  processExistingImage(
-    imageId: string,
-    userId: string
-  ): Promise<ProcessImageResult>;
-
-  /**
-   * Get the category library (distinct category values from all items)
-   * @returns Category library with functional, specific, and itemType arrays
-   */
-  getCategoryLibrary(): Promise<CategoryLibrary>;
-
-  /**
-   * Search for existing categories to avoid duplicates
-   * @param query - Search query
-   * @param type - Category type
-   * @returns List of matching category values
-   */
-  searchCategories(
-    query: string,
-    type: 'functional' | 'specific' | 'itemType'
-  ): Promise<string[]>;
-}
-
-/**
- * Create an Inventory Service instance
+ * Create an Inventory Server Service instance (server-only).
+ * Includes image processing: processImageUpload, reanalyzeImage, processExistingImage
+ * (sharp, AI analysis). Not available on the client; use createInventoryService there.
+ *
  * @param pb - TypedPocketBase client instance
- * @returns InventoryService instance
+ * @returns InventoryServerService instance
  */
-export function createInventoryService(pb: TypedPocketBase): InventoryService {
+export function createInventoryServerService(
+  pb: TypedPocketBase
+): InventoryServerService {
   const imageMutator = new ImageMutator(pb);
   const imageMetadataMutator = new ImageMetadataMutator(pb);
   const itemMutator = new ItemMutator(pb);
@@ -149,21 +113,121 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
       file: File,
       userId: string
     ): Promise<ProcessImageResult> {
-      // 1. Compute file hash for deduplication/caching
+      // 1. Compute file hash for deduplication/caching (using original file)
       const fileHash = await computeFileHash(file);
 
       // 2. Check for cached metadata with same hash
       const cachedEntry = await imageMetadataMutator.findByHash(fileHash);
       const cachedMetadata = cachedEntry?.metadata;
 
-      // 3. Upload the new image (always create a new record for this user)
-      const image = await imageMutator.uploadImage(file, userId);
+      // 3. Convert image to optimized JPEG for bandwidth savings
+      // Converts PNG and JPEG to lower quality JPEG to reduce file size
+      // Compresses to under 5MB if needed
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const originalSize = buffer.length;
+      const maxSizeBytes = 5 * 1024 * 1024; // 5MB in bytes
 
-      // 4. Update the image's fileHash field
+      console.log(
+        `Converting image: ${file.name} (${originalSize} bytes, type: ${file.type})`
+      );
+
+      // Get image metadata to determine if we need to resize
+      const metadata = await sharp(buffer).metadata();
+      let convertedBuffer: Buffer;
+      let quality = 50;
+      let currentWidth = metadata.width;
+      let currentHeight = metadata.height;
+      let resizeApplied = false;
+
+      // Progressive compression: reduce quality and resize if needed until under 5MB
+      let attempts = 0;
+      const maxAttempts = 10; // Prevent infinite loops
+
+      do {
+        const sharpInstance = sharp(buffer);
+
+        // Calculate target dimensions if we need to resize
+        if (currentWidth && currentHeight) {
+          const maxDimension = Math.max(currentWidth, currentHeight);
+
+          // Initial resize: if image is very large (over 2000px), resize it
+          if (!resizeApplied && maxDimension > 2000) {
+            const scale = 2000 / maxDimension;
+            currentWidth = Math.round(currentWidth * scale);
+            currentHeight = Math.round(currentHeight * scale);
+            resizeApplied = true;
+          }
+
+          // Apply resize if dimensions changed from original
+          if (
+            currentWidth !== metadata.width ||
+            currentHeight !== metadata.height
+          ) {
+            sharpInstance.resize(currentWidth, currentHeight, {
+              fit: 'inside',
+              withoutEnlargement: true,
+            });
+          }
+        }
+
+        convertedBuffer = await sharpInstance
+          .jpeg({ quality, mozjpeg: true })
+          .toBuffer();
+
+        // If still too large, reduce quality and potentially resize further
+        if (convertedBuffer.length > maxSizeBytes && quality > 20) {
+          quality = Math.max(20, quality - 10);
+
+          // Further resize if quality is getting low
+          if (quality <= 30 && currentWidth && currentHeight) {
+            const scale = 0.9;
+            currentWidth = Math.round(currentWidth * scale);
+            currentHeight = Math.round(currentHeight * scale);
+          }
+
+          attempts++;
+        } else {
+          break; // We're under 5MB or at minimum quality
+        }
+      } while (
+        convertedBuffer.length > maxSizeBytes &&
+        quality > 20 &&
+        attempts < maxAttempts
+      );
+
+      const convertedSize = convertedBuffer.length;
+      const sizeReduction = (
+        ((originalSize - convertedSize) / originalSize) *
+        100
+      ).toFixed(1);
+      const resizeInfo =
+        currentWidth && currentHeight && currentWidth !== metadata.width
+          ? `, resized to ${currentWidth}x${currentHeight}`
+          : '';
+      console.log(
+        `Converted to JPEG: ${convertedSize} bytes (${sizeReduction}% reduction, quality: ${quality}${resizeInfo})`
+      );
+
+      // Create a new File object for the converted image
+      // Replace extension with .jpg
+      const newFileName = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+      const convertedFile = new File(
+        [new Uint8Array(convertedBuffer)],
+        newFileName,
+        {
+          type: 'image/jpeg',
+        }
+      );
+      // 4. Upload the converted image (always create a new record for this user)
+      const image = await imageMutator.uploadImage(convertedFile, userId);
+
+      // 5. Update the image's fileHash field with the ORIGINAL file's hash
       await imageMutator.update(image.id, { fileHash });
 
-      // Convert file to base64 for AI analysis (if needed)
-      const imageData = await fileToBase64(file);
+      // Convert converted file to base64 for AI analysis
+      // We use the converted file here as it should look the same but be smaller/standardized
+      const imageData = await fileToBase64(convertedFile);
 
       try {
         let result: AnalysisResult;
@@ -397,20 +461,25 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           error.status === 404
         ) {
           throw new Error(
-            `Image with ID ${imageId} not found.It may have been deleted.`
+            `Image with ID ${imageId} not found. It may have been deleted.`
           );
         }
         throw error;
       }
 
-      // Compute file hash first for cache lookup
-      const imageBlob = await fetch(imageMutator.getFileUrl(image)).then((r) =>
-        r.blob()
-      );
-      const fileHash = await computeFileHash(await imageBlob.arrayBuffer());
+      // Use stored fileHash if available (hash of original file from upload)
+      // Only recompute if missing (for backward compatibility with old records)
+      let fileHash = image.fileHash;
 
-      // Update the image's fileHash field if it's not set or different
-      if (image.fileHash !== fileHash) {
+      if (!fileHash) {
+        // For backward compatibility: compute hash from stored file if hash is missing
+        // Note: This will hash the converted JPEG, not the original, but it's acceptable for old records
+        const imageBlob = await fetch(imageMutator.getFileUrl(image)).then(
+          (r) => r.blob()
+        );
+        fileHash = await computeFileHash(await imageBlob.arrayBuffer());
+
+        // Update the image's fileHash field with the computed hash
         await imageMutator.update(image.id, { fileHash });
       }
 

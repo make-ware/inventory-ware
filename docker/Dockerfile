@@ -3,7 +3,8 @@ FROM node:22-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat unzip curl
+# Install build dependencies including vips for sharp image processing
+RUN apk add --no-cache libc6-compat unzip curl vips
 WORKDIR /app
 
 # Install Yarn v4
@@ -44,8 +45,9 @@ WORKDIR /app
 # - Development: "http://localhost:8090" (direct connection)
 ARG NEXT_PUBLIC_POCKETBASE_URL="/"
 
-# Install Yarn v4
+# Install Yarn v4 and vips for sharp image processing
 RUN corepack enable && corepack prepare yarn@4.12.0 --activate
+RUN apk add --no-cache vips
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
@@ -81,6 +83,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Install Yarn v4
 RUN corepack enable && corepack prepare yarn@4.12.0 --activate
+
+# Install vips for sharp image processing (JPEG, PNG, WebP)
+RUN apk add --no-cache vips
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \

@@ -31,8 +31,6 @@ interface InventoryState {
 }
 
 interface InventoryContextValue extends InventoryState {
-  /** Upload an image and analyze it with AI to create items/containers */
-  uploadAndAnalyze: (file: File) => Promise<void>;
   /** Refresh the items list from the database */
   refreshItems: () => Promise<void>;
   /** Refresh the containers list from the database */
@@ -189,51 +187,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       console.error('Failed to load images:', error);
     }
   }, [imageMutator]);
-
-  // Upload and analyze an image with AI
-  // Uses API route to ensure server-side processing where env vars are available
-  const uploadAndAnalyze = useCallback(
-    async (file: File) => {
-      try {
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-        // Use API route for server-side processing
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const authToken = pb.authStore.token;
-        const response = await fetch('/api-next/process-image', {
-          method: 'POST',
-          headers: {
-            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-          },
-          body: formData,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to process image');
-        }
-
-        // Refresh all data after successful upload
-        await Promise.all([
-          refreshItems(),
-          refreshContainers(),
-          refreshCategories(),
-          loadImages(),
-        ]);
-      } catch (error) {
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error:
-            error instanceof Error ? error.message : 'Failed to upload image',
-        }));
-        throw error;
-      }
-    },
-    [refreshItems, refreshContainers, refreshCategories, loadImages]
-  );
 
   // Search items by query and filters
   const searchItems = useCallback(
@@ -512,7 +465,6 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
 
   const value: InventoryContextValue = {
     ...state,
-    uploadAndAnalyze,
     refreshItems,
     refreshContainers,
     refreshCategories,
