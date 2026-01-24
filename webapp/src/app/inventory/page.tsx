@@ -40,8 +40,6 @@ import { toast } from 'sonner';
 import {
   Loader2,
   Plus,
-  Box,
-  Package,
   Image as ImageIcon,
   PenTool,
   Sparkles,
@@ -63,7 +61,7 @@ function InventoryPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { queue, clearCompleted, addFiles } = useUpload();
+  const { queue, addFiles } = useUpload();
 
   // Initialize state from query string (only on first render)
   const [initialState] = useState(() => ({

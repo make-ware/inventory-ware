@@ -20,8 +20,9 @@ import { BoundingBoxEditor } from '@/components/inventory/bounding-box-editor';
 import { ItemCreateForm } from '@/components/inventory/item-create-form';
 import { ContainerCreateForm } from '@/components/inventory/container-create-form';
 import { toast } from 'sonner';
-import { Loader2, ArrowLeft, RefreshCw, Box, Package } from 'lucide-react';
+import { Loader2, ArrowLeft, Box, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import NextImage from 'next/image';
 
 export default function ImageLabelingWizard() {
   const router = useRouter();
@@ -204,10 +205,12 @@ export default function ImageLabelingWizard() {
             ) : (
               <div className="flex flex-col gap-4">
                 <div className="relative aspect-square md:aspect-auto md:h-[500px] border rounded-md overflow-hidden bg-muted">
-                  <img
+                  <NextImage
                     src={getImageUrl(image)}
                     alt="Source"
-                    className="w-full h-full object-contain"
+                    fill
+                    className="object-contain"
+                    unoptimized
                   />
                   {selectedBbox && (
                     <div
