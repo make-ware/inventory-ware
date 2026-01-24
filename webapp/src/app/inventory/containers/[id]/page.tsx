@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ItemCard } from '@/components/inventory';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import {
   Select,
   SelectContent,
@@ -43,6 +44,7 @@ export default function ContainerDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
+  const { confirm } = useConfirm();
 
   const containerMutator = new ContainerMutator(pb);
   const itemMutator = new ItemMutator(pb);
@@ -92,9 +94,9 @@ export default function ContainerDetailPage() {
   const handleDelete = async () => {
     if (containerItems.length > 0) {
       if (
-        !confirm(
+        !(await confirm(
           `This container has ${containerItems.length} items. Delete anyway?`
-        )
+        ))
       ) {
         return;
       }
@@ -131,7 +133,7 @@ export default function ContainerDetailPage() {
   };
 
   const handleRemoveItem = async (itemId: string) => {
-    if (!confirm('Remove this item from the container?')) return;
+    if (!(await confirm('Remove this item from the container?'))) return;
 
     try {
       await itemMutator.update(itemId, { container: undefined });

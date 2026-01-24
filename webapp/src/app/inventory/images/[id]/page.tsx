@@ -6,6 +6,7 @@ import NextImage from 'next/image';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
 import type { Image, Item, Container } from '@project/shared';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ export default function ImageDetailPage() {
   const [container, setContainer] = useState<Container | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { confirm } = useConfirm();
 
   const imageMutator = new ImageMutator(pb);
   const itemMutator = new ItemMutator(pb);
@@ -106,7 +108,7 @@ export default function ImageDetailPage() {
   }, [image?.analysisStatus, loadImageDetails]);
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this image?')) return;
+    if (!(await confirm('Are you sure you want to delete this image?'))) return;
 
     try {
       await imageMutator.delete(imageId);

@@ -104,19 +104,13 @@ export function CroppedImageViewer({
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Load image dimensions
-  useEffect(() => {
-    if (!imageUrl) return;
-
-    const img = new Image();
-    img.onload = () => {
-      setImageDimensions({
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-      });
-    };
-    img.src = imageUrl;
-  }, [imageUrl]);
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    setImageDimensions({
+      width: img.naturalWidth,
+      height: img.naturalHeight,
+    });
+  };
 
   // Calculate bounding box position using useMemo (derived state)
   const bboxStyle = useMemo(() => {
@@ -150,6 +144,7 @@ export function CroppedImageViewer({
           fill
           className="object-cover"
           unoptimized
+          onLoad={handleImageLoad}
         />
       </div>
     );
@@ -189,6 +184,7 @@ export function CroppedImageViewer({
           fill
           className="object-cover"
           unoptimized
+          onLoad={handleImageLoad}
         />
         {clipPath && (
           <div
@@ -233,6 +229,7 @@ export function CroppedImageViewer({
           objectPosition: `${positionX}% ${positionY}%`,
         }}
         unoptimized
+        onLoad={handleImageLoad}
       />
     </div>
   );

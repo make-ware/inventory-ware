@@ -28,7 +28,31 @@ vi.mock('next/navigation', () => ({
 // Mock Next.js Image component
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => {
-    return React.createElement('img', props);
+    // Extract Next.js-specific props that shouldn't be passed to DOM
+    const {
+      fill,
+      unoptimized,
+      priority,
+      quality,
+      sizes,
+      loader,
+      placeholder,
+      blurDataURL,
+      ...domProps
+    } = props;
+
+    // If fill is true, add appropriate styles to make image fill container
+    const style = fill
+      ? {
+          ...(typeof props.style === 'object' ? props.style : {}),
+          position: 'absolute',
+          height: '100%',
+          width: '100%',
+          inset: 0,
+        }
+      : props.style;
+
+    return React.createElement('img', { ...domProps, style });
   },
 }));
 
