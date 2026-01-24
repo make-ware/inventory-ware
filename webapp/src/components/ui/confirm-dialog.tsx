@@ -63,7 +63,12 @@ export function ConfirmDialogProvider({
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialog
+        open={open}
+        onOpenChange={(newOpen) => {
+          if (!newOpen) handleCancel();
+        }}
+      >
         <AlertDialogContent
           onOpenAutoFocus={(e) => {
             e.preventDefault();
