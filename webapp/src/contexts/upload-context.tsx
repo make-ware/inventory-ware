@@ -77,11 +77,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
       setQueue((prev) => [...prev, ...newItems]);
 
-      // Process each file
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const item = newItems[i];
-
+      const processFile = async (file: File, item: UploadItem) => {
         try {
           // 1. Upload stage
           setQueue((prev) =>
@@ -115,7 +111,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
           if (isManualMode) {
             toast.success(`Uploaded ${file.name}`);
-            continue;
+            return;
           }
 
           // 2. Analysis stage
@@ -161,7 +157,27 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           );
           toast.error(`Failed to process ${file.name}`);
         }
+      };
+
+      // Process files with concurrency limit
+      const CONCURRENCY_LIMIT = 3;
+      const activePromises: Promise<void>[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const item = newItems[i];
+
+        if (activePromises.length >= CONCURRENCY_LIMIT) {
+          await Promise.race(activePromises);
+        }
+
+        const promise = processFile(file, item).then(() => {
+          activePromises.splice(activePromises.indexOf(promise), 1);
+        });
+        activePromises.push(promise);
       }
+
+      await Promise.all(activePromises);
     },
     [imageMutator]
   );
