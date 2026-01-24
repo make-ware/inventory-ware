@@ -6,6 +6,7 @@ import pb from '@/lib/pocketbase-client';
 import { ImageMutator } from '@project/shared';
 import type { Image } from '@project/shared';
 import { ImageCard } from '@/components/inventory';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -46,6 +47,7 @@ function ImagesPageContent() {
   const [processingImages, setProcessingImages] = useState<Set<string>>(
     new Set()
   );
+  const { confirm } = useConfirm();
 
   const imageMutator = new ImageMutator(pb);
 
@@ -154,7 +156,7 @@ function ImagesPageContent() {
   }, [images, loadImages]);
 
   const handleDeleteImage = async (imageId: string) => {
-    if (!confirm('Are you sure you want to delete this image?')) return;
+    if (!(await confirm('Are you sure you want to delete this image?'))) return;
 
     try {
       await imageMutator.delete(imageId);
