@@ -51,13 +51,14 @@ export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
    */
   async search(
     query: string,
-    expand?: string | string[]
+    expand?: string | string[],
+    sort?: string
   ): Promise<Container[]> {
     try {
       const escapedQuery = query.replace(/"/g, '\\"');
       const filter = `(containerLabel~"${escapedQuery}" || containerNotes~"${escapedQuery}")`;
 
-      const result = await this.getList(1, 500, filter, undefined, expand);
+      const result = await this.getList(1, 500, filter, sort, expand);
       return result.items;
     } catch (error) {
       return this.errorWrapper(error);

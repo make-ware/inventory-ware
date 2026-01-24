@@ -60,7 +60,8 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
   async search(
     query: string,
     filters?: ItemSearchFilters,
-    expand?: string | string[]
+    expand?: string | string[],
+    sort?: string
   ): Promise<Item[]> {
     try {
       const filterParts: string[] = [];
@@ -94,7 +95,7 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
       const filter =
         filterParts.length > 0 ? filterParts.join(' && ') : undefined;
 
-      const result = await this.getList(1, 500, filter, undefined, expand);
+      const result = await this.getList(1, 500, filter, sort, expand);
       return result.items;
     } catch (error) {
       return this.errorWrapper(error);
