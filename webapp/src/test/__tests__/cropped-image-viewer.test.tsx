@@ -4,8 +4,7 @@ import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
-  observe(target: any) {
-  }
+  observe(target: any) {}
   unobserve() {}
   disconnect() {}
 } as any;
@@ -15,8 +14,14 @@ describe('CroppedImageViewer Performance', () => {
   let imageConstructorSpy: any;
 
   // Store original getters to restore them
-  const originalClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
-  const originalClientHeight = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientHeight');
+  const originalClientWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientWidth'
+  );
+  const originalClientHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientHeight'
+  );
 
   beforeEach(() => {
     originalImage = global.Image;
@@ -37,22 +42,40 @@ describe('CroppedImageViewer Performance', () => {
         this._src = value;
       }
 
-      get src() { return this._src; }
+      get src() {
+        return this._src;
+      }
     }
 
     global.Image = MockImage as any;
 
     // Mock dimensions for container
-    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, value: 500 });
-    Object.defineProperty(HTMLElement.prototype, 'clientHeight', { configurable: true, value: 500 });
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      value: 500,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      value: 500,
+    });
   });
 
   afterEach(() => {
     global.Image = originalImage;
     vi.restoreAllMocks();
 
-    if (originalClientWidth) Object.defineProperty(HTMLElement.prototype, 'clientWidth', originalClientWidth);
-    if (originalClientHeight) Object.defineProperty(HTMLElement.prototype, 'clientHeight', originalClientHeight);
+    if (originalClientWidth)
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'clientWidth',
+        originalClientWidth
+      );
+    if (originalClientHeight)
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'clientHeight',
+        originalClientHeight
+      );
   });
 
   it('verifies redundant Image object creation is REMOVED (Optimization)', () => {
@@ -82,18 +105,24 @@ describe('CroppedImageViewer Performance', () => {
     expect(img).not.toBeNull();
 
     if (img) {
-       // Mock natural dimensions on the img element
-       // We use Object.defineProperty because usually naturalWidth is read-only
-       Object.defineProperty(img, 'naturalWidth', { configurable: true, value: 800 });
-       Object.defineProperty(img, 'naturalHeight', { configurable: true, value: 600 });
+      // Mock natural dimensions on the img element
+      // We use Object.defineProperty because usually naturalWidth is read-only
+      Object.defineProperty(img, 'naturalWidth', {
+        configurable: true,
+        value: 800,
+      });
+      Object.defineProperty(img, 'naturalHeight', {
+        configurable: true,
+        value: 600,
+      });
 
-       // Trigger the load event which calls our new handleImageLoad
-       fireEvent.load(img);
+      // Trigger the load event which calls our new handleImageLoad
+      fireEvent.load(img);
     }
 
     // Wait for state update
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
     });
 
     const bbox = container.querySelector('.border-primary');
