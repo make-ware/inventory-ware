@@ -520,9 +520,7 @@ function ItemsPageContent() {
                     item.primaryImage ? item.primaryImageBbox : undefined
                   }
                   onClick={() => router.push(`/inventory/items/${item.id}`)}
-                  onEdit={() =>
-                    router.push(`/inventory/items/${item.id}/edit`)
-                  }
+                  onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
                   onClone={() =>
                     router.push(`/inventory/items/new?clone_from=${item.id}`)
                   }

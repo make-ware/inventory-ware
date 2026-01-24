@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  Suspense,
-} from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator, ImageMutator } from '@project/shared';
@@ -51,7 +45,11 @@ function ContainersPageContent() {
   const loadContainers = useCallback(async () => {
     try {
       // Pass sortValue to search
-      const results = await containerMutator.search(searchQuery, 'primaryImage', sortValue);
+      const results = await containerMutator.search(
+        searchQuery,
+        'primaryImage',
+        sortValue
+      );
       setContainers(results);
 
       setImages((prev) => {
@@ -185,10 +183,14 @@ function ContainersPageContent() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-             <Button variant="ghost" size="icon" onClick={() => router.push('/inventory/items')}>
-                <ArrowLeft className="h-4 w-4" />
-             </Button>
-             <h1 className="text-2xl sm:text-3xl font-bold">Containers</h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => router.push('/inventory/items')}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-2xl sm:text-3xl font-bold">Containers</h1>
           </div>
           <p className="text-sm sm:text-base text-muted-foreground ml-10">
             Manage your storage containers
