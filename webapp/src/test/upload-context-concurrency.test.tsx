@@ -47,8 +47,12 @@ const TestComponent = () => {
   return (
     <button
       onClick={() => {
-        const file1 = new File(['content'], 'file1.jpg', { type: 'image/jpeg' });
-        const file2 = new File(['content'], 'file2.jpg', { type: 'image/jpeg' });
+        const file1 = new File(['content'], 'file1.jpg', {
+          type: 'image/jpeg',
+        });
+        const file2 = new File(['content'], 'file2.jpg', {
+          type: 'image/jpeg',
+        });
         addFiles([file1, file2]);
       }}
     >
@@ -76,18 +80,29 @@ describe('UploadContext Performance', () => {
     });
 
     // Wait for both uploads to complete
-    await waitFor(() => {
-      expect(mockUploadImage).toHaveBeenCalledTimes(2);
-    }, { timeout: 1000 });
+    await waitFor(
+      () => {
+        expect(mockUploadImage).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 1000 }
+    );
 
     // Also wait a bit for the async operations to fully flush their logs
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 150));
 
     // Analyze the log
-    const file1Start = executionLog.find((l) => l.id === 'file1.jpg' && l.event === 'start');
-    const file1End = executionLog.find((l) => l.id === 'file1.jpg' && l.event === 'end');
-    const file2Start = executionLog.find((l) => l.id === 'file2.jpg' && l.event === 'start');
-    const file2End = executionLog.find((l) => l.id === 'file2.jpg' && l.event === 'end');
+    const file1Start = executionLog.find(
+      (l) => l.id === 'file1.jpg' && l.event === 'start'
+    );
+    const file1End = executionLog.find(
+      (l) => l.id === 'file1.jpg' && l.event === 'end'
+    );
+    const file2Start = executionLog.find(
+      (l) => l.id === 'file2.jpg' && l.event === 'start'
+    );
+    const file2End = executionLog.find(
+      (l) => l.id === 'file2.jpg' && l.event === 'end'
+    );
 
     expect(file1Start).toBeDefined();
     expect(file1End).toBeDefined();
@@ -98,7 +113,7 @@ describe('UploadContext Performance', () => {
     console.log('Execution Log:', executionLog);
 
     if (file1Start && file1End && file2Start && file2End) {
-        expect(file2Start.time).toBeLessThan(file1End.time);
+      expect(file2Start.time).toBeLessThan(file1End.time);
     }
   });
 });

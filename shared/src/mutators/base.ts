@@ -315,10 +315,6 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    * Perform the actual create operation
    */
   protected async entityCreate(data: InputType): Promise<T> {
-    console.log(
-      `[${this.constructor.name}] Creating record with data:`,
-      JSON.stringify(data, null, 2)
-    );
     return await this.getCollection().create(data as Record<string, unknown>);
   }
 
