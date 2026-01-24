@@ -21,6 +21,7 @@ import type { InventoryService, ProcessImageResult } from './inventory-types';
 /**
  * Download an image from PocketBase and convert it to base64 data URL
  * This is needed because OpenAI cannot access localhost URLs
+ * Converts all images to JPEG format using sharp to ensure compatibility with AI API
  */
 async function downloadImageAsBase64(
   pb: TypedPocketBase,
@@ -46,15 +47,24 @@ async function downloadImageAsBase64(
   // Get the image as blob
   const blob = await response.blob();
 
-  // Convert blob to base64
+  // Convert blob to buffer
   const arrayBuffer = await blob.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString('base64');
+  const buffer = Buffer.from(arrayBuffer);
 
-  // Determine MIME type from blob or default to jpeg
-  const mimeType = blob.type || 'image/jpeg';
+  // Convert image to JPEG using sharp (handles HEIC, PNG, WebP, etc.)
+  // This ensures all images are in a format supported by the AI API
+  const convertedBuffer = await sharp(buffer)
+    .jpeg({ quality: 80 })
+    .toBuffer();
+
+  // Convert to base64
+  const base64 = convertedBuffer.toString('base64');
+
+  // Always use JPEG MIME type since we've converted it
+  const mimeType = 'image/jpeg';
 
   // Return as data URL
-  return `data:${mimeType}; base64, ${base64} `;
+  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
