@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.3...inventory-ware-v0.3.0) (2026-01-24)
+
+
+### Features
+
+* **perf:** parallelize file uploads with concurrency limit ([bb56c8d](https://github.com/make-ware/inventory-ware/commit/bb56c8dd9cf304a16d51c6623f4b1285f5984108))
+* replace native confirm dialogs with custom modal ([83e0f38](https://github.com/make-ware/inventory-ware/commit/83e0f386d97bc9fffb8dd05f28fda6ff8a20304b))
+
+
+### Bug Fixes
+
+* add parallel image processing ([89afcf1](https://github.com/make-ware/inventory-ware/commit/89afcf1c19b109c5e7cd7b3f7f1434f0f57b789d))
+
+
+### Performance Improvements
+
+* **webapp:** optimize CroppedImageViewer image loading ([9d4f496](https://github.com/make-ware/inventory-ware/commit/9d4f496be0905875486a015838c0395e2d39618c))
+
 ## [0.2.3](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.2...inventory-ware-v0.2.3) (2026-01-24)
 
 
