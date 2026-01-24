@@ -33,10 +33,8 @@ interface InventoryState {
 interface InventoryContextValue extends InventoryState {
   /** Upload an image and analyze it with AI to create items/containers */
   uploadAndAnalyze: (file: File) => Promise<void>;
-  /** Refresh the items list from the database */
-  refreshItems: () => Promise<void>;
-  /** Refresh the containers list from the database */
-  refreshContainers: () => Promise<void>;
+  /** Reset loading state after mutations */
+  clearLoadingState: () => Promise<void>;
   /** Refresh the category library from existing items */
   refreshCategories: () => Promise<void>;
   /** Search items by query and optional filters */
@@ -94,17 +92,8 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Refresh items from the database
-  const refreshItems = useCallback(async () => {
-    // Optimization: We no longer fetch all items to populate cache.
-    // This function now effectively just ensures loading state is reset.
-    setState((prev) => ({ ...prev, isLoading: false }));
-  }, []);
-
-  // Refresh containers from the database
-  const refreshContainers = useCallback(async () => {
-    // Optimization: We no longer fetch all containers to populate cache.
-    // This function now effectively just ensures loading state is reset.
+  // Reset loading state after mutations (items/containers are fetched on-demand per page)
+  const clearLoadingState = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: false }));
   }, []);
 
@@ -157,13 +146,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           throw new Error(errorData.error || 'Failed to process image');
         }
 
-        // Refresh all data after successful upload
-        await Promise.all([
-          refreshItems(),
-          refreshContainers(),
-          refreshCategories(),
-          loadImages(),
-        ]);
+        // Refresh categories and images after successful upload
+        await Promise.all([refreshCategories(), loadImages()]);
+        await clearLoadingState();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -174,7 +159,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [refreshItems, refreshContainers, refreshCategories, loadImages]
+    [clearLoadingState, refreshCategories, loadImages]
   );
 
   // Search items by query and filters
@@ -204,7 +189,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         const item = await itemMutator.create(data);
-        await refreshItems();
+        await clearLoadingState();
         await refreshCategories();
         return item;
       } catch (error) {
@@ -217,7 +202,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, refreshItems, refreshCategories]
+    [itemMutator, clearLoadingState, refreshCategories]
   );
 
   // Update an existing item
@@ -226,7 +211,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         await itemMutator.update(id, data as Partial<Item>);
-        await refreshItems();
+        await clearLoadingState();
         await refreshCategories();
       } catch (error) {
         setState((prev) => ({
@@ -238,7 +223,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, refreshItems, refreshCategories]
+    [itemMutator, clearLoadingState, refreshCategories]
   );
 
   // Delete an item
@@ -247,7 +232,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         await itemMutator.delete(id);
-        await refreshItems();
+        await clearLoadingState();
         await refreshCategories();
       } catch (error) {
         setState((prev) => ({
@@ -259,7 +244,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, refreshItems, refreshCategories]
+    [itemMutator, clearLoadingState, refreshCategories]
   );
 
   // Create a new container
@@ -268,7 +253,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         const container = await containerMutator.create(data);
-        await refreshContainers();
+        await clearLoadingState();
         return container;
       } catch (error) {
         setState((prev) => ({
@@ -282,7 +267,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [containerMutator, refreshContainers]
+    [containerMutator, clearLoadingState]
   );
 
   // Update an existing container
@@ -291,7 +276,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         await containerMutator.update(id, data as Partial<Container>);
-        await refreshContainers();
+        await clearLoadingState();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -304,7 +289,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [containerMutator, refreshContainers]
+    [containerMutator, clearLoadingState]
   );
 
   // Delete a container
@@ -321,7 +306,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         }
         // Then delete the container
         await containerMutator.delete(id);
-        await Promise.all([refreshContainers(), refreshItems()]);
+        await clearLoadingState();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -334,7 +319,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [containerMutator, itemMutator, refreshContainers, refreshItems]
+    [containerMutator, itemMutator, clearLoadingState]
   );
 
   // Get items belonging to a specific container
@@ -358,7 +343,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         await itemMutator.update(itemId, {
           container: containerId,
         } as Partial<Item>);
-        await refreshItems();
+        await clearLoadingState();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -371,7 +356,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, refreshItems]
+    [itemMutator, clearLoadingState]
   );
 
   // Remove an item from its container (set container to undefined)
@@ -382,7 +367,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         await itemMutator.update(itemId, {
           container: undefined,
         } as Partial<Item>);
-        await refreshItems();
+        await clearLoadingState();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -395,7 +380,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, refreshItems]
+    [itemMutator, clearLoadingState]
   );
 
   // Get the URL for an image by its ID
@@ -436,12 +421,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     const loadInitialData = async () => {
       setState((prev) => ({ ...prev, isLoading: true }));
       try {
-        await Promise.all([
-          refreshItems(),
-          refreshContainers(),
-          refreshCategories(),
-          loadImages(),
-        ]);
+        await Promise.all([refreshCategories(), loadImages()]);
       } catch (error) {
         console.error('Failed to load initial data:', error);
       } finally {
@@ -450,13 +430,12 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     };
 
     loadInitialData();
-  }, [refreshItems, refreshContainers, refreshCategories, loadImages]);
+  }, [refreshCategories, loadImages]);
 
   const value: InventoryContextValue = {
     ...state,
     uploadAndAnalyze,
-    refreshItems,
-    refreshContainers,
+    clearLoadingState,
     refreshCategories,
     searchItems,
     createItem,
