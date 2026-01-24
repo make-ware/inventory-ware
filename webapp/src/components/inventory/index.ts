@@ -10,3 +10,6 @@ export { ItemUpdateForm } from './item-update-form';
 export { SearchFilter } from './search-filter';
 export type { CategoryLibrary, SearchFilters } from './search-filter';
 export { BulkEditDialog, type BulkEditData } from './bulk-edit-dialog';
+export { PaginationControls } from './pagination-controls';
+export { SearchInput } from './search-input';
+export { SortSelect, type SortOption } from './sort-select';
