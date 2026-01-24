@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/contexts/auth-context';
 import { UploadProvider } from '@/contexts/upload-context';
+import { ConfirmDialogProvider } from '@/components/ui/confirm-dialog';
 import { NavigationBar } from '@/components/layout/navigation-bar';
 import { UploadTracker } from '@/components/inventory/upload-tracker';
 import { Toaster } from '@/components/ui/sonner';
@@ -41,10 +42,12 @@ export default function RootLayout({
         >
           <AuthProvider>
             <UploadProvider>
-              <NavigationBar />
-              <main className="min-h-screen">{children}</main>
-              <UploadTracker />
-              <Toaster />
+              <ConfirmDialogProvider>
+                <NavigationBar />
+                <main className="min-h-screen">{children}</main>
+                <UploadTracker />
+                <Toaster />
+              </ConfirmDialogProvider>
             </UploadProvider>
           </AuthProvider>
         </ThemeProvider>

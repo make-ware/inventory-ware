@@ -54,6 +54,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useUpload } from '@/contexts/upload-context';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -62,6 +63,7 @@ function InventoryPageContent() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { queue, addFiles } = useUpload();
+  const { confirm } = useConfirm();
 
   // Initialize state from query string (only on first render)
   const [initialState] = useState(() => ({
@@ -335,7 +337,7 @@ function InventoryPageContent() {
   }, [searchQuery, searchFilters, loadItems]);
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+    if (!(await confirm('Are you sure you want to delete this item?'))) return;
 
     try {
       await itemMutator.delete(itemId);
@@ -353,9 +355,9 @@ function InventoryPageContent() {
     );
     if (containerItems.length > 0) {
       if (
-        !confirm(
+        !(await confirm(
           `This container has ${containerItems.length} items. Delete anyway?`
-        )
+        ))
       ) {
         return;
       }
@@ -430,7 +432,9 @@ function InventoryPageContent() {
 
   const handleBulkDelete = async () => {
     if (
-      !confirm(`Are you sure you want to delete ${selectedItems.size} items?`)
+      !(await confirm(
+        `Are you sure you want to delete ${selectedItems.size} items?`
+      ))
     )
       return;
 
