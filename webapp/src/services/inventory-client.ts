@@ -2,39 +2,22 @@
 
 import { type TypedPocketBase, ItemMutator } from '@project/shared';
 import type { CategoryLibrary } from './ai-analysis';
-import type { InventoryService, ProcessImageResult } from './inventory-types';
-import type { AnalysisResult } from '@project/shared';
+import type { InventoryClientService } from './inventory-types';
 
 /**
- * Create an Inventory Service instance (Client safe version)
- * Does not include server-side image processing logic using sharp
+ * Create an Inventory Service instance (client-safe).
+ * Category library and search only; no image processing.
+ * Use createInventoryServerService on the server for processImageUpload, etc.
+ *
  * @param pb - TypedPocketBase client instance
- * @returns InventoryService instance
+ * @returns InventoryClientService instance
  */
-export function createInventoryService(pb: TypedPocketBase): InventoryService {
+export function createInventoryService(
+  pb: TypedPocketBase
+): InventoryClientService {
   const itemMutator = new ItemMutator(pb);
 
   return {
-    async processImageUpload(
-      _file: File,
-      _userId: string
-    ): Promise<ProcessImageResult> {
-      throw new Error('processImageUpload is not available on the client side');
-    },
-
-    async reanalyzeImage(_imageId: string): Promise<AnalysisResult> {
-      throw new Error('reanalyzeImage is not available on the client side');
-    },
-
-    async processExistingImage(
-      _imageId: string,
-      _userId: string
-    ): Promise<ProcessImageResult> {
-      throw new Error(
-        'processExistingImage is not available on the client side'
-      );
-    },
-
     async getCategoryLibrary(): Promise<CategoryLibrary> {
       const all = await itemMutator.getDistinctCategories();
 

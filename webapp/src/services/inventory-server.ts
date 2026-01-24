@@ -18,7 +18,10 @@ import type {
   AnalysisResult,
   ItemInput,
 } from '@project/shared';
-import type { InventoryService, ProcessImageResult } from './inventory-types';
+import type {
+  InventoryServerService,
+  ProcessImageResult,
+} from './inventory-types';
 
 /**
  * Download an image from PocketBase and convert it to base64 data URL
@@ -80,13 +83,16 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 /**
- * Create an Inventory Service instance (Server side)
+ * Create an Inventory Server Service instance (server-only).
+ * Includes image processing: processImageUpload, reanalyzeImage, processExistingImage
+ * (sharp, AI analysis). Not available on the client; use createInventoryService there.
+ *
  * @param pb - TypedPocketBase client instance
- * @returns InventoryService instance
+ * @returns InventoryServerService instance
  */
 export function createInventoryServerService(
   pb: TypedPocketBase
-): InventoryService {
+): InventoryServerService {
   const imageMutator = new ImageMutator(pb);
   const imageMetadataMutator = new ImageMetadataMutator(pb);
   const itemMutator = new ItemMutator(pb);
@@ -154,7 +160,10 @@ export function createInventoryServerService(
           }
 
           // Apply resize if dimensions changed from original
-          if (currentWidth !== metadata.width || currentHeight !== metadata.height) {
+          if (
+            currentWidth !== metadata.width ||
+            currentHeight !== metadata.height
+          ) {
             sharpInstance.resize(currentWidth, currentHeight, {
               fit: 'inside',
               withoutEnlargement: true,
@@ -181,7 +190,11 @@ export function createInventoryServerService(
         } else {
           break; // We're under 5MB or at minimum quality
         }
-      } while (convertedBuffer.length > maxSizeBytes && quality > 20 && attempts < maxAttempts);
+      } while (
+        convertedBuffer.length > maxSizeBytes &&
+        quality > 20 &&
+        attempts < maxAttempts
+      );
 
       const convertedSize = convertedBuffer.length;
       const sizeReduction = (
@@ -454,14 +467,19 @@ export function createInventoryServerService(
         throw error;
       }
 
-      // Compute file hash first for cache lookup
-      const imageBlob = await fetch(imageMutator.getFileUrl(image)).then((r) =>
-        r.blob()
-      );
-      const fileHash = await computeFileHash(await imageBlob.arrayBuffer());
+      // Use stored fileHash if available (hash of original file from upload)
+      // Only recompute if missing (for backward compatibility with old records)
+      let fileHash = image.fileHash;
 
-      // Update the image's fileHash field if it's not set or different
-      if (image.fileHash !== fileHash) {
+      if (!fileHash) {
+        // For backward compatibility: compute hash from stored file if hash is missing
+        // Note: This will hash the converted JPEG, not the original, but it's acceptable for old records
+        const imageBlob = await fetch(imageMutator.getFileUrl(image)).then(
+          (r) => r.blob()
+        );
+        fileHash = await computeFileHash(await imageBlob.arrayBuffer());
+
+        // Update the image's fileHash field with the computed hash
         await imageMutator.update(image.id, { fileHash });
       }
 
