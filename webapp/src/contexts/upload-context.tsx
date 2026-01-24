@@ -6,9 +6,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useRef,
 } from 'react';
-import { ImageMutator } from '@project/shared';
 import pb from '@/lib/pocketbase-client';
 import { toast } from 'sonner';
 
@@ -42,7 +40,6 @@ const STORAGE_KEY = 'inventory_upload_queue';
 
 export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<UploadItem[]>([]);
-  const imageMutator = useRef(new ImageMutator(pb)).current;
 
   // Persist queue to localStorage
   useEffect(() => {
@@ -65,106 +62,106 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
   }, [queue]);
 
-  const addFiles = useCallback(
-    async (files: File[], isManualMode = false) => {
-      const newItems: UploadItem[] = files.map((file) => ({
-        id: Math.random().toString(36).substring(7),
-        fileName: file.name,
-        status: 'idle',
-        progress: 0,
-        isManualMode,
-      }));
+  const addFiles = useCallback(async (files: File[], isManualMode = false) => {
+    const newItems: UploadItem[] = files.map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      fileName: file.name,
+      status: 'idle',
+      progress: 0,
+      isManualMode,
+    }));
 
-      setQueue((prev) => [...prev, ...newItems]);
+    setQueue((prev) => [...prev, ...newItems]);
 
-      // Process each file
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const item = newItems[i];
+    // Process each file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const item = newItems[i];
 
-        try {
-          // 1. Upload stage
-          setQueue((prev) =>
-            prev.map((it) =>
-              it.id === item.id
-                ? { ...it, status: 'uploading', progress: 10 }
-                : it
-            )
-          );
+      try {
+        // Upload and process image through API route (includes Sharp conversion)
+        setQueue((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? { ...it, status: 'uploading', progress: 10 }
+              : it
+          )
+        );
 
-          // Get the authenticated user ID
-          const userId = pb.authStore.record?.id;
-          if (!userId) {
-            throw new Error('User authentication required');
-          }
+        const authToken = pb.authStore.token;
 
-          const image = await imageMutator.uploadImage(file, userId);
+        // Use process-image API route which handles Sharp conversion and analysis
+        const formData = new FormData();
+        formData.append('file', file);
 
-          setQueue((prev) =>
-            prev.map((it) =>
-              it.id === item.id
-                ? {
-                    ...it,
-                    status: isManualMode ? 'completed' : 'analyzing',
-                    progress: 50,
-                    imageId: image.id,
-                  }
-                : it
-            )
-          );
+        setQueue((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? {
+                  ...it,
+                  status: isManualMode ? 'uploading' : 'analyzing',
+                  progress: isManualMode ? 50 : 30,
+                }
+              : it
+          )
+        );
 
-          if (isManualMode) {
-            toast.success(`Uploaded ${file.name}`);
-            continue;
-          }
+        const response = await fetch('/api-next/process-image', {
+          method: 'POST',
+          headers: {
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
+          body: formData,
+        });
 
-          // 2. Analysis stage
-          const authToken = pb.authStore.token;
-          const response = await fetch('/api-next/analyze-image', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-            },
-            body: JSON.stringify({ imageId: image.id }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Analysis failed');
-          }
-
-          setQueue((prev) =>
-            prev.map((it) =>
-              it.id === item.id
-                ? { ...it, status: 'completed', progress: 100 }
-                : it
-            )
-          );
-
-          // Trigger a refresh of the inventory data if we are on the inventory page
-          // This can be done via a custom event or by the page watching the queue
-          window.dispatchEvent(new CustomEvent('inventory-updated'));
-        } catch (error) {
-          console.error(`Failed to process ${file.name}:`, error);
-          setQueue((prev) =>
-            prev.map((it) =>
-              it.id === item.id
-                ? {
-                    ...it,
-                    status: 'failed',
-                    error:
-                      error instanceof Error ? error.message : 'Unknown error',
-                  }
-                : it
-            )
-          );
-          toast.error(`Failed to process ${file.name}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to process image');
         }
+
+        const result = await response.json();
+        const image = result.image;
+
+        setQueue((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? {
+                  ...it,
+                  status: 'completed',
+                  progress: 100,
+                  imageId: image.id,
+                }
+              : it
+          )
+        );
+
+        if (isManualMode) {
+          toast.success(`Uploaded ${file.name}`);
+        } else {
+          toast.success(`Processed ${file.name}`);
+        }
+
+        // Trigger a refresh of the inventory data if we are on the inventory page
+        // This can be done via a custom event or by the page watching the queue
+        window.dispatchEvent(new CustomEvent('inventory-updated'));
+      } catch (error) {
+        console.error(`Failed to process ${file.name}:`, error);
+        setQueue((prev) =>
+          prev.map((it) =>
+            it.id === item.id
+              ? {
+                  ...it,
+                  status: 'failed',
+                  error:
+                    error instanceof Error ? error.message : 'Unknown error',
+                }
+              : it
+          )
+        );
+        toast.error(`Failed to process ${file.name}`);
       }
-    },
-    [imageMutator]
-  );
+    }
+  }, []);
 
   const clearCompleted = useCallback(() => {
     setQueue((prev) =>

@@ -14,13 +14,7 @@ interface ImageUploadProps {
 
 export function ImageUpload({
   isManualMode = false,
-  acceptedTypes = [
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-    'image/heic',
-    'image/heif',
-  ],
+  acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'],
 }: ImageUploadProps) {
   const { addFiles, isProcessing, queue } = useUpload();
 
@@ -77,7 +71,7 @@ export function ImageUpload({
             {getStatusText()}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            Supported formats: JPEG, PNG, WebP, HEIC
+            Supported formats: JPEG, PNG, WebP
           </p>
         </CardContent>
       </Card>

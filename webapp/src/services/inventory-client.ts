@@ -1,3 +1,5 @@
+'use client';
+
 import { type TypedPocketBase, ItemMutator } from '@project/shared';
 import type { CategoryLibrary } from './ai-analysis';
 import type { InventoryService, ProcessImageResult } from './inventory-types';

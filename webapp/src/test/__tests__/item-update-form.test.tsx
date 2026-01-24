@@ -11,7 +11,6 @@ vi.mock('@/hooks/use-inventory', () => ({
     categories: { functional: [], specific: [], itemType: [] },
     isLoading: false,
     error: null,
-    uploadAndAnalyze: vi.fn(),
     refreshItems: vi.fn(),
     refreshContainers: vi.fn(),
     refreshCategories: vi.fn(),

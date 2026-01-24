@@ -1,3 +1,5 @@
+'use server';
+
 import {
   type TypedPocketBase,
   ImageMutator,
@@ -21,7 +23,7 @@ import type { InventoryService, ProcessImageResult } from './inventory-types';
 /**
  * Download an image from PocketBase and convert it to base64 data URL
  * This is needed because OpenAI cannot access localhost URLs
- * Converts all images to JPEG format using sharp to ensure compatibility with AI API
+ * Converts all images to optimized JPEG format using sharp to reduce bandwidth
  */
 async function downloadImageAsBase64(
   pb: TypedPocketBase,
@@ -35,13 +37,13 @@ async function downloadImageAsBase64(
     headers: {
       // Include auth token if available
       ...(pb.authStore.token
-        ? { Authorization: `Bearer ${pb.authStore.token} ` }
+        ? { Authorization: `Bearer ${pb.authStore.token}` }
         : {}),
     },
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to download image: ${response.statusText} `);
+    throw new Error(`Failed to download image: ${response.statusText}`);
   }
 
   // Get the image as blob
@@ -51,10 +53,10 @@ async function downloadImageAsBase64(
   const arrayBuffer = await blob.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  // Convert image to JPEG using sharp (handles HEIC, PNG, WebP, etc.)
-  // This ensures all images are in a format supported by the AI API
+  // Convert image to optimized JPEG using sharp (handles PNG, WebP, etc.)
+  // This reduces bandwidth by converting to a lower quality JPEG format
   const convertedBuffer = await sharp(buffer)
-    .jpeg({ quality: 80 })
+    .jpeg({ quality: 50, mozjpeg: true })
     .toBuffer();
 
   // Convert to base64
@@ -74,7 +76,7 @@ async function fileToBase64(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString('base64');
   const mimeType = file.type || 'image/jpeg';
-  return `data:${mimeType}; base64, ${base64} `;
+  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
@@ -112,12 +114,87 @@ export function createInventoryServerService(
       const cachedEntry = await imageMetadataMutator.findByHash(fileHash);
       const cachedMetadata = cachedEntry?.metadata;
 
-      // 3. Convert image to optimized JPEG
+      // 3. Convert image to optimized JPEG for bandwidth savings
+      // Converts PNG and JPEG to lower quality JPEG to reduce file size
+      // Compresses to under 5MB if needed
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const convertedBuffer = await sharp(buffer)
-        .jpeg({ quality: 80 })
-        .toBuffer();
+      const originalSize = buffer.length;
+      const maxSizeBytes = 5 * 1024 * 1024; // 5MB in bytes
+
+      console.log(
+        `Converting image: ${file.name} (${originalSize} bytes, type: ${file.type})`
+      );
+
+      // Get image metadata to determine if we need to resize
+      const metadata = await sharp(buffer).metadata();
+      let convertedBuffer: Buffer;
+      let quality = 50;
+      let currentWidth = metadata.width;
+      let currentHeight = metadata.height;
+      let resizeApplied = false;
+
+      // Progressive compression: reduce quality and resize if needed until under 5MB
+      let attempts = 0;
+      const maxAttempts = 10; // Prevent infinite loops
+
+      do {
+        const sharpInstance = sharp(buffer);
+
+        // Calculate target dimensions if we need to resize
+        if (currentWidth && currentHeight) {
+          const maxDimension = Math.max(currentWidth, currentHeight);
+
+          // Initial resize: if image is very large (over 2000px), resize it
+          if (!resizeApplied && maxDimension > 2000) {
+            const scale = 2000 / maxDimension;
+            currentWidth = Math.round(currentWidth * scale);
+            currentHeight = Math.round(currentHeight * scale);
+            resizeApplied = true;
+          }
+
+          // Apply resize if dimensions changed from original
+          if (currentWidth !== metadata.width || currentHeight !== metadata.height) {
+            sharpInstance.resize(currentWidth, currentHeight, {
+              fit: 'inside',
+              withoutEnlargement: true,
+            });
+          }
+        }
+
+        convertedBuffer = await sharpInstance
+          .jpeg({ quality, mozjpeg: true })
+          .toBuffer();
+
+        // If still too large, reduce quality and potentially resize further
+        if (convertedBuffer.length > maxSizeBytes && quality > 20) {
+          quality = Math.max(20, quality - 10);
+
+          // Further resize if quality is getting low
+          if (quality <= 30 && currentWidth && currentHeight) {
+            const scale = 0.9;
+            currentWidth = Math.round(currentWidth * scale);
+            currentHeight = Math.round(currentHeight * scale);
+          }
+
+          attempts++;
+        } else {
+          break; // We're under 5MB or at minimum quality
+        }
+      } while (convertedBuffer.length > maxSizeBytes && quality > 20 && attempts < maxAttempts);
+
+      const convertedSize = convertedBuffer.length;
+      const sizeReduction = (
+        ((originalSize - convertedSize) / originalSize) *
+        100
+      ).toFixed(1);
+      const resizeInfo =
+        currentWidth && currentHeight && currentWidth !== metadata.width
+          ? `, resized to ${currentWidth}x${currentHeight}`
+          : '';
+      console.log(
+        `Converted to JPEG: ${convertedSize} bytes (${sizeReduction}% reduction, quality: ${quality}${resizeInfo})`
+      );
 
       // Create a new File object for the converted image
       // Replace extension with .jpg
@@ -129,7 +206,6 @@ export function createInventoryServerService(
           type: 'image/jpeg',
         }
       );
-
       // 4. Upload the converted image (always create a new record for this user)
       const image = await imageMutator.uploadImage(convertedFile, userId);
 
@@ -372,7 +448,7 @@ export function createInventoryServerService(
           error.status === 404
         ) {
           throw new Error(
-            `Image with ID ${imageId} not found.It may have been deleted.`
+            `Image with ID ${imageId} not found. It may have been deleted.`
           );
         }
         throw error;
