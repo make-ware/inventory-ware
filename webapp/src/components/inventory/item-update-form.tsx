@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -76,8 +76,14 @@ export function ItemUpdateForm({
     },
   });
 
-  const primaryImageId = form.watch('primaryImage');
-  const primaryImageBbox = form.watch('primaryImageBbox');
+  const primaryImageId = useWatch({
+    control: form.control,
+    name: 'primaryImage',
+  });
+  const primaryImageBbox = useWatch({
+    control: form.control,
+    name: 'primaryImageBbox',
+  });
   const imageUrl = getImageUrl(primaryImageId);
 
   const handleSubmit = async (data: z.input<typeof FormSchema>) => {

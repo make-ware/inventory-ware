@@ -3,6 +3,7 @@
 import { useState, useRef, MouseEvent, TouchEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { type BoundingBox } from '@project/shared';
+import NextImage from 'next/image';
 
 interface BoundingBoxEditorProps {
   imageUrl: string;
@@ -24,7 +25,6 @@ export function BoundingBoxEditor({
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
 
   const getNormalizedPoint = (e: MouseEvent) => {
     if (!containerRef.current) return { x: 0, y: 0 };
@@ -134,11 +134,13 @@ export function BoundingBoxEditor({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <img
-            ref={imageRef}
+          <NextImage
             src={imageUrl}
             alt="Editor"
+            width={1920}
+            height={1080}
             className="w-full h-auto block max-h-[60vh] object-contain mx-auto"
+            unoptimized
             draggable={false}
           />
 

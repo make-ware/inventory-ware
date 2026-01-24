@@ -95,14 +95,16 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       setState((prev) => {
         // Update image cache with expanded images
         const newImages = new Map(prev.images);
-        result.items.forEach((item: any) => {
-          if (item.expand?.primaryImage) {
-            newImages.set(
-              item.expand.primaryImage.id,
-              item.expand.primaryImage as Image
-            );
+        result.items.forEach(
+          (item: Item & { expand?: { primaryImage?: Image } }) => {
+            if (item.expand?.primaryImage) {
+              newImages.set(
+                item.expand.primaryImage.id,
+                item.expand.primaryImage as Image
+              );
+            }
           }
-        });
+        );
 
         return {
           ...prev,
@@ -136,14 +138,16 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       setState((prev) => {
         // Update image cache with expanded images
         const newImages = new Map(prev.images);
-        result.items.forEach((container: any) => {
-          if (container.expand?.primaryImage) {
-            newImages.set(
-              container.expand.primaryImage.id,
-              container.expand.primaryImage as Image
-            );
+        result.items.forEach(
+          (container: Container & { expand?: { primaryImage?: Image } }) => {
+            if (container.expand?.primaryImage) {
+              newImages.set(
+                container.expand.primaryImage.id,
+                container.expand.primaryImage as Image
+              );
+            }
           }
-        });
+        );
 
         return {
           ...prev,
@@ -460,7 +464,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       if (!image) return undefined;
       return imageMutator.getFileUrl(image);
     },
-    [state.images]
+    [state.images, imageMutator]
   );
 
   // Get the URL for an item's image, falling back to container's image if item has none

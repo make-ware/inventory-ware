@@ -7,6 +7,7 @@ import { ImageMutator } from '@project/shared';
 import type { Image } from '@project/shared';
 import { ImageCard } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
 
 const IMAGES_PER_PAGE = 24;
 
@@ -23,18 +24,25 @@ function ImagesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Initialize currentPage from query string
-  const initialPage = Math.max(
-    1,
-    parseInt(searchParams.get('page') || '1', 10)
-  );
+  // Initialize state from query string
+  const [initialState] = useState(() => ({
+    page: Math.max(1, parseInt(searchParams.get('page') || '1', 10)),
+    query: searchParams.get('q') || '',
+    type: searchParams.get('type') || 'all',
+    status: searchParams.get('status') || 'all',
+  }));
 
   const [images, setImages] = useState<Image[]>([]);
   const [filteredImages, setFilteredImages] = useState<Image[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(initialPage);
-  const [imageTypeFilter, setImageTypeFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  const [currentPage, setCurrentPage] = useState(initialState.page);
+  const [searchQuery, setSearchQuery] = useState(initialState.query);
+  const [imageTypeFilter, setImageTypeFilter] = useState<string>(
+    initialState.type
+  );
+  const [statusFilter, setStatusFilter] = useState<string>(initialState.status);
+
   const [processingImages, setProcessingImages] = useState<Set<string>>(
     new Set()
   );
@@ -66,26 +74,60 @@ function ImagesPageContent() {
       filtered = filtered.filter((img) => img.analysisStatus === statusFilter);
     }
 
-    setFilteredImages(filtered);
-  }, [images, imageTypeFilter, statusFilter]);
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (img) =>
+          img.file.toLowerCase().includes(lowerQuery) ||
+          img.id.toLowerCase().includes(lowerQuery)
+      );
+    }
 
-  // Update URL when page changes
-  const handlePageChange = useCallback(
-    (newPage: number) => {
-      setCurrentPage(newPage);
-      const params = new URLSearchParams(searchParams.toString());
-      if (newPage === 1) {
-        params.delete('page');
-      } else {
-        params.set('page', newPage.toString());
-      }
+    setFilteredImages(filtered);
+  }, [images, imageTypeFilter, statusFilter, searchQuery]);
+
+  // Sync state FROM URL
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    if (q !== searchQuery) setSearchQuery(q);
+
+    const type = searchParams.get('type') || 'all';
+    if (type !== imageTypeFilter) setImageTypeFilter(type);
+
+    const status = searchParams.get('status') || 'all';
+    if (status !== statusFilter) setStatusFilter(status);
+
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    if (page !== currentPage) setCurrentPage(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Sync state TO URL
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (currentPage > 1) params.set('page', currentPage.toString());
+      if (searchQuery) params.set('q', searchQuery);
+      if (imageTypeFilter !== 'all') params.set('type', imageTypeFilter);
+      if (statusFilter !== 'all') params.set('status', statusFilter);
+
       const query = params.toString();
-      router.replace(query ? `?${query}` : '/inventory/images', {
-        scroll: false,
-      });
-    },
-    [router, searchParams]
-  );
+      const url = query ? `?${query}` : '/inventory/images';
+
+      const currentParams = new URLSearchParams(searchParams.toString());
+      if (query !== currentParams.toString()) {
+        router.push(url, { scroll: false });
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    searchQuery,
+    imageTypeFilter,
+    statusFilter,
+    currentPage,
+    router,
+    searchParams,
+  ]);
 
   // Load initial data
   useEffect(() => {
@@ -96,15 +138,6 @@ function ImagesPageContent() {
   useEffect(() => {
     filterImages();
   }, [filterImages]);
-
-  // Reset page to 1 when filters change
-  useEffect(() => {
-    if (currentPage !== 1) {
-      handlePageChange(1);
-    }
-    // Only reset when filters change, not when currentPage or handlePageChange changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageTypeFilter, statusFilter]);
 
   // Poll for status updates on processing images
   useEffect(() => {
@@ -138,8 +171,6 @@ function ImagesPageContent() {
       setProcessingImages((prev) => new Set(prev).add(imageId));
       toast.info('Processing image... This may take a moment.');
 
-      // Use API route for server-side processing where env vars are available
-      // Pass the auth token from PocketBase
       const authToken = pb.authStore.token;
       const response = await fetch(`/api-next/process-image/${imageId}`, {
         method: 'POST',
@@ -175,6 +206,10 @@ function ImagesPageContent() {
     return imageMutator.getFileUrl(image);
   };
 
+  const handlePageChange = useCallback((newPage: number) => {
+    setCurrentPage(newPage);
+  }, []);
+
   // Pagination
   const paginatedImages = filteredImages.slice(
     (currentPage - 1) * IMAGES_PER_PAGE,
@@ -209,32 +244,43 @@ function ImagesPageContent() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-4">
-        <Select value={imageTypeFilter} onValueChange={setImageTypeFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="item">Item</SelectItem>
-            <SelectItem value="container">Container</SelectItem>
-            <SelectItem value="unprocessed">Unprocessed</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Search and Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search images by filename or ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-4">
+          <Select value={imageTypeFilter} onValueChange={setImageTypeFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="item">Item</SelectItem>
+              <SelectItem value="container">Container</SelectItem>
+              <SelectItem value="unprocessed">Unprocessed</SelectItem>
+            </SelectContent>
+          </Select>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="processing">Processing</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-          </SelectContent>
-        </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {paginatedImages.length === 0 ? (

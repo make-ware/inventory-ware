@@ -1,7 +1,6 @@
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
-import type { User } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import {
   Card,
