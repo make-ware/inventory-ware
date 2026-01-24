@@ -25,36 +25,52 @@ vi.mock('@project/shared', async () => {
 // Mock services
 vi.mock('@/services', () => ({
   createInventoryService: vi.fn(() => ({
-    getCategoryLibrary: vi.fn().mockResolvedValue({ functional: [], specific: [], itemType: [] }),
+    getCategoryLibrary: vi
+      .fn()
+      .mockResolvedValue({ functional: [], specific: [], itemType: [] }),
   })),
 }));
 
 describe('InventoryProvider', () => {
   it('fetches items on mount', async () => {
-    const mockGetListItems = vi.fn().mockResolvedValue({ items: [], totalItems: 0 });
-    const mockGetListContainers = vi.fn().mockResolvedValue({ items: [], totalItems: 0 });
-    const mockGetListImages = vi.fn().mockResolvedValue({ items: [], totalItems: 0 });
+    const mockGetListItems = vi
+      .fn()
+      .mockResolvedValue({ items: [], totalItems: 0 });
+    const mockGetListContainers = vi
+      .fn()
+      .mockResolvedValue({ items: [], totalItems: 0 });
+    const mockGetListImages = vi
+      .fn()
+      .mockResolvedValue({ items: [], totalItems: 0 });
 
     // Setup mock implementation
-    (ItemMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(function() {
-      return {
-        getList: mockGetListItems,
-        getDistinctCategories: vi.fn().mockResolvedValue({ functional: [], specific: [], itemType: [] }),
-        search: vi.fn().mockResolvedValue([]),
-      };
-    });
+    (ItemMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      function () {
+        return {
+          getList: mockGetListItems,
+          getDistinctCategories: vi
+            .fn()
+            .mockResolvedValue({ functional: [], specific: [], itemType: [] }),
+          search: vi.fn().mockResolvedValue([]),
+        };
+      }
+    );
 
-    (ContainerMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(function() {
+    (
+      ContainerMutator as unknown as ReturnType<typeof vi.fn>
+    ).mockImplementation(function () {
       return {
         getList: mockGetListContainers,
       };
     });
 
-    (ImageMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(function() {
-      return {
-        getList: mockGetListImages,
-      };
-    });
+    (ImageMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      function () {
+        return {
+          getList: mockGetListImages,
+        };
+      }
+    );
 
     render(
       <InventoryProvider>

@@ -4,12 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, formatPocketBaseError } from '@project/shared';
-import type {
-  Item,
-  ItemInput,
-  CategoryLibrary,
-  Image,
-} from '@project/shared';
+import type { Item, ItemInput, CategoryLibrary, Image } from '@project/shared';
 import { useInventory } from '@/hooks/use-inventory';
 import { ItemUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
