@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 type ConfirmOptions = {
   title?: string;
@@ -115,4 +116,59 @@ export function useConfirm() {
     throw new Error('useConfirm must be used within a ConfirmDialogProvider');
   }
   return context;
+}
+
+type ConfirmButtonProps = {
+  onConfirm: () => void | Promise<void>;
+  message: string | ConfirmOptions;
+  children: React.ReactNode;
+  variant?:
+    | 'default'
+    | 'destructive'
+    | 'outline'
+    | 'secondary'
+    | 'ghost'
+    | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  className?: string;
+  disabled?: boolean;
+} & Omit<React.ComponentProps<typeof Button>, 'onClick'>;
+
+export function ConfirmButton({
+  onConfirm,
+  message,
+  children,
+  variant = 'default',
+  size,
+  className,
+  disabled,
+  ...buttonProps
+}: ConfirmButtonProps) {
+  const { confirm } = useConfirm();
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  const handleClick = async () => {
+    const confirmed = await confirm(message);
+    if (confirmed) {
+      setIsLoading(true);
+      try {
+        await onConfirm();
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  return (
+    <Button
+      {...buttonProps}
+      variant={variant}
+      size={size}
+      className={className}
+      disabled={disabled || isLoading}
+      onClick={handleClick}
+    >
+      {children}
+    </Button>
+  );
 }

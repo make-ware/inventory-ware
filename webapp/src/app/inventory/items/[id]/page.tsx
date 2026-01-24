@@ -12,7 +12,7 @@ import {
 import type { Item, Image, Container } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
-import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useConfirm, ConfirmButton } from '@/components/ui/confirm-dialog';
 
 type ItemWithExpand = Item & { expand?: { primaryImage?: Image } };
 import { Button } from '@/components/ui/button';
@@ -81,8 +81,6 @@ export default function ItemDetailPage() {
   }, [loadItemDetails]);
 
   const handleDelete = async () => {
-    if (!(await confirm('Are you sure you want to delete this item?'))) return;
-
     try {
       await itemMutator.delete(itemId);
       toast.success('Item deleted successfully');
@@ -133,10 +131,14 @@ export default function ItemDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
+          <ConfirmButton
+            variant="destructive"
+            onConfirm={handleDelete}
+            message="Are you sure you want to delete this item?"
+          >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
-          </Button>
+          </ConfirmButton>
         </div>
       </div>
 

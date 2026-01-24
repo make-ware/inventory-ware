@@ -13,7 +13,8 @@ import {
 } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Loader2, Plus, ArrowLeft } from 'lucide-react';
+import { Loader2, Plus, ArrowLeft, CheckSquare, X } from 'lucide-react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const CONTAINERS_PER_PAGE = 12;
 
@@ -39,8 +40,15 @@ function ContainersPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(initialState.page);
 
+  // Bulk Selection State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedContainers, setSelectedContainers] = useState<Set<string>>(
+    new Set()
+  );
+
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
+  const { confirm } = useConfirm();
 
   const loadContainers = useCallback(async () => {
     try {
@@ -128,7 +136,8 @@ function ContainersPageContent() {
   }, [searchQuery, sortValue, loadContainers]);
 
   const handleDeleteContainer = async (containerId: string) => {
-    if (!confirm('Are you sure you want to delete this container?')) return;
+    if (!(await confirm('Are you sure you want to delete this container?')))
+      return;
 
     try {
       await containerMutator.delete(containerId);
@@ -137,6 +146,50 @@ function ContainersPageContent() {
     } catch (error) {
       console.error('Failed to delete container:', error);
       toast.error('Failed to delete container');
+    }
+  };
+
+  // Bulk Edit Handlers
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      if (prev) {
+        setSelectedContainers(new Set());
+      }
+      return !prev;
+    });
+  };
+
+  const toggleContainerSelection = (id: string) => {
+    setSelectedContainers((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (
+      !(await confirm(
+        `Are you sure you want to delete ${selectedContainers.size} containers?`
+      ))
+    )
+      return;
+
+    try {
+      await Promise.all(
+        Array.from(selectedContainers).map((id) => containerMutator.delete(id))
+      );
+      toast.success(`Deleted ${selectedContainers.size} containers`);
+      setSelectedContainers(new Set());
+      setIsSelectionMode(false);
+      await loadContainers();
+    } catch (error) {
+      console.error('Failed to bulk delete:', error);
+      toast.error('Failed to bulk delete containers');
     }
   };
 
@@ -198,6 +251,18 @@ function ContainersPageContent() {
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
+            variant={isSelectionMode ? 'secondary' : 'outline'}
+            onClick={toggleSelectionMode}
+            className="w-full sm:w-auto"
+          >
+            {isSelectionMode ? (
+              <X className="h-4 w-4 mr-2" />
+            ) : (
+              <CheckSquare className="h-4 w-4 mr-2" />
+            )}
+            {isSelectionMode ? 'Cancel Selection' : 'Select Containers'}
+          </Button>
+          <Button
             variant="outline"
             onClick={() => router.push('/inventory/containers/new')}
             className="w-full sm:w-auto"
@@ -253,6 +318,9 @@ function ContainersPageContent() {
                     router.push(`/inventory/containers/${container.id}/edit`)
                   }
                   onDelete={() => handleDeleteContainer(container.id)}
+                  isSelectionMode={isSelectionMode}
+                  isSelected={selectedContainers.has(container.id)}
+                  onToggleSelect={() => toggleContainerSelection(container.id)}
                 />
               ))}
             </div>
@@ -265,6 +333,23 @@ function ContainersPageContent() {
           </>
         )}
       </div>
+
+      {selectedContainers.size > 0 && (
+        <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 bg-background border rounded-lg shadow-lg p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-50 max-w-[calc(100%-2rem)] sm:max-w-none">
+          <span className="font-medium text-sm sm:text-base">
+            {selectedContainers.size} selected
+          </span>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="destructive"
+              onClick={handleBulkDelete}
+              className="flex-1 sm:flex-none"
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

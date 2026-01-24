@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ItemCard } from '@/components/inventory';
-import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useConfirm, ConfirmButton } from '@/components/ui/confirm-dialog';
 import {
   Select,
   SelectContent,
@@ -92,16 +92,6 @@ export default function ContainerDetailPage() {
   }, [loadContainerDetails]);
 
   const handleDelete = async () => {
-    if (containerItems.length > 0) {
-      if (
-        !(await confirm(
-          `This container has ${containerItems.length} items. Delete anyway?`
-        ))
-      ) {
-        return;
-      }
-    }
-
     try {
       await containerMutator.delete(containerId);
       toast.success('Container deleted successfully');
@@ -110,6 +100,13 @@ export default function ContainerDetailPage() {
       console.error('Failed to delete container:', error);
       toast.error('Failed to delete container');
     }
+  };
+
+  const getDeleteMessage = () => {
+    if (containerItems.length > 0) {
+      return `This container has ${containerItems.length} items. Delete anyway?`;
+    }
+    return 'Are you sure you want to delete this container?';
   };
 
   const handleAddItem = async () => {
@@ -191,10 +188,14 @@ export default function ContainerDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
+          <ConfirmButton
+            variant="destructive"
+            onConfirm={handleDelete}
+            message={getDeleteMessage()}
+          >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
-          </Button>
+          </ConfirmButton>
         </div>
       </div>
 
