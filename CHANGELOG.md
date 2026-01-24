@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.2...inventory-ware-v0.2.3) (2026-01-24)
+
+
+### Bug Fixes
+
+* clear lint warnings ([983bf0c](https://github.com/make-ware/inventory-ware/commit/983bf0c99b14584962813374c0d8d9c190bc7b2a))
+
 ## [0.2.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.1...inventory-ware-v0.2.2) (2026-01-23)
 
 
