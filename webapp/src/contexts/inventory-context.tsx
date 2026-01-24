@@ -63,6 +63,8 @@ interface InventoryContextValue extends InventoryState {
   addItemToContainer: (itemId: string, containerId: string) => Promise<void>;
   /** Remove an item from its container */
   removeItemFromContainer: (itemId: string) => Promise<void>;
+  /** Add an image to the local cache */
+  cacheImage: (image: Image) => void;
 }
 
 const InventoryContext = createContext<InventoryContextValue | null>(null);
@@ -83,88 +85,28 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
+  // Cache a single image
+  const cacheImage = useCallback((image: Image) => {
+    setState((prev) => {
+      const newImages = new Map(prev.images);
+      newImages.set(image.id, image);
+      return { ...prev, images: newImages };
+    });
+  }, []);
+
   // Refresh items from the database
   const refreshItems = useCallback(async () => {
-    try {
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
-      // Fetch items and expand primaryImage to avoid separate requests
-      const result = await itemMutator.getList(1, 500, undefined, undefined, [
-        'primaryImage',
-      ]);
-
-      setState((prev) => {
-        // Update image cache with expanded images
-        const newImages = new Map(prev.images);
-        result.items.forEach(
-          (item: Item & { expand?: { primaryImage?: Image } }) => {
-            if (item.expand?.primaryImage) {
-              newImages.set(
-                item.expand.primaryImage.id,
-                item.expand.primaryImage as Image
-              );
-            }
-          }
-        );
-
-        return {
-          ...prev,
-          items: result.items,
-          isLoading: false,
-          images: newImages,
-        };
-      });
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to load items',
-      }));
-    }
-  }, [itemMutator]);
+    // Optimization: We no longer fetch all items to populate cache.
+    // This function now effectively just ensures loading state is reset.
+    setState((prev) => ({ ...prev, isLoading: false }));
+  }, []);
 
   // Refresh containers from the database
   const refreshContainers = useCallback(async () => {
-    try {
-      setState((prev) => ({ ...prev, isLoading: true, error: null }));
-      // Fetch containers and expand primaryImage to avoid separate requests
-      const result = await containerMutator.getList(
-        1,
-        500,
-        undefined,
-        undefined,
-        ['primaryImage']
-      );
-
-      setState((prev) => {
-        // Update image cache with expanded images
-        const newImages = new Map(prev.images);
-        result.items.forEach(
-          (container: Container & { expand?: { primaryImage?: Image } }) => {
-            if (container.expand?.primaryImage) {
-              newImages.set(
-                container.expand.primaryImage.id,
-                container.expand.primaryImage as Image
-              );
-            }
-          }
-        );
-
-        return {
-          ...prev,
-          containers: result.items,
-          isLoading: false,
-          images: newImages,
-        };
-      });
-    } catch (error) {
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error:
-          error instanceof Error ? error.message : 'Failed to load containers',
-      }));
-    }
-  }, [containerMutator]);
+    // Optimization: We no longer fetch all containers to populate cache.
+    // This function now effectively just ensures loading state is reset.
+    setState((prev) => ({ ...prev, isLoading: false }));
+  }, []);
 
   // Refresh categories from existing items
   const refreshCategories = useCallback(async () => {
@@ -528,6 +470,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     getItemsByContainer,
     addItemToContainer,
     removeItemFromContainer,
+    cacheImage,
   };
 
   return (

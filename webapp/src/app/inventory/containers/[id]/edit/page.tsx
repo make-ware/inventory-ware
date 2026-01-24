@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator } from '@project/shared';
-import type { Container, ContainerInput } from '@project/shared';
+import type { Container, ContainerInput, Image } from '@project/shared';
+import { useInventory } from '@/hooks/use-inventory';
 import { ContainerUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,15 +21,27 @@ export default function EditContainerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { cacheImage } = useInventory();
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
 
   const loadContainer = useCallback(async () => {
     try {
       setIsLoading(true);
-      const containerData = await containerMutator.getById(containerId);
+      const containerData = await containerMutator.getById(
+        containerId,
+        'primaryImage'
+      );
       if (!containerData) {
         throw new Error('Container not found');
       }
+
+      const expandedContainer = containerData as Container & {
+        expand?: { primaryImage?: Image };
+      };
+      if (expandedContainer.expand?.primaryImage) {
+        cacheImage(expandedContainer.expand.primaryImage);
+      }
+
       setContainer(containerData);
     } catch (error) {
       console.error('Failed to load container:', error);
@@ -37,7 +50,7 @@ export default function EditContainerPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [containerId, router, containerMutator]);
+  }, [containerId, router, containerMutator, cacheImage]);
 
   useEffect(() => {
     loadContainer();

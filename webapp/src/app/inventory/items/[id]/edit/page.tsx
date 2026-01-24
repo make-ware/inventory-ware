@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, formatPocketBaseError } from '@project/shared';
-import type { Item, ItemInput, CategoryLibrary } from '@project/shared';
+import type {
+  Item,
+  ItemInput,
+  CategoryLibrary,
+  Image,
+} from '@project/shared';
+import { useInventory } from '@/hooks/use-inventory';
 import { ItemUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,17 +27,27 @@ export default function EditItemPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const { cacheImage } = useInventory();
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
   const loadItem = useCallback(async () => {
     try {
       setIsLoading(true);
-      const itemData = await itemMutator.getById(itemId);
+      const itemData = await itemMutator.getById(itemId, 'primaryImage');
       if (!itemData) {
         toast.error('Item not found');
         router.push('/inventory');
         return;
       }
+
+      // Cache the primary image if it exists so the form can display it
+      const expandedItem = itemData as Item & {
+        expand?: { primaryImage?: Image };
+      };
+      if (expandedItem.expand?.primaryImage) {
+        cacheImage(expandedItem.expand.primaryImage);
+      }
+
       setItem(itemData);
     } catch (error) {
       console.error('Failed to load item:', error);
@@ -51,7 +67,7 @@ export default function EditItemPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [itemId, router, itemMutator]);
+  }, [itemId, router, itemMutator, cacheImage]);
 
   useEffect(() => {
     loadItem();
