@@ -34,16 +34,16 @@ onRecordAfterCreateSuccess((e) => {
       );
     }
 
-    // Create image mapping if primaryImage is set
-    const primaryImage = e.record.get("primaryImage");
-    if (primaryImage) {
+    // Create image mapping if ImageRef is set
+    const ImageRef = e.record.get("ImageRef");
+    if (ImageRef) {
       try {
         const mappingCollection = $app.findCollectionByNameOrId("ItemImages");
         if (mappingCollection) {
           const mappingRecord = new Record(mappingCollection);
           mappingRecord.set("ItemRef", e.record.id);
-          mappingRecord.set("ImageRef", primaryImage);
-          const boundingBox = e.record.get("primaryImageBbox");
+          mappingRecord.set("ImageRef", ImageRef);
+          const boundingBox = e.record.get("boundingBox");
           if (boundingBox) {
             mappingRecord.set("boundingBox", boundingBox);
           }
@@ -114,9 +114,9 @@ onRecordAfterUpdateSuccess((e) => {
       }
     }
 
-    // Handle primaryImage change - archive the old image
-    const newPrimaryImage = newRecord.get("primaryImage");
-    const oldPrimaryImage = prevRecord.get("primaryImage");
+    // Handle ImageRef change - archive the old image
+    const newPrimaryImage = newRecord.get("ImageRef");
+    const oldPrimaryImage = prevRecord.get("ImageRef");
 
     if (oldPrimaryImage && newPrimaryImage !== oldPrimaryImage) {
       try {
@@ -125,7 +125,7 @@ onRecordAfterUpdateSuccess((e) => {
           const mappingRecord = new Record(mappingCollection);
           mappingRecord.set("ItemRef", itemId);
           mappingRecord.set("ImageRef", oldPrimaryImage);
-          const oldBoundingBox = prevRecord.get("primaryImageBbox");
+          const oldBoundingBox = prevRecord.get("boundingBox");
           if (oldBoundingBox) {
             mappingRecord.set("boundingBox", oldBoundingBox);
           }
@@ -177,17 +177,17 @@ onRecordAfterCreateSuccess((e) => {
       );
     }
 
-    // Create image mapping if primaryImage is set
-    const primaryImage = e.record.get("primaryImage");
-    if (primaryImage) {
+    // Create image mapping if ImageRef is set
+    const ImageRef = e.record.get("ImageRef");
+    if (ImageRef) {
       try {
         const mappingCollection =
           $app.findCollectionByNameOrId("ContainerImages");
         if (mappingCollection) {
           const mappingRecord = new Record(mappingCollection);
           mappingRecord.set("ContainerRef", e.record.id);
-          mappingRecord.set("ImageRef", primaryImage);
-          const boundingBox = e.record.get("primaryImageBbox");
+          mappingRecord.set("ImageRef", ImageRef);
+          const boundingBox = e.record.get("boundingBox");
           if (boundingBox) {
             mappingRecord.set("boundingBox", boundingBox);
           }
@@ -261,9 +261,9 @@ onRecordAfterUpdateSuccess((e) => {
       }
     }
 
-    // Handle primaryImage change - archive the old image
-    const newPrimaryImage = newRecord.get("primaryImage");
-    const oldPrimaryImage = prevRecord.get("primaryImage");
+    // Handle ImageRef change - archive the old image
+    const newPrimaryImage = newRecord.get("ImageRef");
+    const oldPrimaryImage = prevRecord.get("ImageRef");
 
     if (oldPrimaryImage && newPrimaryImage !== oldPrimaryImage) {
       try {
@@ -273,7 +273,7 @@ onRecordAfterUpdateSuccess((e) => {
           const mappingRecord = new Record(mappingCollection);
           mappingRecord.set("ContainerRef", containerId);
           mappingRecord.set("ImageRef", oldPrimaryImage);
-          const oldBoundingBox = prevRecord.get("primaryImageBbox");
+          const oldBoundingBox = prevRecord.get("boundingBox");
           if (oldBoundingBox) {
             mappingRecord.set("boundingBox", oldBoundingBox);
           }

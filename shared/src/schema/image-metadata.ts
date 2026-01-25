@@ -2,15 +2,11 @@ import { z } from 'zod';
 import {
   baseSchema,
   defineCollection,
-  RelationField,
   JSONField,
 } from 'pocketbase-zod-schema/schema';
 import { AnalysisResultSchema } from '../types/metadata.js';
 
 export const ImageMetadataInputSchema = z.object({
-  Image: RelationField({
-    collection: 'Images',
-  }).optional(),
   fileHash: z.string(),
   metadata: JSONField(AnalysisResultSchema),
   version: z.number().default(1),
@@ -40,7 +36,5 @@ export const ImageMetadataCollection = defineCollection({
   indexes: [
     // Unique index on fileHash for cache lookups
     'CREATE UNIQUE INDEX `idx_fileHash_image_metadata` ON `ImageMetadata` (`fileHash`)',
-    // Index on Image relation for lookups by image
-    'CREATE INDEX `idx_image_image_metadata` ON `ImageMetadata` (`Image`)',
   ],
 });

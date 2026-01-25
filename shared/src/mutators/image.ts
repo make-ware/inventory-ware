@@ -1,15 +1,17 @@
-import { RecordService } from 'pocketbase';
 import { type Image, type ImageInput, ImageInputSchema } from '../index';
 import type { TypedPocketBase } from '../types';
-import { BaseMutator } from './base';
+import { BaseMutator, TypedRecordService } from './base';
 
 export class ImageMutator extends BaseMutator<Image, ImageInput> {
   constructor(pb: TypedPocketBase) {
     super(pb);
   }
 
-  protected getCollection(): RecordService<Image> {
-    return this.pb.collection('Images');
+  protected getCollection(): TypedRecordService<Image, ImageInput> {
+    return this.pb.collection('Images') as unknown as TypedRecordService<
+      Image,
+      ImageInput
+    >;
   }
 
   protected async validateInput(input: ImageInput): Promise<ImageInput> {

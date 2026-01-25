@@ -1,7 +1,6 @@
-import { RecordService } from 'pocketbase';
 import { type Item, type ItemInput, ItemInputSchema } from '../index';
 import type { TypedPocketBase } from '../types';
-import { BaseMutator } from './base';
+import { BaseMutator, TypedRecordService } from './base';
 
 export interface ItemSearchFilters {
   categoryFunctional?: string;
@@ -21,8 +20,11 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
     super(pb);
   }
 
-  protected getCollection(): RecordService<Item> {
-    return this.pb.collection('Items');
+  protected getCollection(): TypedRecordService<Item, ItemInput> {
+    return this.pb.collection('Items') as unknown as TypedRecordService<
+      Item,
+      ItemInput
+    >;
   }
 
   protected async validateInput(input: ItemInput): Promise<ItemInput> {
@@ -89,7 +91,7 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
       }
       if (filters?.container) {
         const escaped = filters.container.replace(/"/g, '\\"');
-        filterParts.push(`container="${escaped}"`);
+        filterParts.push(`ContainerRef="${escaped}"`);
       }
 
       const filter =
@@ -117,7 +119,7 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
       const result = await this.getList(
         1,
         500,
-        `container="${escapedId}"`,
+        `ContainerRef="${escapedId}"`,
         undefined,
         expand
       );

@@ -10,6 +10,18 @@ import {
 } from 'pocketbase';
 import type { TypedPocketBase } from '../types';
 
+export type TypedRecordService<
+  T extends RecordModel,
+  InputType,
+> = RecordService<T> & {
+  create(bodyParams: InputType | FormData, options?: RecordOptions): Promise<T>;
+  update(
+    id: string,
+    bodyParams: Partial<InputType> | FormData,
+    options?: RecordOptions
+  ): Promise<T>;
+};
+
 export interface MutatorOptions {
   expand: string[];
   filter: string[];
@@ -71,7 +83,7 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Get the collection instance
    */
-  protected abstract getCollection(): RecordService<T>;
+  protected abstract getCollection(): TypedRecordService<T, InputType>;
 
   toSnakeCase(str: string): string {
     return str
@@ -315,14 +327,20 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    * Perform the actual create operation
    */
   protected async entityCreate(data: InputType): Promise<T> {
-    return await this.getCollection().create(data as Record<string, unknown>);
+    return await this.getCollection().create(data);
   }
 
   /**
    * Perform the actual update operation
    */
   protected async entityUpdate(id: string, data: Partial<T>): Promise<T> {
-    return await this.getCollection().update(id, data);
+    // We cast to Partial<InputType> because data here is Partial<T>
+    // In practice T and InputType often share keys, but strict typing might require InputType
+    // For now we assume Partial<T> is compatible enough or we cast to unknown
+    return await this.getCollection().update(
+      id,
+      data as unknown as Partial<InputType>
+    );
   }
 
   /**

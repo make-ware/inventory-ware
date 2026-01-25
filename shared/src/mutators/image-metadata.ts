@@ -1,23 +1,34 @@
-import { RecordService } from 'pocketbase';
 import type { AnalysisResult } from '../types/metadata';
-import type { TypedPocketBase, ImageMetadata } from '../types';
+import {
+  type TypedPocketBase,
+  type ImageMetadata,
+  type ImageMetadataInput,
+  ImageMetadataInputSchema,
+} from '../index';
+import { BaseMutator, TypedRecordService } from './base';
 
-// Re-export ImageMetadata type for convenience
-export type { ImageMetadata };
+export class ImageMetadataMutator extends BaseMutator<
+  ImageMetadata,
+  ImageMetadataInput
+> {
+  constructor(pb: TypedPocketBase) {
+    super(pb);
+  }
 
-export type ImageMetadataInput = {
-  Image?: string;
-  fileHash: string;
-  metadata?: AnalysisResult | null;
-  version?: number;
-  imageType?: 'item' | 'container' | 'unprocessed';
-};
+  protected getCollection(): TypedRecordService<
+    ImageMetadata,
+    ImageMetadataInput
+  > {
+    return this.pb.collection('ImageMetadata') as unknown as TypedRecordService<
+      ImageMetadata,
+      ImageMetadataInput
+    >;
+  }
 
-export class ImageMetadataMutator {
-  constructor(protected pb: TypedPocketBase) {}
-
-  protected getCollection(): RecordService<ImageMetadata> {
-    return this.pb.collection('ImageMetadata') as RecordService<ImageMetadata>;
+  protected async validateInput(
+    input: ImageMetadataInput
+  ): Promise<ImageMetadataInput> {
+    return ImageMetadataInputSchema.parse(input);
   }
 
   /**
@@ -47,7 +58,6 @@ export class ImageMetadataMutator {
    * @returns The created/updated ImageMetadata record
    */
   async saveMetadata(
-    imageId: string,
     hash: string,
     metadata: AnalysisResult,
     imageType: 'item' | 'container' | 'unprocessed' = 'unprocessed'
@@ -57,8 +67,8 @@ export class ImageMetadataMutator {
 
     if (existing) {
       // Update existing entry
+      // Note: We use Partial<ImageMetadataInput> for updates
       return await this.getCollection().update(existing.id, {
-        Image: imageId,
         metadata,
         imageType: imageType,
         version: (existing.version ?? 1) + 1,
@@ -66,7 +76,6 @@ export class ImageMetadataMutator {
     } else {
       // Create new entry
       return await this.getCollection().create({
-        Image: imageId,
         fileHash: hash,
         metadata,
         imageType: imageType,
@@ -83,7 +92,7 @@ export class ImageMetadataMutator {
   async getByImageId(imageId: string): Promise<ImageMetadata | null> {
     try {
       const result = await this.getCollection().getList(1, 1, {
-        filter: `Image="${imageId}"`,
+        filter: `ImageRef="${imageId}"`,
       });
       return result.items.length > 0 ? result.items[0] : null;
     } catch (error) {

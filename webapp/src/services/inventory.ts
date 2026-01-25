@@ -189,7 +189,6 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
           // Save AI metadata to ImageMetadata collection for future cache hits
           await imageMetadataMutator.saveMetadata(
-            image.id,
             fileHash,
             result,
             result.type
@@ -438,7 +437,6 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
           // Save AI metadata to ImageMetadata collection for future cache hits
           await imageMetadataMutator.saveMetadata(
-            image.id,
             fileHash,
             result,
             result.type

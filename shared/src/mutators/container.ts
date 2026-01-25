@@ -1,19 +1,21 @@
-import { RecordService } from 'pocketbase';
 import {
   type Container,
   type ContainerInput,
   ContainerInputSchema,
 } from '../index';
 import type { TypedPocketBase } from '../types';
-import { BaseMutator } from './base';
+import { BaseMutator, TypedRecordService } from './base';
 
 export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
   constructor(pb: TypedPocketBase) {
     super(pb);
   }
 
-  protected getCollection(): RecordService<Container> {
-    return this.pb.collection('Containers');
+  protected getCollection(): TypedRecordService<Container, ContainerInput> {
+    return this.pb.collection('Containers') as unknown as TypedRecordService<
+      Container,
+      ContainerInput
+    >;
   }
 
   protected async validateInput(
