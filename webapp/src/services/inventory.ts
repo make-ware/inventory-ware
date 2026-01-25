@@ -170,13 +170,9 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
         if (cachedMetadata) {
           // Cache hit: reuse cached AI metadata
-          console.log(`Cache hit for file hash ${fileHash.substring(0, 8)}...`);
           result = cachedMetadata as AnalysisResult;
         } else {
           // Cache miss: call AI API
-          console.log(
-            `Cache miss for file hash ${fileHash.substring(0, 8)}..., calling AI API`
-          );
 
           // Get existing categories for AI context
           const categories = await this.getCategoryLibrary();
@@ -227,17 +223,11 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
           let item: Item;
           if (existingItems.items.length > 0) {
-            console.log(
-              `Item already exists for image ${image.id}, updating...`
-            );
             item = await itemMutator.update(
               existingItems.items[0].id,
               itemData
             );
           } else {
-            console.log(
-              `Creating new item for image ${image.id} for user ${userId}`
-            );
             item = await itemMutator.create(itemData);
           }
           items.push(item);
@@ -257,9 +247,6 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
           let containerObj: Container;
           if (existingContainers.items.length > 0) {
-            console.log(
-              `Container already exists for image ${image.id}, updating...`
-            );
             containerObj = await containerMutator.update(
               existingContainers.items[0].id,
               {
@@ -269,9 +256,6 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               }
             );
           } else {
-            console.log(
-              `Creating new container for image ${image.id} for user ${userId}`
-            );
             containerObj = await containerMutator.create({
               containerLabel: result.data.container.containerLabel,
               containerNotes: result.data.container.containerNotes,
@@ -306,16 +290,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             );
 
             if (existingItemResult.items.length > 0) {
-              console.log(
-                `Item ${itemData.itemLabel} already exists in container ${container.id}, updating...`
-              );
               const existingItem = existingItemResult.items[0];
               const item = await itemMutator.update(existingItem.id, itemData);
               items.push(item);
             } else {
-              console.log(
-                `Creating new item ${itemData.itemLabel} in container ${container.id} for user ${userId}`
-              );
               const item = await itemMutator.create(itemData);
               items.push(item);
             }
@@ -426,13 +404,9 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
         if (cachedMetadata) {
           // Cache hit: reuse cached AI metadata
-          console.log(`Cache hit for file hash ${fileHash.substring(0, 8)}...`);
           result = cachedMetadata as AnalysisResult;
         } else {
           // Cache miss: call AI API
-          console.log(
-            `Cache miss for file hash ${fileHash.substring(0, 8)}..., calling AI API`
-          );
 
           // Get existing categories for AI context
           const categories = await this.getCategoryLibrary();
@@ -499,14 +473,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
           if (existingItems.items.length > 0) {
             // Update existing item
-            console.log(`Updating existing item for image ${imageId}`);
             const existingItem = existingItems.items[0];
             item = await itemMutator.update(existingItem.id, itemData);
           } else {
             // Create new item
-            console.log(
-              `Creating new item for image ${imageId} for user ${userId}`
-            );
             item = await itemMutator.create(itemData);
           }
           items.push(item);
@@ -526,7 +496,6 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
           if (existingContainers.items.length > 0) {
             // Update existing container
-            console.log(`Updating existing container for image ${imageId}`);
             const existingContainer = existingContainers.items[0];
             container = await containerMutator.update(existingContainer.id, {
               containerLabel: result.data.container.containerLabel,
@@ -535,9 +504,6 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             });
           } else {
             // Create new container
-            console.log(
-              `Creating new container for image ${imageId} for user ${userId}`
-            );
             container = await containerMutator.create({
               containerLabel: result.data.container.containerLabel,
               containerNotes: result.data.container.containerNotes,
@@ -570,16 +536,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             );
 
             if (existingItemResult.items.length > 0) {
-              console.log(
-                `Updating existing item ${itemData.itemLabel} in container ${container.id}`
-              );
               const existingItem = existingItemResult.items[0];
               const item = await itemMutator.update(existingItem.id, itemData);
               items.push(item);
             } else {
-              console.log(
-                `Creating new item ${itemData.itemLabel} in container ${container.id} for user ${userId}`
-              );
               const item = await itemMutator.create(itemData);
               items.push(item);
             }
