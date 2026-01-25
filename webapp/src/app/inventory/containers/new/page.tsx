@@ -67,7 +67,7 @@ function NewContainerContent() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}
-            defaultValues={imageId ? { primaryImage: imageId } : undefined}
+            defaultValues={imageId ? { ImageRef: imageId } : undefined}
           />
         </CardContent>
       </Card>

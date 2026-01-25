@@ -55,7 +55,7 @@ function ContainersPageContent() {
       // Pass sortValue to search
       const results = await containerMutator.search(
         searchQuery,
-        'primaryImage',
+        'ImageRef',
         sortValue
       );
       setContainers(results);
@@ -64,12 +64,12 @@ function ContainersPageContent() {
         const newImages = new Map(prev);
         for (const container of results) {
           const expanded = container as Container & {
-            expand?: { primaryImage?: Image };
+            expand?: { ImageRef?: Image };
           };
-          if (expanded.expand?.primaryImage) {
+          if (expanded.expand?.ImageRef) {
             newImages.set(
-              expanded.expand.primaryImage.id,
-              expanded.expand.primaryImage
+              expanded.expand.ImageRef.id,
+              expanded.expand.ImageRef
             );
           }
         }
@@ -308,8 +308,8 @@ function ContainersPageContent() {
                 <ContainerCard
                   key={container.id}
                   container={container}
-                  imageUrl={getImageUrl(container.primaryImage)}
-                  boundingBox={container.primaryImageBbox}
+                  imageUrl={getImageUrl(container.ImageRef)}
+                  boundingBox={container.boundingBox}
                   itemCount={0}
                   onClick={() =>
                     router.push(`/inventory/containers/${container.id}`)

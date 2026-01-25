@@ -14,7 +14,7 @@ import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { useConfirm, ConfirmButton } from '@/components/ui/confirm-dialog';
 
-type ItemWithExpand = Item & { expand?: { primaryImage?: Image } };
+type ItemWithExpand = Item & { expand?: { ImageRef?: Image } };
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -47,10 +47,10 @@ export default function ItemDetailPage() {
     try {
       setIsLoading(true);
 
-      // Load item with expanded primaryImage
+      // Load item with expanded ImageRef
       const itemData = (await itemMutator.getById(
         itemId,
-        'primaryImage'
+        'ImageRef'
       )) as ItemWithExpand | null;
       if (!itemData) {
         throw new Error('Item not found');
@@ -58,9 +58,9 @@ export default function ItemDetailPage() {
       setItem(itemData);
 
       // Load container if item is in one
-      if (itemData.container) {
+      if (itemData.ContainerRef) {
         const containerData = await containerMutator.getById(
-          itemData.container
+          itemData.ContainerRef
         );
         if (containerData) {
           setContainer(containerData);
@@ -252,7 +252,7 @@ export default function ItemDetailPage() {
               <CardTitle className="text-lg">Images</CardTitle>
             </CardHeader>
             <CardContent>
-              {!item.expand?.primaryImage ? (
+              {!item.expand?.ImageRef ? (
                 <div className="text-center py-8">
                   <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">
@@ -263,8 +263,8 @@ export default function ItemDetailPage() {
                 <div className="space-y-3">
                   <div className="relative aspect-square rounded-lg overflow-hidden border">
                     <CroppedImageViewer
-                      imageUrl={getImageFileUrl(item.expand.primaryImage)}
-                      boundingBox={item.primaryImageBbox}
+                      imageUrl={getImageFileUrl(item.expand.ImageRef)}
+                      boundingBox={item.boundingBox}
                       alt="Item image"
                     />
                     <Badge className="absolute top-2 right-2 z-10">

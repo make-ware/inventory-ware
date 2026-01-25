@@ -53,12 +53,12 @@ export default function ImageDetailPage() {
       }
       setImage(imageData);
 
-      // Find associated item by querying items with this image as primaryImage
+      // Find associated item by querying items with this image as ImageRef
       try {
         const items = await itemMutator.getList(
           1,
           100,
-          `primaryImage="${imageId}"`
+          `ImageRef="${imageId}"`
         );
         if (items.items.length > 0) {
           setItem(items.items[0]);
@@ -67,12 +67,12 @@ export default function ImageDetailPage() {
         console.error('Failed to load item:', error);
       }
 
-      // Find associated container by querying containers with this image as primaryImage
+      // Find associated container by querying containers with this image as ImageRef
       try {
         const containers = await containerMutator.getList(
           1,
           100,
-          `primaryImage="${imageId}"`
+          `ImageRef="${imageId}"`
         );
         if (containers.items.length > 0) {
           setContainer(containers.items[0]);

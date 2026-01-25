@@ -170,7 +170,7 @@ function ItemsPageContent() {
           categorySpecific: searchFilters.specific,
           itemType: searchFilters.itemType,
         },
-        'primaryImage',
+        'ImageRef',
         sortValue
       );
       setItems(results);
@@ -178,11 +178,11 @@ function ItemsPageContent() {
       setImages((prev) => {
         const newImages = new Map(prev);
         for (const item of results) {
-          const expanded = item as Item & { expand?: { primaryImage?: Image } };
-          if (expanded.expand?.primaryImage) {
+          const expanded = item as Item & { expand?: { ImageRef?: Image } };
+          if (expanded.expand?.ImageRef) {
             newImages.set(
-              expanded.expand.primaryImage.id,
-              expanded.expand.primaryImage
+              expanded.expand.ImageRef.id,
+              expanded.expand.ImageRef
             );
           }
         }
@@ -307,8 +307,8 @@ function ItemsPageContent() {
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
-    if (item.primaryImage) {
-      const image = images.get(item.primaryImage);
+    if (item.ImageRef) {
+      const image = images.get(item.ImageRef);
       if (image) return imageMutator.getFileUrl(image);
     }
     return undefined;
@@ -520,9 +520,7 @@ function ItemsPageContent() {
                   key={item.id}
                   item={item}
                   imageUrl={getItemImageUrl(item)}
-                  boundingBox={
-                    item.primaryImage ? item.primaryImageBbox : undefined
-                  }
+                  boundingBox={item.ImageRef ? item.boundingBox : undefined}
                   onClick={() => router.push(`/inventory/items/${item.id}`)}
                   onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
                   onClone={() =>

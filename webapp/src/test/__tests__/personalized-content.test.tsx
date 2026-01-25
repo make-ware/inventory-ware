@@ -3,6 +3,36 @@ import { render, screen } from '@testing-library/react';
 import { AuthContext } from '@/contexts/auth-context';
 import Home from '@/app/page';
 
+// Mock Next.js Image to avoid priority prop warning in tests
+vi.mock('next/image', () => ({
+  default: ({
+    src,
+    alt,
+    onLoad,
+    className,
+    style,
+    fill,
+    ...rest
+  }: {
+    src: string;
+    alt: string;
+    onLoad?: React.ReactEventHandler<HTMLImageElement>;
+    className?: string;
+    style?: React.CSSProperties;
+    fill?: boolean;
+    [key: string]: unknown;
+  }) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      onLoad={onLoad}
+      className={className}
+      style={fill ? { position: 'absolute', inset: 0, ...style } : style}
+    />
+  ),
+}));
+
 // Property test generator for user data
 function generateRandomUser() {
   const id = Math.random().toString(36).substring(7);

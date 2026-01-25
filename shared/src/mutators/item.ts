@@ -54,7 +54,7 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
    * Search for items by query and filters
    * @param query Search query to match against label, notes, and manufacturer
    * @param filters Optional category and container filters
-   * @param expand Optional relation fields to expand (e.g., 'primaryImage')
+   * @param expand Optional relation fields to expand (e.g., 'ImageRef')
    * @returns Array of matching Item records
    */
   async search(

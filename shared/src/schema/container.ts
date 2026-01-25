@@ -10,8 +10,8 @@ import { BoundingBoxSchema } from '../types/bounding-box.js';
 export const ContainerInputSchema = z.object({
   containerLabel: z.string().min(1, 'Container label is required'),
   containerNotes: z.string().optional().default(''),
-  primaryImage: RelationField({ collection: 'Images' }).optional(),
-  primaryImageBbox: BoundingBoxSchema.optional(),
+  ImageRef: RelationField({ collection: 'Images' }).optional(),
+  boundingBox: BoundingBoxSchema.optional(),
   UserRef: RelationField({ collection: 'Users' }),
 });
 
@@ -19,9 +19,8 @@ export const ContainerInputSchema = z.object({
 export const ContainerUpdateSchema = z.object({
   containerLabel: z.string().min(1, 'Container label is required').optional(),
   containerNotes: z.string().optional(),
-  primaryImage: RelationField({ collection: 'Images' }).optional(),
-  primaryImageBbox: BoundingBoxSchema.optional(),
-  UserRef: RelationField({ collection: 'Users' }).optional(),
+  ImageRef: RelationField({ collection: 'Images' }).optional(),
+  boundingBox: BoundingBoxSchema.optional(),
 });
 
 // Database schema for the complete container record
@@ -30,8 +29,8 @@ export const ContainerSchema = z
   .object({
     containerLabel: z.string().min(1, 'Container label is required'),
     containerNotes: z.string().default(''),
-    primaryImage: RelationField({ collection: 'Images' }).optional(),
-    primaryImageBbox: BoundingBoxSchema.optional(),
+    ImageRef: RelationField({ collection: 'Images' }).optional(),
+    boundingBox: BoundingBoxSchema.optional(),
     UserRef: RelationField({ collection: 'Users' }),
   })
   .extend(baseSchema);

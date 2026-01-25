@@ -41,9 +41,9 @@ export const ItemInputSchema = z.object({
     .transform(slugify),
   itemManufacturer: z.string().optional().default(''),
   itemAttributes: z.array(ItemAttributeSchema).optional().default([]),
-  container: RelationField({ collection: 'Containers' }).optional(),
-  primaryImage: RelationField({ collection: 'Images' }).optional(),
-  primaryImageBbox: BoundingBoxSchema.optional(),
+  ContainerRef: RelationField({ collection: 'Containers' }).optional(),
+  ImageRef: RelationField({ collection: 'Images' }).optional(),
+  boundingBox: BoundingBoxSchema.optional(),
   UserRef: RelationField({ collection: 'Users' }),
 });
 
@@ -72,10 +72,9 @@ export const ItemUpdateSchema = z.object({
     .optional(),
   itemManufacturer: z.string().optional(),
   itemAttributes: z.array(ItemAttributeSchema).optional(),
-  container: RelationField({ collection: 'Containers' }).optional(),
-  primaryImage: RelationField({ collection: 'Images' }).optional(),
-  primaryImageBbox: BoundingBoxSchema.optional(),
-  UserRef: RelationField({ collection: 'Users' }).optional(),
+  ContainerRef: RelationField({ collection: 'Containers' }).optional(),
+  ImageRef: RelationField({ collection: 'Images' }).optional(),
+  boundingBox: BoundingBoxSchema.optional(),
 });
 
 // Database schema for the complete item record
@@ -102,9 +101,9 @@ export const ItemSchema = z
       .transform(slugify),
     itemManufacturer: z.string().default(''),
     itemAttributes: z.array(ItemAttributeSchema).default([]),
-    container: RelationField({ collection: 'Containers' }).optional(),
-    primaryImage: RelationField({ collection: 'Images' }).optional(),
-    primaryImageBbox: BoundingBoxSchema.optional(),
+    ContainerRef: RelationField({ collection: 'Containers' }).optional(),
+    ImageRef: RelationField({ collection: 'Images' }).optional(),
+    boundingBox: BoundingBoxSchema.optional(),
     UserRef: RelationField({ collection: 'Users' }),
   })
   .extend(baseSchema);

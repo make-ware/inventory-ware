@@ -46,7 +46,7 @@ export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
   /**
    * Search for containers by query
    * @param query Search query to match against label and notes
-   * @param expand Optional relation fields to expand (e.g., 'primaryImage')
+   * @param expand Optional relation fields to expand (e.g., 'ImageRef')
    * @returns Array of matching Container records
    */
   async search(

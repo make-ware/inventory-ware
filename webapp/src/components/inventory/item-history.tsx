@@ -132,8 +132,7 @@ export function ItemHistory({ itemId }: ItemHistoryProps) {
 }
 
 function getIconForField(fieldName?: string) {
-  if (fieldName === 'primaryImage')
-    return <ImageIcon className="h-3.5 w-3.5" />;
+  if (fieldName === 'ImageRef') return <ImageIcon className="h-3.5 w-3.5" />;
   if (fieldName === 'container') return <Package className="h-3.5 w-3.5" />;
   return null;
 }
@@ -149,8 +148,8 @@ function formatFieldName(fieldName?: string): string {
     itemType: 'Item Type',
     itemManufacturer: 'Manufacturer',
     itemAttributes: 'Attributes',
-    primaryImage: 'Image',
-    primaryImageBbox: 'Image Crop',
+    ImageRef: 'Image',
+    boundingBox: 'Image Crop',
     container: 'Container',
   };
   return map[fieldName || ''] || fieldName || 'Update';
@@ -163,7 +162,7 @@ function renderNewValue(record: ItemRecord) {
     return <span className="text-muted-foreground italic">(empty)</span>;
 
   // Handle Image Update
-  if (fieldName === 'primaryImage') {
+  if (fieldName === 'ImageRef') {
     const imageUrl = pb.files.getUrl(
       { collectionId: 'Items', id: ItemRef },
       newValue
@@ -211,7 +210,7 @@ function renderNewValue(record: ItemRecord) {
   }
 
   // Handle Bounding Box - don't show raw data
-  if (fieldName === 'primaryImageBbox') {
+  if (fieldName === 'boundingBox') {
     return (
       <span className="text-muted-foreground text-xs italic">
         Bounding box updated

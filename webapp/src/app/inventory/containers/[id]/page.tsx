@@ -8,8 +8,8 @@ import { ContainerMutator, ItemMutator } from '@project/shared';
 import type { Container, Item, Image } from '@project/shared';
 import { getImageFileUrl, getExpandedImageUrl } from '@/lib/image-utils';
 
-type ContainerWithExpand = Container & { expand?: { primaryImage?: Image } };
-type ItemWithExpand = Item & { expand?: { primaryImage?: Image } };
+type ContainerWithExpand = Container & { expand?: { ImageRef?: Image } };
+type ItemWithExpand = Item & { expand?: { ImageRef?: Image } };
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -53,20 +53,20 @@ export default function ContainerDetailPage() {
     try {
       setIsLoading(true);
 
-      // Load container with expanded primaryImage
+      // Load container with expanded ImageRef
       const containerData = (await containerMutator.getById(
         containerId,
-        'primaryImage'
+        'ImageRef'
       )) as ContainerWithExpand | null;
       if (!containerData) {
         throw new Error('Container not found');
       }
       setContainer(containerData);
 
-      // Load items in this container with expanded primaryImage
+      // Load items in this container with expanded ImageRef
       const items = (await itemMutator.getByContainer(
         containerId,
-        'primaryImage'
+        'ImageRef'
       )) as ItemWithExpand[];
       setContainerItems(items);
 
@@ -74,7 +74,7 @@ export default function ContainerDetailPage() {
       const allItemsResult = await itemMutator.search('');
       // Filter out items already in this container
       const availableItems = allItemsResult.filter(
-        (item) => item.container !== containerId
+        (item) => item.ContainerRef !== containerId
       );
       setAllItems(availableItems);
     } catch (error) {
@@ -117,7 +117,7 @@ export default function ContainerDetailPage() {
 
     try {
       setIsAddingItem(true);
-      await itemMutator.update(selectedItemId, { container: containerId });
+      await itemMutator.update(selectedItemId, { ContainerRef: containerId });
       toast.success('Item added to container');
       setSelectedItemId('');
       await loadContainerDetails();
@@ -133,7 +133,7 @@ export default function ContainerDetailPage() {
     if (!(await confirm('Remove this item from the container?'))) return;
 
     try {
-      await itemMutator.update(itemId, { container: undefined });
+      await itemMutator.update(itemId, { ContainerRef: undefined });
       toast.success('Item removed from container');
       await loadContainerDetails();
     } catch (error) {
@@ -297,9 +297,7 @@ export default function ContainerDetailPage() {
                   key={item.id}
                   item={item}
                   imageUrl={getItemImageUrl(item)}
-                  boundingBox={
-                    item.primaryImage ? item.primaryImageBbox : undefined
-                  }
+                  boundingBox={item.ImageRef ? item.boundingBox : undefined}
                   onClick={() => router.push(`/inventory/items/${item.id}`)}
                   onEdit={() => router.push(`/inventory/items/${item.id}/edit`)}
                   onDelete={() => handleRemoveItem(item.id)}
@@ -316,7 +314,7 @@ export default function ContainerDetailPage() {
               <CardTitle className="text-lg">Images</CardTitle>
             </CardHeader>
             <CardContent>
-              {!container.expand?.primaryImage ? (
+              {!container.expand?.ImageRef ? (
                 <div className="text-center py-8">
                   <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">
@@ -327,8 +325,8 @@ export default function ContainerDetailPage() {
                 <div className="space-y-3">
                   <div className="relative aspect-square rounded-lg overflow-hidden border">
                     <CroppedImageViewer
-                      imageUrl={getImageFileUrl(container.expand.primaryImage)}
-                      boundingBox={container.primaryImageBbox}
+                      imageUrl={getImageFileUrl(container.expand.ImageRef)}
+                      boundingBox={container.boundingBox}
                       alt="Container image"
                     />
                   </div>

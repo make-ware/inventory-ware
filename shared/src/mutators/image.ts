@@ -93,14 +93,14 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
       const images: Image[] = [];
       const imageIds = new Set<string>();
 
-      // 1. Get the item to find its primaryImage
+      // 1. Get the item to find its ImageRef
       const item = await this.pb.collection('Items').getOne(itemId);
 
-      if (item && item.primaryImage) {
-        const primaryImage = await this.getById(item.primaryImage);
-        if (primaryImage) {
-          images.push(primaryImage);
-          imageIds.add(primaryImage.id);
+      if (item && item.ImageRef) {
+        const ImageRef = await this.getById(item.ImageRef);
+        if (ImageRef) {
+          images.push(ImageRef);
+          imageIds.add(ImageRef.id);
         }
       }
 
@@ -145,16 +145,16 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
       const images: Image[] = [];
       const imageIds = new Set<string>();
 
-      // 1. Get the container to find its primaryImage
+      // 1. Get the container to find its ImageRef
       const container = await this.pb
         .collection('Containers')
         .getOne(containerId);
 
-      if (container && container.primaryImage) {
-        const primaryImage = await this.getById(container.primaryImage);
-        if (primaryImage) {
-          images.push(primaryImage);
-          imageIds.add(primaryImage.id);
+      if (container && container.ImageRef) {
+        const ImageRef = await this.getById(container.ImageRef);
+        if (ImageRef) {
+          images.push(ImageRef);
+          imageIds.add(ImageRef.id);
         }
       }
 

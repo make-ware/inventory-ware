@@ -38,9 +38,7 @@ import { Crop } from 'lucide-react';
 
 interface ItemUpdateFormProps {
   defaultValues?: Partial<ItemUpdate>;
-  onSubmit: (
-    data: Partial<Omit<ItemUpdate, 'UserRef'>>
-  ) => void | Promise<void>;
+  onSubmit: (data: Partial<ItemUpdate>) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
   categories?: CategoryLibrary;
@@ -57,7 +55,7 @@ export function ItemUpdateForm({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   // Create a form schema without UserRef since it's not part of the form
-  const FormSchema = ItemUpdateSchema.omit({ UserRef: true });
+  const FormSchema = ItemUpdateSchema;
 
   const form = useForm<z.input<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -70,24 +68,37 @@ export function ItemUpdateForm({
       itemType: '',
       itemManufacturer: '',
       itemAttributes: [],
-      primaryImage: undefined,
-      primaryImageBbox: undefined,
+      ImageRef: undefined,
+      boundingBox: undefined,
       ...defaultValues,
     },
   });
 
-  const primaryImageId = useWatch({
+  const ImageRefId = useWatch({
     control: form.control,
-    name: 'primaryImage',
+    name: 'ImageRef',
   });
-  const primaryImageBbox = useWatch({
+  const boundingBox = useWatch({
     control: form.control,
-    name: 'primaryImageBbox',
+    name: 'boundingBox',
   });
-  const imageUrl = getImageUrl(primaryImageId);
+  const imageUrl = getImageUrl(ImageRefId);
 
   const handleSubmit = async (data: z.input<typeof FormSchema>) => {
-    await onSubmit(data);
+    // Only send fields that were actually changed (dirty)
+    const dirtyFields = form.formState.dirtyFields;
+    const dirtyData: Record<string, unknown> = {};
+
+    for (const key of Object.keys(dirtyFields)) {
+      if (dirtyFields[key as keyof typeof dirtyFields]) {
+        dirtyData[key] = data[key as keyof typeof data];
+      }
+    }
+
+    // Only submit if there are changes
+    if (Object.keys(dirtyData).length > 0) {
+      await onSubmit(dirtyData as Partial<ItemUpdate>);
+    }
   };
 
   return (
@@ -275,7 +286,7 @@ export function ItemUpdateForm({
               <div className="w-full md:w-60 h-60 border rounded overflow-hidden bg-muted shrink-0">
                 <CroppedImageViewer
                   imageUrl={imageUrl}
-                  boundingBox={primaryImageBbox}
+                  boundingBox={boundingBox}
                   mode="highlight"
                   className="w-full h-full"
                 />
@@ -295,9 +306,9 @@ export function ItemUpdateForm({
                     <div className="mt-4">
                       <BoundingBoxEditor
                         imageUrl={imageUrl}
-                        initialBox={primaryImageBbox}
+                        initialBox={boundingBox}
                         onSave={(box) => {
-                          form.setValue('primaryImageBbox', box, {
+                          form.setValue('boundingBox', box, {
                             shouldDirty: true,
                           });
                           setIsEditorOpen(false);

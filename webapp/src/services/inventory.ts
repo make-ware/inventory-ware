@@ -215,14 +215,14 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             itemType: result.data.item.itemType,
             itemManufacturer: result.data.item.itemManufacturer,
             itemAttributes: result.data.item.itemAttributes,
-            primaryImage: image.id,
+            ImageRef: image.id,
             UserRef: userId,
           };
 
           const existingItems = await itemMutator.getList(
             1,
             1,
-            `primaryImage="${image.id}"`
+            `ImageRef="${image.id}"`
           );
 
           let item: Item;
@@ -252,7 +252,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           const existingContainers = await containerMutator.getList(
             1,
             1,
-            `primaryImage="${image.id}"`
+            `ImageRef="${image.id}"`
           );
 
           let containerObj: Container;
@@ -265,7 +265,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               {
                 containerLabel: result.data.container.containerLabel,
                 containerNotes: result.data.container.containerNotes,
-                primaryImage: image.id,
+                ImageRef: image.id,
               }
             );
           } else {
@@ -275,7 +275,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             containerObj = await containerMutator.create({
               containerLabel: result.data.container.containerLabel,
               containerNotes: result.data.container.containerNotes,
-              primaryImage: image.id,
+              ImageRef: image.id,
               UserRef: userId,
             });
           }
@@ -292,8 +292,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               itemType: itemMetadata.itemType,
               itemManufacturer: itemMetadata.itemManufacturer,
               itemAttributes: itemMetadata.itemAttributes,
-              container: container.id,
-              primaryImage: image.id,
+              ContainerRef: container.id,
+              ImageRef: image.id,
               UserRef: userId,
             };
 
@@ -302,7 +302,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             const existingItemResult = await itemMutator.getList(
               1,
               1,
-              `container="${container.id}" && itemLabel="${itemData.itemLabel}"`
+              `ContainerRef="${container.id}" && itemLabel="${itemData.itemLabel}"`
             );
 
             if (existingItemResult.items.length > 0) {
@@ -476,12 +476,12 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
         let container: Container | undefined;
 
         if (result.type === 'item') {
-          // Check if item already exists for this image by querying items with this image as primaryImage
+          // Check if item already exists for this image by querying items with this image as ImageRef
           let item: Item;
           const existingItems = await itemMutator.getList(
             1,
             1,
-            `primaryImage="${image.id}"`
+            `ImageRef="${image.id}"`
           );
 
           const itemData: ItemInput = {
@@ -493,7 +493,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             itemType: result.data.item.itemType,
             itemManufacturer: result.data.item.itemManufacturer,
             itemAttributes: result.data.item.itemAttributes,
-            primaryImage: image.id,
+            ImageRef: image.id,
             UserRef: userId,
           };
 
@@ -521,7 +521,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           const existingContainers = await containerMutator.getList(
             1,
             1,
-            `primaryImage="${image.id}"`
+            `ImageRef="${image.id}"`
           );
 
           if (existingContainers.items.length > 0) {
@@ -531,7 +531,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             container = await containerMutator.update(existingContainer.id, {
               containerLabel: result.data.container.containerLabel,
               containerNotes: result.data.container.containerNotes,
-              primaryImage: image.id,
+              ImageRef: image.id,
             });
           } else {
             // Create new container
@@ -541,7 +541,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             container = await containerMutator.create({
               containerLabel: result.data.container.containerLabel,
               containerNotes: result.data.container.containerNotes,
-              primaryImage: image.id,
+              ImageRef: image.id,
               UserRef: userId,
             });
           }
@@ -557,8 +557,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               itemType: itemMetadata.itemType,
               itemManufacturer: itemMetadata.itemManufacturer,
               itemAttributes: itemMetadata.itemAttributes,
-              container: container.id,
-              primaryImage: image.id,
+              ContainerRef: container.id,
+              ImageRef: image.id,
               UserRef: userId,
             };
 
@@ -566,7 +566,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             const existingItemResult = await itemMutator.getList(
               1,
               1,
-              `container="${container.id}" && itemLabel="${itemData.itemLabel}"`
+              `ContainerRef="${container.id}" && itemLabel="${itemData.itemLabel}"`
             );
 
             if (existingItemResult.items.length > 0) {

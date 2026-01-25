@@ -1,7 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { InventoryProvider } from './inventory-context';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
+
+afterAll(() => {
+  vi.restoreAllMocks();
+});
 
 // Mock dependencies
 vi.mock('@/lib/pocketbase-client', () => ({

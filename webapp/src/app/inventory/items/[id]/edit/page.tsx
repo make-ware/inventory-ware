@@ -28,7 +28,7 @@ export default function EditItemPage() {
   const loadItem = useCallback(async () => {
     try {
       setIsLoading(true);
-      const itemData = await itemMutator.getById(itemId, 'primaryImage');
+      const itemData = await itemMutator.getById(itemId, 'ImageRef');
       if (!itemData) {
         toast.error('Item not found');
         router.push('/inventory');
@@ -37,10 +37,10 @@ export default function EditItemPage() {
 
       // Cache the primary image if it exists so the form can display it
       const expandedItem = itemData as Item & {
-        expand?: { primaryImage?: Image };
+        expand?: { ImageRef?: Image };
       };
-      if (expandedItem.expand?.primaryImage) {
-        cacheImage(expandedItem.expand.primaryImage);
+      if (expandedItem.expand?.ImageRef) {
+        cacheImage(expandedItem.expand.ImageRef);
       }
 
       setItem(itemData);
@@ -137,14 +137,16 @@ export default function EditItemPage() {
           <ItemUpdateForm
             defaultValues={{
               itemLabel: item.itemLabel,
+              itemName: item.itemName,
               itemNotes: item.itemNotes,
               categoryFunctional: item.categoryFunctional,
               categorySpecific: item.categorySpecific,
               itemType: item.itemType,
               itemManufacturer: item.itemManufacturer,
               itemAttributes: item.itemAttributes,
-              container: item.container,
-              primaryImage: item.primaryImage,
+              ContainerRef: item.ContainerRef,
+              ImageRef: item.ImageRef,
+              boundingBox: item.boundingBox,
             }}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

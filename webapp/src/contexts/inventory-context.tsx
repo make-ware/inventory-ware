@@ -398,16 +398,18 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const getItemImageUrl = useCallback(
     (item: Item): string | undefined => {
       // First try the item's primary image
-      if (item.primaryImage) {
-        const url = getImageUrl(item.primaryImage);
+      if (item.ImageRef) {
+        const url = getImageUrl(item.ImageRef);
         if (url) return url;
       }
 
       // Fallback to container's primary image if item doesn't have one
-      if (item.container) {
-        const container = state.containers.find((c) => c.id === item.container);
-        if (container?.primaryImage) {
-          return getImageUrl(container.primaryImage);
+      if (item.ContainerRef) {
+        const container = state.containers.find(
+          (c) => c.id === item.ContainerRef
+        );
+        if (container?.ImageRef) {
+          return getImageUrl(container.ImageRef);
         }
       }
 

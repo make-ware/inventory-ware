@@ -2,6 +2,36 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
 
+// Mock Next.js Image to avoid unoptimized prop warning in tests
+vi.mock('next/image', () => ({
+  default: ({
+    src,
+    alt,
+    onLoad,
+    className,
+    style,
+    fill,
+    ...rest
+  }: {
+    src: string;
+    alt: string;
+    onLoad?: React.ReactEventHandler<HTMLImageElement>;
+    className?: string;
+    style?: React.CSSProperties;
+    fill?: boolean;
+    [key: string]: unknown;
+  }) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      onLoad={onLoad}
+      className={className}
+      style={fill ? { position: 'absolute', inset: 0, ...style } : style}
+    />
+  ),
+}));
+
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
   observe(target: any) {}

@@ -29,17 +29,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => {
     // Extract Next.js-specific props that shouldn't be passed to DOM
-    const {
-      fill,
-      unoptimized,
-      priority,
-      quality,
-      sizes,
-      loader,
-      placeholder,
-      blurDataURL,
-      ...domProps
-    } = props;
+    const { fill, ...domProps } = props;
 
     // If fill is true, add appropriate styles to make image fill container
     const style = fill

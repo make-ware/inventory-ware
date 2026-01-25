@@ -33,7 +33,7 @@ interface ItemCreateFormProps {
   isSubmitting?: boolean;
   categories?: CategoryLibrary;
   selectedBbox?: BoundingBox;
-  primaryImageId?: string;
+  ImageRefId?: string;
 }
 
 export function ItemCreateForm({
@@ -43,7 +43,7 @@ export function ItemCreateForm({
   isSubmitting,
   categories,
   selectedBbox,
-  primaryImageId,
+  ImageRefId,
 }: ItemCreateFormProps) {
   // Create a form schema without UserRef since it's not part of the form
   const FormSchema = ItemInputSchema.omit({ UserRef: true });
@@ -59,22 +59,22 @@ export function ItemCreateForm({
       itemType: '',
       itemManufacturer: '',
       itemAttributes: [],
-      primaryImage: primaryImageId,
-      primaryImageBbox: selectedBbox,
+      ImageRef: ImageRefId,
+      boundingBox: selectedBbox,
       ...defaultValues,
     },
   });
 
   // Update form values when props change
   useEffect(() => {
-    if (primaryImageId) {
-      form.setValue('primaryImage', primaryImageId);
+    if (ImageRefId) {
+      form.setValue('ImageRef', ImageRefId);
     }
-  }, [primaryImageId, form]);
+  }, [ImageRefId, form]);
 
   useEffect(() => {
     if (selectedBbox) {
-      form.setValue('primaryImageBbox', selectedBbox);
+      form.setValue('boundingBox', selectedBbox);
     }
   }, [selectedBbox, form]);
 

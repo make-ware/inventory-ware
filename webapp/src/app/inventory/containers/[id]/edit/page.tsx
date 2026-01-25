@@ -29,17 +29,17 @@ export default function EditContainerPage() {
       setIsLoading(true);
       const containerData = await containerMutator.getById(
         containerId,
-        'primaryImage'
+        'ImageRef'
       );
       if (!containerData) {
         throw new Error('Container not found');
       }
 
       const expandedContainer = containerData as Container & {
-        expand?: { primaryImage?: Image };
+        expand?: { ImageRef?: Image };
       };
-      if (expandedContainer.expand?.primaryImage) {
-        cacheImage(expandedContainer.expand.primaryImage);
+      if (expandedContainer.expand?.ImageRef) {
+        cacheImage(expandedContainer.expand.ImageRef);
       }
 
       setContainer(containerData);
@@ -108,7 +108,8 @@ export default function EditContainerPage() {
             defaultValues={{
               containerLabel: container.containerLabel,
               containerNotes: container.containerNotes,
-              primaryImage: container.primaryImage,
+              ImageRef: container.ImageRef,
+              boundingBox: container.boundingBox,
             }}
             onSubmit={handleSubmit}
             onCancel={handleCancel}

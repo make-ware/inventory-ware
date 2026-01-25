@@ -30,7 +30,7 @@ interface ContainerCreateFormProps {
   onCancel?: () => void;
   isSubmitting?: boolean;
   selectedBbox?: BoundingBox;
-  primaryImageId?: string;
+  ImageRefId?: string;
 }
 
 export function ContainerCreateForm({
@@ -39,7 +39,7 @@ export function ContainerCreateForm({
   onCancel,
   isSubmitting,
   selectedBbox,
-  primaryImageId,
+  ImageRefId,
 }: ContainerCreateFormProps) {
   // Create a form schema without UserRef since it's not part of the form
   const FormSchema = ContainerInputSchema.omit({ UserRef: true });
@@ -49,22 +49,22 @@ export function ContainerCreateForm({
     defaultValues: {
       containerLabel: '',
       containerNotes: '',
-      primaryImage: primaryImageId,
-      primaryImageBbox: selectedBbox,
+      ImageRef: ImageRefId,
+      boundingBox: selectedBbox,
       ...defaultValues,
     },
   });
 
   // Update form values when props change
   useEffect(() => {
-    if (primaryImageId) {
-      form.setValue('primaryImage', primaryImageId);
+    if (ImageRefId) {
+      form.setValue('ImageRef', ImageRefId);
     }
-  }, [primaryImageId, form]);
+  }, [ImageRefId, form]);
 
   useEffect(() => {
     if (selectedBbox) {
-      form.setValue('primaryImageBbox', selectedBbox);
+      form.setValue('boundingBox', selectedBbox);
     }
   }, [selectedBbox, form]);
 

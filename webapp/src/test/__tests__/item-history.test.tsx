@@ -64,7 +64,7 @@ describe('ItemHistory', () => {
         {
           id: 'rec_img',
           created: '2023-01-02T10:00:00.000Z',
-          fieldName: 'primaryImage',
+          fieldName: 'ImageRef',
           newValue: 'img_filename.jpg',
           ItemRef: '123',
         },

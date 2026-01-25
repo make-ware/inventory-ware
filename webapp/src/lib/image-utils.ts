@@ -11,12 +11,12 @@ export function getImageFileUrl(image: Image): string {
 }
 
 /**
- * Get image URL from a record with expanded primaryImage
+ * Get image URL from a record with expanded ImageRef
  */
 export function getExpandedImageUrl<
-  T extends { expand?: { primaryImage?: Image } },
+  T extends { expand?: { ImageRef?: Image } },
 >(record: T): string | undefined {
-  return record.expand?.primaryImage
-    ? getImageFileUrl(record.expand.primaryImage)
+  return record.expand?.ImageRef
+    ? getImageFileUrl(record.expand.ImageRef)
     : undefined;
 }

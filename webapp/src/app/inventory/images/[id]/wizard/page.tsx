@@ -62,7 +62,7 @@ export default function ImageLabelingWizard() {
       const linkedItems = await itemMutator.getList(
         1,
         100,
-        `primaryImage="${imageId}"`
+        `ImageRef="${imageId}"`
       );
       setItems(linkedItems.items);
 
@@ -70,7 +70,7 @@ export default function ImageLabelingWizard() {
       const linkedContainers = await containerMutator.getList(
         1,
         100,
-        `primaryImage="${imageId}"`
+        `ImageRef="${imageId}"`
       );
       setContainers(linkedContainers.items);
 
@@ -110,8 +110,8 @@ export default function ImageLabelingWizard() {
       await itemMutator.create({
         ...data,
         UserRef: userId,
-        primaryImage: imageId,
-        primaryImageBbox: selectedBbox,
+        ImageRef: imageId,
+        boundingBox: selectedBbox,
       } as ItemInput);
       toast.success('Item created successfully');
 
@@ -119,7 +119,7 @@ export default function ImageLabelingWizard() {
       const linkedItems = await itemMutator.getList(
         1,
         100,
-        `primaryImage="${imageId}"`
+        `ImageRef="${imageId}"`
       );
       setItems(linkedItems.items);
       setSelectedBbox(undefined);
@@ -143,8 +143,8 @@ export default function ImageLabelingWizard() {
       await containerMutator.create({
         ...data,
         UserRef: userId,
-        primaryImage: imageId,
-        primaryImageBbox: selectedBbox,
+        ImageRef: imageId,
+        boundingBox: selectedBbox,
       } as ContainerInput);
       toast.success('Container created successfully');
 
@@ -152,7 +152,7 @@ export default function ImageLabelingWizard() {
       const linkedContainers = await containerMutator.getList(
         1,
         100,
-        `primaryImage="${imageId}"`
+        `ImageRef="${imageId}"`
       );
       setContainers(linkedContainers.items);
       setSelectedBbox(undefined);
@@ -275,7 +275,7 @@ export default function ImageLabelingWizard() {
                   isSubmitting={isSubmitting}
                   categories={categories}
                   selectedBbox={selectedBbox}
-                  primaryImageId={imageId}
+                  ImageRefId={imageId}
                 />
               </TabsContent>
 
@@ -287,7 +287,7 @@ export default function ImageLabelingWizard() {
                   onSubmit={handleContainerSubmit}
                   isSubmitting={isSubmitting}
                   selectedBbox={selectedBbox}
-                  primaryImageId={imageId}
+                  ImageRefId={imageId}
                 />
               </TabsContent>
 
@@ -315,7 +315,7 @@ export default function ImageLabelingWizard() {
                             }
                           >
                             <span>{i.itemLabel}</span>
-                            {i.primaryImageBbox && (
+                            {i.boundingBox && (
                               <Box className="h-3 w-3 text-muted-foreground" />
                             )}
                           </div>
@@ -343,7 +343,7 @@ export default function ImageLabelingWizard() {
                             }
                           >
                             <span>{c.containerLabel}</span>
-                            {c.primaryImageBbox && (
+                            {c.boundingBox && (
                               <Box className="h-3 w-3 text-muted-foreground" />
                             )}
                           </div>

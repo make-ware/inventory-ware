@@ -42,7 +42,7 @@ function NewItemContent() {
       let defaults: Partial<ItemInput> = {};
 
       if (imageId) {
-        defaults.primaryImage = imageId;
+        defaults.ImageRef = imageId;
       }
 
       if (cloneFromId) {
@@ -59,9 +59,9 @@ function NewItemContent() {
               itemType: item.itemType,
               itemManufacturer: item.itemManufacturer,
               itemAttributes: item.itemAttributes,
-              container: item.container,
-              primaryImage: defaults.primaryImage || item.primaryImage,
-              primaryImageBbox: item.primaryImageBbox,
+              ContainerRef: item.ContainerRef,
+              ImageRef: defaults.ImageRef || item.ImageRef,
+              boundingBox: item.boundingBox,
             };
           }
         } catch (error) {

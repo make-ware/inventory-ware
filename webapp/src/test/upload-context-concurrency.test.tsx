@@ -1,7 +1,26 @@
 import React from 'react';
 import { render, act, waitFor } from '@testing-library/react';
 import { UploadProvider, useUpload } from '../contexts/upload-context';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  beforeAll,
+  afterAll,
+} from 'vitest';
+
+// Suppress console output during tests
+beforeAll(() => {
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+});
+
+afterAll(() => {
+  vi.restoreAllMocks();
+});
 
 // Mock execution log
 const executionLog: { id: string; event: 'start' | 'end'; time: number }[] = [];
@@ -79,16 +98,18 @@ describe('UploadContext Performance', () => {
       getByText('Upload').click();
     });
 
-    // Wait for both uploads to complete
-    await waitFor(
-      () => {
-        expect(mockUploadImage).toHaveBeenCalledTimes(2);
-      },
-      { timeout: 1000 }
-    );
+    // Wait for both uploads to complete and allow all state updates to flush
+    await act(async () => {
+      await waitFor(
+        () => {
+          expect(mockUploadImage).toHaveBeenCalledTimes(2);
+        },
+        { timeout: 1000 }
+      );
 
-    // Also wait a bit for the async operations to fully flush their logs
-    await new Promise((r) => setTimeout(r, 150));
+      // Also wait a bit for the async operations to fully flush their logs
+      await new Promise((r) => setTimeout(r, 150));
+    });
 
     // Analyze the log
     const file1Start = executionLog.find(
