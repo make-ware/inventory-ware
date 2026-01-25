@@ -12,7 +12,7 @@ import {
 import type { Item, Image, Container } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
-import { useConfirm, ConfirmButton } from '@/components/ui/confirm-dialog';
+import { ConfirmButton } from '@/components/ui/confirm-dialog';
 
 type ItemWithExpand = Item & { expand?: { ImageRef?: Image } };
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,6 @@ export default function ItemDetailPage() {
   const [item, setItem] = useState<ItemWithExpand | null>(null);
   const [container, setContainer] = useState<Container | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { confirm } = useConfirm();
 
   const itemMutator = new ItemMutator(pb);
   const containerMutator = new ContainerMutator(pb);

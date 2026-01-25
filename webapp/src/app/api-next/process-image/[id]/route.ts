@@ -45,7 +45,6 @@ export async function POST(
 
     // Get the authenticated user ID
     const userId = pb.authStore.record?.id;
-    console.log('User ID:', userId);
     if (!userId) {
       return NextResponse.json(
         { error: 'User authentication required' },

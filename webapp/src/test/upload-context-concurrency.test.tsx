@@ -131,7 +131,6 @@ describe('UploadContext Performance', () => {
     expect(file2End).toBeDefined();
 
     // Check parallel execution: File 2 must start BEFORE File 1 ends
-    console.log('Execution Log:', executionLog);
 
     if (file1Start && file1End && file2Start && file2End) {
       expect(file2Start.time).toBeLessThan(file1End.time);
