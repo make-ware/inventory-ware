@@ -203,7 +203,7 @@ export default function ItemDetailPage() {
                   <div>
                     <h3 className="text-sm font-medium mb-2">Attributes</h3>
                     <div className="grid grid-cols-2 gap-3">
-                      {(item.itemAttributes as any[]).map(
+                      {item.itemAttributes.map(
                         (
                           attr: { name: string; value: string },
                           index: number
