@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.3.1...inventory-ware-v0.3.2) (2026-01-26)
+
+
+### Bug Fixes
+
+* update to use typegen ([2a90f04](https://github.com/make-ware/inventory-ware/commit/2a90f04901687f46de71025225d8f693de84617a))
+
 ## [0.3.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.3.0...inventory-ware-v0.3.1) (2026-01-25)
 
 
