@@ -11,4 +11,5 @@ dist
 # Other
 *.log
 *.md
+src/pocketbase-types.ts
 

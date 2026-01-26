@@ -28,5 +28,6 @@ pb/pb_data
 .DS_Store
 *.log
 *.md
+**/src/pocketbase-types.ts
 
 
