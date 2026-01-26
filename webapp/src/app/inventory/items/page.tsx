@@ -178,12 +178,8 @@ function ItemsPageContent() {
       setImages((prev) => {
         const newImages = new Map(prev);
         for (const item of results) {
-          const expanded = item as Item & { expand?: { ImageRef?: Image } };
-          if (expanded.expand?.ImageRef) {
-            newImages.set(
-              expanded.expand.ImageRef.id,
-              expanded.expand.ImageRef
-            );
+          if (item.expand?.ImageRef) {
+            newImages.set(item.expand.ImageRef.id, item.expand.ImageRef);
           }
         }
         return newImages;

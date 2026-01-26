@@ -53,7 +53,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Verify the token is still valid by making a test request
           try {
             await pb.collection('Users').authRefresh();
-            setUser(pb.authStore.record as User);
+            setUser(pb.authStore.record as unknown as User);
           } catch {
             // Token is expired or invalid, clear it
             console.warn('Session expired, clearing auth store');

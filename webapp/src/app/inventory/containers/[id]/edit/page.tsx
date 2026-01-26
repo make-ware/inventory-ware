@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator } from '@project/shared';
-import type { Container, ContainerInput, Image } from '@project/shared';
+import type { Container, ContainerInput } from '@project/shared';
 import { useInventory } from '@/hooks/use-inventory';
 import { ContainerUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
@@ -35,11 +35,9 @@ export default function EditContainerPage() {
         throw new Error('Container not found');
       }
 
-      const expandedContainer = containerData as Container & {
-        expand?: { ImageRef?: Image };
-      };
-      if (expandedContainer.expand?.ImageRef) {
-        cacheImage(expandedContainer.expand.ImageRef);
+      // Cache the primary image if it exists so the form can display it
+      if (containerData.expand?.ImageRef) {
+        cacheImage(containerData.expand.ImageRef);
       }
 
       setContainer(containerData);

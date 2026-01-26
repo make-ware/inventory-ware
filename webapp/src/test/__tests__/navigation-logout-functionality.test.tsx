@@ -59,8 +59,8 @@ function generateRandomUser() {
     password: 'password123',
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
-    collectionId: 'users',
-    collectionName: 'users',
+    collectionId: 'Users',
+    collectionName: 'Users' as const,
     expand: {},
   };
 }
@@ -202,8 +202,8 @@ describe('Navigation Logout Functionality Property Tests', () => {
         password: 'password123',
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
-        collectionId: 'users',
-        collectionName: 'users',
+        collectionId: 'Users',
+        collectionName: 'Users' as const,
         expand: {},
       },
       // User with empty name

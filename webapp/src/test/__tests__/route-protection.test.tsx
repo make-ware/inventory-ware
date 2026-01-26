@@ -104,8 +104,8 @@ describe('Property Test: Route Protection', () => {
         password: 'password123',
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
-        collectionId: 'users',
-        collectionName: 'users',
+        collectionId: 'Users',
+        collectionName: 'Users' as const,
         expand: {},
       },
       {
@@ -115,8 +115,8 @@ describe('Property Test: Route Protection', () => {
         password: 'password123',
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
-        collectionId: 'users',
-        collectionName: 'users',
+        collectionId: 'Users',
+        collectionName: 'Users' as const,
         expand: {},
       },
       {
@@ -126,8 +126,8 @@ describe('Property Test: Route Protection', () => {
         password: 'password123',
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
-        collectionId: 'users',
-        collectionName: 'users',
+        collectionId: 'Users',
+        collectionName: 'Users' as const,
         expand: {},
       },
     ];

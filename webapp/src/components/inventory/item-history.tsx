@@ -20,23 +20,10 @@ interface ItemHistoryProps {
   itemId: string;
 }
 
-interface ItemRecord {
-  id: string;
-  created: string;
-  fieldName?: string;
-  newValue: string;
-  ItemRef: string;
-  expand?: {
-    UserRef?: {
-      username: string;
-      email: string;
-      name?: string;
-    };
-  };
-}
+import { type ItemRecordsResponse } from '@project/shared';
 
 export function ItemHistory({ itemId }: ItemHistoryProps) {
-  const [records, setRecords] = useState<ItemRecord[]>([]);
+  const [records, setRecords] = useState<ItemRecordsResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -48,7 +35,7 @@ export function ItemHistory({ itemId }: ItemHistoryProps) {
           sort: '-created',
           expand: 'UserRef',
         });
-        setRecords(result.items as unknown as ItemRecord[]);
+        setRecords(result.items);
       } catch (error) {
         console.error('Failed to fetch item history:', error);
       } finally {
@@ -115,9 +102,7 @@ export function ItemHistory({ itemId }: ItemHistoryProps) {
                     <div className="flex items-center gap-1 mt-0.5">
                       <User className="h-3 w-3 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">
-                        {record.expand.UserRef.name ||
-                          record.expand.UserRef.username ||
-                          'Unknown User'}
+                        {record.expand.UserRef.name || 'Unknown User'}
                       </span>
                     </div>
                   )}
@@ -155,7 +140,7 @@ function formatFieldName(fieldName?: string): string {
   return map[fieldName || ''] || fieldName || 'Update';
 }
 
-function renderNewValue(record: ItemRecord) {
+function renderNewValue(record: ItemRecordsResponse) {
   const { fieldName, newValue, ItemRef } = record;
 
   if (!newValue && fieldName !== 'container')

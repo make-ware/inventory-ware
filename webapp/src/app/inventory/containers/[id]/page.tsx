@@ -5,11 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
 import { ContainerMutator, ItemMutator } from '@project/shared';
-import type { Container, Item, Image } from '@project/shared';
+import type { Container, Item } from '@project/shared';
 import { getImageFileUrl, getExpandedImageUrl } from '@/lib/image-utils';
 
-type ContainerWithExpand = Container & { expand?: { ImageRef?: Image } };
-type ItemWithExpand = Item & { expand?: { ImageRef?: Image } };
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -38,8 +36,8 @@ export default function ContainerDetailPage() {
   const params = useParams();
   const containerId = params.id as string;
 
-  const [container, setContainer] = useState<ContainerWithExpand | null>(null);
-  const [containerItems, setContainerItems] = useState<ItemWithExpand[]>([]);
+  const [container, setContainer] = useState<Container | null>(null);
+  const [containerItems, setContainerItems] = useState<Item[]>([]);
   const [allItems, setAllItems] = useState<Item[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -54,20 +52,17 @@ export default function ContainerDetailPage() {
       setIsLoading(true);
 
       // Load container with expanded ImageRef
-      const containerData = (await containerMutator.getById(
+      const containerData = await containerMutator.getById(
         containerId,
         'ImageRef'
-      )) as ContainerWithExpand | null;
+      );
       if (!containerData) {
         throw new Error('Container not found');
       }
       setContainer(containerData);
 
       // Load items in this container with expanded ImageRef
-      const items = (await itemMutator.getByContainer(
-        containerId,
-        'ImageRef'
-      )) as ItemWithExpand[];
+      const items = await itemMutator.getByContainer(containerId, 'ImageRef');
       setContainerItems(items);
 
       // Load all items (for add item dropdown)
@@ -142,7 +137,7 @@ export default function ContainerDetailPage() {
     }
   };
 
-  const getItemImageUrl = (item: ItemWithExpand): string | undefined => {
+  const getItemImageUrl = (item: Item): string | undefined => {
     // Try item's expanded primary image
     const itemUrl = getExpandedImageUrl(item);
     if (itemUrl) return itemUrl;

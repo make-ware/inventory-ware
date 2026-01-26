@@ -1,4 +1,3 @@
-import PocketBase from 'pocketbase';
 import type { User, RegisterData, TypedPocketBase } from '@project/shared';
 import { parseAuthError, withRetry, UserMutator } from '@project/shared';
 
@@ -6,12 +5,12 @@ import { parseAuthError, withRetry, UserMutator } from '@project/shared';
  * Authentication service that uses mutators and provides high-level auth operations
  */
 export class AuthService {
-  private pb: PocketBase;
+  private pb: TypedPocketBase;
   private userMutator: UserMutator;
 
-  constructor(pb: PocketBase) {
+  constructor(pb: TypedPocketBase) {
     this.pb = pb;
-    this.userMutator = new UserMutator(pb as unknown as TypedPocketBase);
+    this.userMutator = new UserMutator(pb);
   }
 
   /**
@@ -24,7 +23,7 @@ export class AuthService {
           .collection('Users')
           .authWithPassword(email, password);
       });
-      return authData.record as User;
+      return authData.record;
     } catch (error) {
       const parsedError = parseAuthError(error);
       throw new Error(parsedError.message);
@@ -46,7 +45,7 @@ export class AuthService {
           .authWithPassword(data.email, data.password);
       });
 
-      return authData.record as User;
+      return authData.record;
     } catch (error) {
       const parsedError = parseAuthError(error);
       throw new Error(parsedError.message);
@@ -110,7 +109,7 @@ export class AuthService {
         return await this.pb.collection('Users').authRefresh();
       });
 
-      return authData.record as User;
+      return authData.record;
     } catch (error) {
       console.warn('Auth refresh failed:', error);
       // Clear invalid session
@@ -159,7 +158,7 @@ export class AuthService {
   /**
    * Get the PocketBase client instance
    */
-  getClient(): PocketBase {
+  getClient(): TypedPocketBase {
     return this.pb;
   }
 
@@ -174,6 +173,6 @@ export class AuthService {
 /**
  * Create an AuthService instance from a PocketBase client
  */
-export function createAuthService(pb: PocketBase): AuthService {
+export function createAuthService(pb: TypedPocketBase): AuthService {
   return new AuthService(pb);
 }

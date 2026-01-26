@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, formatPocketBaseError } from '@project/shared';
-import type { Item, ItemInput, CategoryLibrary, Image } from '@project/shared';
+import type { Item, ItemInput, CategoryLibrary } from '@project/shared';
 import { useInventory } from '@/hooks/use-inventory';
 import { ItemUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
@@ -36,11 +36,8 @@ export default function EditItemPage() {
       }
 
       // Cache the primary image if it exists so the form can display it
-      const expandedItem = itemData as Item & {
-        expand?: { ImageRef?: Image };
-      };
-      if (expandedItem.expand?.ImageRef) {
-        cacheImage(expandedItem.expand.ImageRef);
+      if (itemData.expand?.ImageRef) {
+        cacheImage(itemData.expand.ImageRef);
       }
 
       setItem(itemData);

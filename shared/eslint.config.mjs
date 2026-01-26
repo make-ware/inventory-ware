@@ -10,7 +10,8 @@ export default [
       "**/dist/**",
       "**/build/**",
       "**/.yarn/**",
-      "**/.pnp.*"
+      "**/.pnp.*",
+      "**/src/pocketbase-types.ts"
     ]
   },
 
@@ -67,7 +68,8 @@ export default [
       "prefer-const": "error",
       "no-var": "error",
       "no-undef": "off", // Turn off no-undef for TypeScript files as TypeScript handles this
-      "no-console": "off"
+      "no-console": "off",
+      "@typescript-eslint/no-empty-object-type": "warn"
     }
   }
 ];

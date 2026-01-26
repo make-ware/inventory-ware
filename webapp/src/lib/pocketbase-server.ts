@@ -50,7 +50,7 @@ export function createServerPocketBaseClient(): TypedPocketBase {
  * ```
  */
 export async function authenticateAsUser(
-  pb: PocketBase,
+  pb: TypedPocketBase,
   req: Request
 ): Promise<void> {
   const authHeader = req.headers.get('authorization');

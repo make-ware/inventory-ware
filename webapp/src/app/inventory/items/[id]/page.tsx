@@ -9,12 +9,11 @@ import {
   ContainerMutator,
   formatCategoryLabel,
 } from '@project/shared';
-import type { Item, Image, Container } from '@project/shared';
+import type { Item, Container } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
 
-type ItemWithExpand = Item & { expand?: { ImageRef?: Image } };
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +34,7 @@ export default function ItemDetailPage() {
   const params = useParams();
   const itemId = params.id as string;
 
-  const [item, setItem] = useState<ItemWithExpand | null>(null);
+  const [item, setItem] = useState<Item | null>(null);
   const [container, setContainer] = useState<Container | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,10 +46,7 @@ export default function ItemDetailPage() {
       setIsLoading(true);
 
       // Load item with expanded ImageRef
-      const itemData = (await itemMutator.getById(
-        itemId,
-        'ImageRef'
-      )) as ItemWithExpand | null;
+      const itemData = await itemMutator.getById(itemId, 'ImageRef');
       if (!itemData) {
         throw new Error('Item not found');
       }
@@ -207,14 +203,19 @@ export default function ItemDetailPage() {
                   <div>
                     <h3 className="text-sm font-medium mb-2">Attributes</h3>
                     <div className="grid grid-cols-2 gap-3">
-                      {item.itemAttributes.map((attr, index) => (
-                        <div key={index} className="space-y-1">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            {attr.name}
-                          </p>
-                          <p className="text-sm">{attr.value}</p>
-                        </div>
-                      ))}
+                      {(item.itemAttributes as any[]).map(
+                        (
+                          attr: { name: string; value: string },
+                          index: number
+                        ) => (
+                          <div key={index} className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              {attr.name}
+                            </p>
+                            <p className="text-sm">{attr.value}</p>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 </>

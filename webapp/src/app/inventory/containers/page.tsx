@@ -63,13 +63,10 @@ function ContainersPageContent() {
       setImages((prev) => {
         const newImages = new Map(prev);
         for (const container of results) {
-          const expanded = container as Container & {
-            expand?: { ImageRef?: Image };
-          };
-          if (expanded.expand?.ImageRef) {
+          if (container.expand?.ImageRef) {
             newImages.set(
-              expanded.expand.ImageRef.id,
-              expanded.expand.ImageRef
+              container.expand.ImageRef.id,
+              container.expand.ImageRef
             );
           }
         }

@@ -41,7 +41,7 @@ describe('ItemHistory', () => {
           ItemRef: '123',
           expand: {
             UserRef: {
-              username: 'user1',
+              name: 'user1',
             },
           },
         },
