@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.3.0...inventory-ware-v0.3.1) (2026-01-25)
+
+
+### Bug Fixes
+
+* remove console logs and unused variables ([91d357d](https://github.com/make-ware/inventory-ware/commit/91d357d3340d699a340ff273040eb8e56b0ddfa0))
+* remove console logs and unused variables ([236a0aa](https://github.com/make-ware/inventory-ware/commit/236a0aabdfc0593048ae344630525623c79078e8))
+* update schema container ([7d23dfa](https://github.com/make-ware/inventory-ware/commit/7d23dfa715c05d5da5775beb60da5a49bd9c061c))
+
 ## [0.3.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.2.3...inventory-ware-v0.3.0) (2026-01-24)
 
 
