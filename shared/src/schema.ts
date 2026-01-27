@@ -7,5 +7,6 @@ export * from './schema/image-metadata.js';
 export * from './schema/item-record.js';
 export * from './schema/container-record.js';
 export * from './schema/item-image.js';
+export * from './schema/label.js';
 export * from './types/metadata.js';
 export * from './types/bounding-box.js';

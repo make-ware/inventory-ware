@@ -13,6 +13,7 @@ import type { Item, Container } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
+import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,7 @@ import {
   Package,
   Image as ImageIcon,
   Copy,
+  Printer,
 } from 'lucide-react';
 
 export default function ItemDetailPage() {
@@ -37,6 +39,7 @@ export default function ItemDetailPage() {
   const [item, setItem] = useState<Item | null>(null);
   const [container, setContainer] = useState<Container | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
 
   const itemMutator = new ItemMutator(pb);
   const containerMutator = new ContainerMutator(pb);
@@ -126,6 +129,13 @@ export default function ItemDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
+          <Button
+             variant="outline"
+             onClick={() => setIsLabelDialogOpen(true)}
+          >
+             <Printer className="h-4 w-4 mr-2" />
+             Print Label
+          </Button>
           <ConfirmButton
             variant="destructive"
             onConfirm={handleDelete}
@@ -136,6 +146,13 @@ export default function ItemDetailPage() {
           </ConfirmButton>
         </div>
       </div>
+
+      <LabelGeneratorDialog
+        open={isLabelDialogOpen}
+        onOpenChange={setIsLabelDialogOpen}
+        target={item}
+        targetType="item"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}

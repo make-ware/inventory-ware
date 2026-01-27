@@ -8,7 +8,7 @@ export interface ContainerImagesRecord {
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'ContainerImages';
+  collectionName: "ContainerImages";
   ContainerRef: string;
   ImageRef: string;
   boundingBox?: any;
@@ -26,10 +26,10 @@ export interface ContainerRecordsRecord {
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'ContainerRecords';
+  collectionName: "ContainerRecords";
   ContainerRef: string;
   UserRef: string;
-  transactionType: 'create' | 'update' | 'delete';
+  transactionType: "create" | "update" | "delete";
   fieldName?: string;
   newValue: string;
 }
@@ -46,7 +46,7 @@ export interface ContainersRecord {
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'Containers';
+  collectionName: "Containers";
   containerLabel: string;
   containerNotes?: string;
   ImageRef?: string;
@@ -66,25 +66,26 @@ export interface ImageMetadataRecord {
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'ImageMetadata';
+  collectionName: "ImageMetadata";
   fileHash: string;
   metadata: any;
   version?: number;
-  imageType?: 'item' | 'container' | 'unprocessed';
+  imageType?: "item" | "container" | "unprocessed";
 }
 
-export interface ImageMetadataResponse extends ImageMetadataRecord {}
+export interface ImageMetadataResponse extends ImageMetadataRecord {
+}
 
 export interface ImagesRecord {
   id: string;
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'Images';
+  collectionName: "Images";
   file: string;
   fileHash?: string;
-  imageType?: 'item' | 'container' | 'unprocessed';
-  analysisStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+  imageType?: "item" | "container" | "unprocessed";
+  analysisStatus?: "pending" | "processing" | "completed" | "failed";
   UserRef: string;
 }
 
@@ -99,7 +100,7 @@ export interface ItemImagesRecord {
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'ItemImages';
+  collectionName: "ItemImages";
   ItemRef: string;
   ImageRef: string;
   boundingBox?: any;
@@ -117,10 +118,10 @@ export interface ItemRecordsRecord {
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'ItemRecords';
+  collectionName: "ItemRecords";
   ItemRef: string;
   UserRef: string;
-  transactionType: 'create' | 'update' | 'delete';
+  transactionType: "create" | "update" | "delete";
   fieldName?: string;
   newValue: string;
 }
@@ -137,7 +138,7 @@ export interface ItemsRecord {
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'Items';
+  collectionName: "Items";
   itemLabel: string;
   itemName?: string;
   itemNotes?: string;
@@ -160,17 +161,34 @@ export interface ItemsResponse extends ItemsRecord {
   };
 }
 
+export interface LabelsRecord {
+  id: string;
+  created: string;
+  updated: string;
+  collectionId: string;
+  collectionName: "labels";
+  type: "item" | "container";
+  item?: string;
+  container?: string;
+  format: string;
+  data?: string;
+}
+
+export interface LabelsResponse extends LabelsRecord {
+}
+
 export interface UsersRecord {
   id: string;
   created: string;
   updated: string;
   collectionId: string;
-  collectionName: 'Users';
+  collectionName: "Users";
   name?: string;
   avatar?: string;
 }
 
-export interface UsersResponse extends UsersRecord {}
+export interface UsersResponse extends UsersRecord {
+}
 
 export type CollectionResponses = {
   ContainerImages: ContainerImagesResponse;
@@ -181,25 +199,23 @@ export type CollectionResponses = {
   ItemImages: ItemImagesResponse;
   ItemRecords: ItemRecordsResponse;
   Items: ItemsResponse;
+  labels: LabelsResponse;
   Users: UsersResponse;
 };
 
-import PocketBase from 'pocketbase';
-import { RecordService } from 'pocketbase';
+import PocketBase from "pocketbase";
+import { RecordService } from "pocketbase";
 
 export interface TypedPocketBase extends PocketBase {
   collection(idOrName: string): RecordService;
-  collection(
-    idOrName: 'ContainerImages'
-  ): RecordService<ContainerImagesResponse>;
-  collection(
-    idOrName: 'ContainerRecords'
-  ): RecordService<ContainerRecordsResponse>;
-  collection(idOrName: 'Containers'): RecordService<ContainersResponse>;
-  collection(idOrName: 'ImageMetadata'): RecordService<ImageMetadataResponse>;
-  collection(idOrName: 'Images'): RecordService<ImagesResponse>;
-  collection(idOrName: 'ItemImages'): RecordService<ItemImagesResponse>;
-  collection(idOrName: 'ItemRecords'): RecordService<ItemRecordsResponse>;
-  collection(idOrName: 'Items'): RecordService<ItemsResponse>;
-  collection(idOrName: 'Users'): RecordService<UsersResponse>;
+  collection(idOrName: "ContainerImages"): RecordService<ContainerImagesResponse>;
+  collection(idOrName: "ContainerRecords"): RecordService<ContainerRecordsResponse>;
+  collection(idOrName: "Containers"): RecordService<ContainersResponse>;
+  collection(idOrName: "ImageMetadata"): RecordService<ImageMetadataResponse>;
+  collection(idOrName: "Images"): RecordService<ImagesResponse>;
+  collection(idOrName: "ItemImages"): RecordService<ItemImagesResponse>;
+  collection(idOrName: "ItemRecords"): RecordService<ItemRecordsResponse>;
+  collection(idOrName: "Items"): RecordService<ItemsResponse>;
+  collection(idOrName: "labels"): RecordService<LabelsResponse>;
+  collection(idOrName: "Users"): RecordService<UsersResponse>;
 }
