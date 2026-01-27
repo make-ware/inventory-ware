@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerPocketBaseClient, authenticateAsUser } from '@/lib/pocketbase-server';
+import {
+  createServerPocketBaseClient,
+  authenticateAsUser,
+} from '@/lib/pocketbase-server';
 import { generateLabel } from '@/lib/server/label-generator';
 import { z } from 'zod';
 
@@ -27,7 +30,7 @@ export async function POST(req: NextRequest) {
       targetId,
       targetType,
       format,
-      pb
+      pb,
     });
 
     return NextResponse.json(result);

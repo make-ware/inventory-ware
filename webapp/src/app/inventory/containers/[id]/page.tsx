@@ -186,12 +186,9 @@ export default function ContainerDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button
-             variant="outline"
-             onClick={() => setIsLabelDialogOpen(true)}
-          >
-             <Printer className="h-4 w-4 mr-2" />
-             Print Label
+          <Button variant="outline" onClick={() => setIsLabelDialogOpen(true)}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print Label
           </Button>
           <ConfirmButton
             variant="destructive"
