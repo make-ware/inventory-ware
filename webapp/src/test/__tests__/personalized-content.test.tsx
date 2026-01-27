@@ -58,6 +58,7 @@ function generateRandomUser() {
     name,
     email,
     password: 'password123',
+    tokenKey: Math.random().toString(36).substring(2, 15),
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
     collectionId: 'users',

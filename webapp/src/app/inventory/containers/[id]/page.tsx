@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ItemCard } from '@/components/inventory';
 import { useConfirm, ConfirmButton } from '@/components/ui/confirm-dialog';
+import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ import {
   Plus,
   Package,
   Image as ImageIcon,
+  Printer,
 } from 'lucide-react';
 
 export default function ContainerDetailPage() {
@@ -42,6 +44,7 @@ export default function ContainerDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
+  const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
   const { confirm } = useConfirm();
 
   const containerMutator = new ContainerMutator(pb);
@@ -183,6 +186,10 @@ export default function ContainerDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
+          <Button variant="outline" onClick={() => setIsLabelDialogOpen(true)}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print Label
+          </Button>
           <ConfirmButton
             variant="destructive"
             onConfirm={handleDelete}
@@ -193,6 +200,13 @@ export default function ContainerDetailPage() {
           </ConfirmButton>
         </div>
       </div>
+
+      <LabelGeneratorDialog
+        open={isLabelDialogOpen}
+        onOpenChange={setIsLabelDialogOpen}
+        target={container}
+        targetType="container"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}

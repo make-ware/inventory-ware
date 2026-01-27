@@ -160,6 +160,21 @@ export interface ItemsResponse extends ItemsRecord {
   };
 }
 
+export interface LabelsRecord {
+  id: string;
+  created: string;
+  updated: string;
+  collectionId: string;
+  collectionName: 'labels';
+  type: 'item' | 'container';
+  item?: string;
+  container?: string;
+  format: string;
+  data?: any;
+}
+
+export interface LabelsResponse extends LabelsRecord {}
+
 export interface UsersRecord {
   id: string;
   created: string;
@@ -181,6 +196,7 @@ export type CollectionResponses = {
   ItemImages: ItemImagesResponse;
   ItemRecords: ItemRecordsResponse;
   Items: ItemsResponse;
+  labels: LabelsResponse;
   Users: UsersResponse;
 };
 
@@ -201,5 +217,6 @@ export interface TypedPocketBase extends PocketBase {
   collection(idOrName: 'ItemImages'): RecordService<ItemImagesResponse>;
   collection(idOrName: 'ItemRecords'): RecordService<ItemRecordsResponse>;
   collection(idOrName: 'Items'): RecordService<ItemsResponse>;
+  collection(idOrName: 'Labels'): RecordService<LabelsResponse>;
   collection(idOrName: 'Users'): RecordService<UsersResponse>;
 }

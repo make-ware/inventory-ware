@@ -105,6 +105,7 @@ export function createMockUser(overrides?: Partial<User>): User {
     id,
     email,
     name: overrides?.name || 'Test User',
+    tokenKey: Math.random().toString(36).substring(2, 15),
     created: overrides?.created || new Date().toISOString(),
     updated: overrides?.updated || new Date().toISOString(),
     collectionId: 'Users',

@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "pocketbase": "^0.26.6",
-    "pocketbase-zod-schema": "^0.5.1",
+    "pocketbase-zod-schema": "^0.6.1",
     "zod": "^4.3.5"
   },
   "devDependencies": {

@@ -8,7 +8,7 @@
     "build": "echo 'PocketBase workspace - no build needed'",
     "test": "echo 'PocketBase workspace - no tests'",
     "test:watch": "echo 'PocketBase workspace - no tests'",
-    "lint": "eslint pb_hooks/",
+    "lint": "eslint pb_hooks/ --fix",
     "lint:fix": "eslint pb_hooks/ --fix",
     "typecheck": "echo 'PocketBase hooks use JSDoc for type hints - see pb_data/types.d.ts'",
     "format": "prettier --write 'pb_hooks/**/*.js'",
