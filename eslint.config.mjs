@@ -15,7 +15,7 @@ export default [
       "**/.yarn/**",
       "**/.pnp.*",
       "**/next-env.d.ts",
-      "pocketbase/**",
+      "pocketbase/pb_migrations/**",
       "scripts/**"
     ]
   },
@@ -112,6 +112,30 @@ export default [
         require: "readonly",
         module: "readonly",
         exports: "readonly"
+      }
+    },
+    rules: {
+      "no-console": "off"
+    }
+  },
+
+  // PocketBase hooks (Node.js + PocketBase runtime globals)
+  {
+    files: ["pocketbase/pb_hooks/**/*.js", "pb_hooks/**/*.js"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        require: "readonly",
+        module: "readonly",
+        exports: "readonly",
+        console: "readonly",
+        $app: "readonly",
+        Record: "readonly",
+        onRecordAfterCreateSuccess: "readonly",
+        onRecordAfterUpdateSuccess: "readonly"
       }
     },
     rules: {

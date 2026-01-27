@@ -170,7 +170,7 @@ export interface LabelsRecord {
   item?: string;
   container?: string;
   format: string;
-  data?: string;
+  data?: any;
 }
 
 export interface LabelsResponse extends LabelsRecord {}
@@ -217,6 +217,6 @@ export interface TypedPocketBase extends PocketBase {
   collection(idOrName: 'ItemImages'): RecordService<ItemImagesResponse>;
   collection(idOrName: 'ItemRecords'): RecordService<ItemRecordsResponse>;
   collection(idOrName: 'Items'): RecordService<ItemsResponse>;
-  collection(idOrName: 'labels'): RecordService<LabelsResponse>;
+  collection(idOrName: 'Labels'): RecordService<LabelsResponse>;
   collection(idOrName: 'Users'): RecordService<UsersResponse>;
 }
