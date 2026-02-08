@@ -14,6 +14,7 @@ import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
 import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
+import { ItemImageUpload } from '@/components/inventory/item-image-upload';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -287,6 +288,23 @@ export default function ItemDetailPage() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Item Image Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Upload New Image</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ItemImageUpload
+                itemId={itemId}
+                onSuccess={() => {
+                  toast.success('Item image updated successfully');
+                  loadItemDetails();
+                }}
+                onError={(error) => toast.error(error.message)}
+              />
             </CardContent>
           </Card>
 

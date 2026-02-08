@@ -9,4 +9,8 @@ export {
   createInventoryService,
   type InventoryService,
   type ProcessImageResult,
+  type ContainerUpsertResult,
+  type ItemUploadResult,
+  type CleanupAction,
+  type CleanupActionRequest,
 } from './inventory';

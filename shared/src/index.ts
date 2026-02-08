@@ -11,3 +11,6 @@ export * from './utils/error-handling.js';
 
 // Export mutators
 export * from './mutators/index.js';
+
+// Export upsert engine
+export * from './lib/upsert-engine.js';

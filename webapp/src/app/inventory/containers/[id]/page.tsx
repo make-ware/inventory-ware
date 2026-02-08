@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
@@ -14,6 +14,9 @@ import { Separator } from '@/components/ui/separator';
 import { ItemCard } from '@/components/inventory';
 import { useConfirm, ConfirmButton } from '@/components/ui/confirm-dialog';
 import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
+import { ContainerImageUpload } from '@/components/inventory/container-image-upload';
+import { CleanupPromptDialog } from '@/components/inventory/cleanup-prompt-dialog';
+import { createInventoryService, type CleanupActionRequest } from '@/services';
 import {
   Select,
   SelectContent,
@@ -45,10 +48,13 @@ export default function ContainerDetailPage() {
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
+  const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
+  const [unmatchedItems, setUnmatchedItems] = useState<Item[]>([]);
   const { confirm } = useConfirm();
 
   const containerMutator = new ContainerMutator(pb);
   const itemMutator = new ItemMutator(pb);
+  const inventoryService = useMemo(() => createInventoryService(pb), []);
 
   const loadContainerDetails = useCallback(async () => {
     try {
@@ -153,6 +159,42 @@ export default function ContainerDetailPage() {
     return undefined;
   };
 
+  // Handle successful container image upsert
+  const handleContainerUpsertSuccess = useCallback(
+    (result: { unmatchedExisting: Item[] }) => {
+      // Refresh the container details to show updated/new items
+      loadContainerDetails();
+
+      // If there are unmatched items, show the cleanup prompt dialog
+      if (result.unmatchedExisting.length > 0) {
+        setUnmatchedItems(result.unmatchedExisting);
+        setIsCleanupDialogOpen(true);
+      } else {
+        toast.success('Container image updated successfully');
+      }
+    },
+    [loadContainerDetails]
+  );
+
+  // Handle cleanup actions from the cleanup prompt dialog
+  const handleCleanupApply = useCallback(
+    async (actions: CleanupActionRequest[]) => {
+      await inventoryService.executeCleanupActions(actions);
+      toast.success('Cleanup actions applied successfully');
+      // Refresh container details after cleanup
+      await loadContainerDetails();
+    },
+    [inventoryService, loadContainerDetails]
+  );
+
+  // Get image URL for unmatched items in cleanup dialog
+  const getCleanupItemImageUrl = useCallback(
+    (item: Item): string | undefined => {
+      return getExpandedImageUrl(item);
+    },
+    []
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -206,6 +248,14 @@ export default function ContainerDetailPage() {
         onOpenChange={setIsLabelDialogOpen}
         target={container}
         targetType="container"
+      />
+
+      <CleanupPromptDialog
+        open={isCleanupDialogOpen}
+        onOpenChange={setIsCleanupDialogOpen}
+        unmatchedItems={unmatchedItems}
+        onApply={handleCleanupApply}
+        getImageUrl={getCleanupItemImageUrl}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -341,6 +391,20 @@ export default function ContainerDetailPage() {
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Container Image Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Upload New Image</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ContainerImageUpload
+                containerId={containerId}
+                onSuccess={handleContainerUpsertSuccess}
+                onError={(error) => toast.error(error.message)}
+              />
             </CardContent>
           </Card>
 
