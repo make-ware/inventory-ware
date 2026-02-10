@@ -17,7 +17,7 @@ describe('CleanupPromptDialog', () => {
     {
       id: 'item1',
       collectionId: 'items',
-      collectionName: 'items',
+      collectionName: 'Items',
       created: '2024-01-01',
       updated: '2024-01-01',
       itemLabel: 'Test Item 1',
@@ -35,7 +35,7 @@ describe('CleanupPromptDialog', () => {
     {
       id: 'item2',
       collectionId: 'items',
-      collectionName: 'items',
+      collectionName: 'Items',
       created: '2024-01-01',
       updated: '2024-01-01',
       itemLabel: 'Test Item 2',

@@ -1665,11 +1665,13 @@ describe('Property 12: Item metadata updated from AI on single-item upload', () 
           };
 
           // Verify attributes are correctly updated
-          expect(updatedItem.itemAttributes).toEqual(attributes);
-          expect(updatedItem.itemAttributes.length).toBe(attributes.length);
+          expect(updatedItem.itemAttributes).toBeDefined();
+          const itemAttrs = updatedItem.itemAttributes!;
+          expect(itemAttrs).toEqual(attributes);
+          expect(itemAttrs.length).toBe(attributes.length);
 
           // Verify each attribute is preserved
-          updatedItem.itemAttributes.forEach((attr, index) => {
+          itemAttrs.forEach((attr, index) => {
             expect(attr.name).toBe(attributes[index].name);
             expect(attr.value).toBe(attributes[index].value);
           });
