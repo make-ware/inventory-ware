@@ -25,11 +25,13 @@ vi.mock('@project/shared', async () => {
 
 // Setup mock implementation
 import { ImageMutator } from '@project/shared';
-(ImageMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(function() {
-  return {
-    uploadImage: vi.fn().mockResolvedValue({ id: 'img-1' }),
-  };
-});
+(ImageMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+  function () {
+    return {
+      uploadImage: vi.fn().mockResolvedValue({ id: 'img-1' }),
+    };
+  }
+);
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -45,12 +47,16 @@ describe('UploadContext', () => {
   });
 
   it('provides initial state', () => {
-    const { result } = renderHook(() => useUpload(), { wrapper: UploadProvider });
+    const { result } = renderHook(() => useUpload(), {
+      wrapper: UploadProvider,
+    });
     expect(result.current.queue).toEqual([]);
   });
 
   it('can clear the queue', async () => {
-    const { result } = renderHook(() => useUpload(), { wrapper: UploadProvider });
+    const { result } = renderHook(() => useUpload(), {
+      wrapper: UploadProvider,
+    });
 
     const file = new File(['content'], 'test.png', { type: 'image/png' });
 
@@ -71,7 +77,9 @@ describe('UploadContext', () => {
   });
 
   it('can remove an item', async () => {
-    const { result } = renderHook(() => useUpload(), { wrapper: UploadProvider });
+    const { result } = renderHook(() => useUpload(), {
+      wrapper: UploadProvider,
+    });
     const file = new File(['content'], 'test.png', { type: 'image/png' });
 
     await act(async () => {
@@ -84,35 +92,39 @@ describe('UploadContext', () => {
     expect(result.current.removeItem).toBeDefined();
 
     act(() => {
-        result.current.removeItem(itemId);
+      result.current.removeItem(itemId);
     });
 
     expect(result.current.queue.length).toBe(0);
   });
 
   it('clears queue on logout', async () => {
-      const { result } = renderHook(() => useUpload(), { wrapper: UploadProvider });
-      const file = new File(['content'], 'test.png', { type: 'image/png' });
+    const { result } = renderHook(() => useUpload(), {
+      wrapper: UploadProvider,
+    });
+    const file = new File(['content'], 'test.png', { type: 'image/png' });
 
-      await act(async () => {
-        await result.current.addFiles([file]);
-      });
+    await act(async () => {
+      await result.current.addFiles([file]);
+    });
 
-      expect(result.current.queue.length).toBe(1);
+    expect(result.current.queue.length).toBe(1);
 
-      // Simulate logout
-      // We need to trigger the callback registered with onChange
-      // First, get the callback
-      const onChangeMock = pb.authStore.onChange as unknown as ReturnType<typeof vi.fn>;
-      // Expect onChange to have been called once
-      expect(onChangeMock).toHaveBeenCalled();
+    // Simulate logout
+    // We need to trigger the callback registered with onChange
+    // First, get the callback
+    const onChangeMock = pb.authStore.onChange as unknown as ReturnType<
+      typeof vi.fn
+    >;
+    // Expect onChange to have been called once
+    expect(onChangeMock).toHaveBeenCalled();
 
-      const callback = onChangeMock.mock.calls[0][0];
+    const callback = onChangeMock.mock.calls[0][0];
 
-      act(() => {
-          callback('', null); // Token empty, model null
-      });
+    act(() => {
+      callback('', null); // Token empty, model null
+    });
 
-      expect(result.current.queue.length).toBe(0);
+    expect(result.current.queue.length).toBe(0);
   });
 });
