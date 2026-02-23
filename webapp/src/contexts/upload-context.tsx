@@ -33,6 +33,7 @@ interface UploadContextType {
   queue: UploadItem[];
   addFiles: (files: File[], isManualMode?: boolean) => Promise<void>;
   clearCompleted: () => void;
+  removeUpload: (id: string) => void;
   isProcessing: boolean;
 }
 
@@ -190,13 +191,17 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const removeUpload = useCallback((id: string) => {
+    setQueue((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
   const isProcessing = queue.some(
     (item) => item.status === 'uploading' || item.status === 'analyzing'
   );
 
   return (
     <UploadContext.Provider
-      value={{ queue, addFiles, clearCompleted, isProcessing }}
+      value={{ queue, addFiles, clearCompleted, removeUpload, isProcessing }}
     >
       {children}
     </UploadContext.Provider>
