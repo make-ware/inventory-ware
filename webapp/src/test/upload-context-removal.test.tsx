@@ -1,6 +1,10 @@
 import React from 'react';
 import { render, act, waitFor, screen } from '@testing-library/react';
-import { UploadProvider, useUpload, UploadItem } from '../contexts/upload-context';
+import {
+  UploadProvider,
+  useUpload,
+  UploadItem,
+} from '../contexts/upload-context';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { toast } from 'sonner';
 
@@ -42,7 +46,9 @@ const TestComponent = () => {
     <div>
       <button
         onClick={() => {
-          const file = new File(['content'], 'fail.jpg', { type: 'image/jpeg' });
+          const file = new File(['content'], 'fail.jpg', {
+            type: 'image/jpeg',
+          });
           addFiles([file]);
         }}
         data-testid="upload-btn"
@@ -111,7 +117,9 @@ describe('UploadContext Failed Removal', () => {
         <div>
           <button
             onClick={() => {
-              const file = new File(['content'], 'fail.jpg', { type: 'image/jpeg' });
+              const file = new File(['content'], 'fail.jpg', {
+                type: 'image/jpeg',
+              });
               addFiles([file]);
             }}
             data-testid="upload-btn"
