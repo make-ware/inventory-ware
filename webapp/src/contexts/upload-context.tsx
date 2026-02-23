@@ -32,7 +32,6 @@ export interface UploadItem {
 interface UploadContextType {
   queue: UploadItem[];
   addFiles: (files: File[], isManualMode?: boolean) => Promise<void>;
-  clearCompleted: () => void;
   clearQueue: () => void;
   removeItem: (id: string) => void;
   isProcessing: boolean;
@@ -184,14 +183,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     [imageMutator]
   );
 
-  const clearCompleted = useCallback(() => {
-    setQueue((prev) =>
-      prev.filter(
-        (item) => item.status !== 'completed' && item.status !== 'failed'
-      )
-    );
-  }, []);
-
   const clearQueue = useCallback(() => {
     setQueue([]);
     localStorage.removeItem(STORAGE_KEY);
@@ -219,7 +210,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       value={{
         queue,
         addFiles,
-        clearCompleted,
         clearQueue,
         removeItem,
         isProcessing,
