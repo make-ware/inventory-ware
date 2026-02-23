@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.3.2...inventory-ware-v0.4.0) (2026-02-23)
+
+
+### Features
+
+* add label generator for items and containers ([3d97693](https://github.com/make-ware/inventory-ware/commit/3d97693ddd56ebf4be204c711fd74997588b9130))
+* allow clearing and cancelling upload queue ([ea590b3](https://github.com/make-ware/inventory-ware/commit/ea590b35aa703f9eff00eae2dc617fc758ebb8fd))
+* allow clearing and cancelling upload queue ([3237aad](https://github.com/make-ware/inventory-ware/commit/3237aad1b00a2c11ac75453b39629f640b7176a3))
+
 ## [0.3.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.3.1...inventory-ware-v0.3.2) (2026-01-26)
 
 
