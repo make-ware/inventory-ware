@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.0...inventory-ware-v0.4.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* crash on build ([cfd90b5](https://github.com/make-ware/inventory-ware/commit/cfd90b5f27c7218450000d0ad90c70e6c0c5283a))
+* fix ci error ([c912ee7](https://github.com/make-ware/inventory-ware/commit/c912ee7bb683e9aa5e0f7b2cc9644b123840b0b4))
+
 ## [0.4.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.3.2...inventory-ware-v0.4.0) (2026-02-23)
 
 
