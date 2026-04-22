@@ -48,9 +48,9 @@
     "typegen": "npx pocketbase-migrate generate-types --output src/pocketbase-types.ts"
   },
   "dependencies": {
-    "pocketbase": "^0.26.6",
-    "pocketbase-zod-schema": "^0.6.1",
-    "zod": "^4.3.5"
+    "pocketbase": "^0.26.8",
+    "pocketbase-zod-schema": "^0.7.0",
+    "zod": "4.3.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -60,11 +60,11 @@
     "@vitest/coverage-v8": "^4.0.17",
     "eslint": "^9.39.2",
     "nodemon": "^3.1.11",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.3",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.17"
+    "vitest": "^4.1.4"
   },
   "packageManager": "yarn@4.12.0"
 }

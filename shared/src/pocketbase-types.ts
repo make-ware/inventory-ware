@@ -11,12 +11,7 @@ export interface ContainerImagesRecord {
   collectionName: "ContainerImages";
   ContainerRef: string;
   ImageRef: string;
-  boundingBox?: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} | undefined;
+  boundingBox?: any;
 }
 
 export interface ContainerImagesResponse extends ContainerImagesRecord {
@@ -55,12 +50,7 @@ export interface ContainersRecord {
   containerLabel: string;
   containerNotes?: string;
   ImageRef?: string;
-  boundingBox?: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} | undefined;
+  boundingBox?: any;
   UserRef: string;
 }
 
@@ -78,54 +68,13 @@ export interface ImageMetadataRecord {
   collectionId: string;
   collectionName: "ImageMetadata";
   fileHash: string;
-  metadata: {
-  type: "item";
-  data: {
-  imageLabel: string;
-  imageNotes: string;
-  item: {
-  itemLabel: string;
-  itemNotes: string;
-  categoryFunctional: string;
-  categorySpecific: string;
-  itemType: string;
-  itemName: string;
-  itemManufacturer: string;
-  itemAttributes: ({
-  name: string;
-  value: string;
-})[];
-};
-};
-} | {
-  type: "container";
-  data: {
-  imageLabel: string;
-  imageNotes: string;
-  container: {
-  containerLabel: string;
-  containerNotes: string;
-  containerItems: ({
-  itemLabel: string;
-  itemNotes: string;
-  categoryFunctional: string;
-  categorySpecific: string;
-  itemType: string;
-  itemName: string;
-  itemManufacturer: string;
-  itemAttributes: ({
-  name: string;
-  value: string;
-})[];
-})[];
-};
-};
-};
+  metadata: any;
   version?: number;
   imageType?: "item" | "container" | "unprocessed";
 }
 
-export type ImageMetadataResponse = ImageMetadataRecord;
+export interface ImageMetadataResponse extends ImageMetadataRecord {
+}
 
 export interface ImagesRecord {
   id: string;
@@ -154,12 +103,7 @@ export interface ItemImagesRecord {
   collectionName: "ItemImages";
   ItemRef: string;
   ImageRef: string;
-  boundingBox?: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} | undefined;
+  boundingBox?: any;
 }
 
 export interface ItemImagesResponse extends ItemImagesRecord {
@@ -202,18 +146,10 @@ export interface ItemsRecord {
   categorySpecific: string;
   itemType: string;
   itemManufacturer?: string;
-  itemAttributes?: ({
-  name: string;
-  value: string;
-})[];
+  itemAttributes?: any;
   ContainerRef?: string;
   ImageRef?: string;
-  boundingBox?: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-} | undefined;
+  boundingBox?: any;
   UserRef: string;
 }
 
@@ -251,15 +187,11 @@ export interface UsersRecord {
   collectionId: string;
   collectionName: "Users";
   name?: string;
-  email: string;
-  password: any;
   avatar?: string;
-  emailVisibility?: boolean;
-  verified?: boolean;
-  tokenKey: string;
 }
 
-export type UsersResponse = UsersRecord;
+export interface UsersResponse extends UsersRecord {
+}
 
 export type CollectionResponses = {
   ContainerImages: ContainerImagesResponse;
