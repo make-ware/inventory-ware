@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.1...inventory-ware-v0.4.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* add upsert logic ([8805f6e](https://github.com/make-ware/inventory-ware/commit/8805f6ef8533a40667d22634a13955a723980bd2))
+* migration ([5aedf4e](https://github.com/make-ware/inventory-ware/commit/5aedf4e6c41270ca358ffd19f2a7f2c7068dda96))
+
 ## [0.4.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.0...inventory-ware-v0.4.1) (2026-04-22)
 
 
