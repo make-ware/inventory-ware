@@ -32,7 +32,8 @@ export interface UploadItem {
 interface UploadContextType {
   queue: UploadItem[];
   addFiles: (files: File[], isManualMode?: boolean) => Promise<void>;
-  clearCompleted: () => void;
+  clearQueue: () => void;
+  removeItem: (id: string) => void;
   isProcessing: boolean;
 }
 
@@ -182,13 +183,23 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     [imageMutator]
   );
 
-  const clearCompleted = useCallback(() => {
-    setQueue((prev) =>
-      prev.filter(
-        (item) => item.status !== 'completed' && item.status !== 'failed'
-      )
-    );
+  const clearQueue = useCallback(() => {
+    setQueue([]);
+    localStorage.removeItem(STORAGE_KEY);
   }, []);
+
+  const removeItem = useCallback((id: string) => {
+    setQueue((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  // Clear queue on logout
+  useEffect(() => {
+    return pb.authStore.onChange((token, model) => {
+      if (!token || !model) {
+        clearQueue();
+      }
+    });
+  }, [clearQueue]);
 
   const isProcessing = queue.some(
     (item) => item.status === 'uploading' || item.status === 'analyzing'
@@ -196,7 +207,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <UploadContext.Provider
-      value={{ queue, addFiles, clearCompleted, isProcessing }}
+      value={{
+        queue,
+        addFiles,
+        clearQueue,
+        removeItem,
+        isProcessing,
+      }}
     >
       {children}
     </UploadContext.Provider>

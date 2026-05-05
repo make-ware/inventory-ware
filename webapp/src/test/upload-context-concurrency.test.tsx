@@ -51,6 +51,7 @@ vi.mock('@/lib/pocketbase-client', () => ({
     authStore: {
       record: { id: 'test-user-id' },
       token: 'test-token',
+      onChange: vi.fn(() => vi.fn()),
     },
   },
 }));

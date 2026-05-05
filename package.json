@@ -1,6 +1,6 @@
 {
   "name": "inventory-ware",
-  "version": "0.3.2",
+  "version": "0.4.1",
   "private": true,
   "packageManager": "yarn@4.12.0",
   "workspaces": [
@@ -33,7 +33,7 @@
     "@typescript-eslint/parser": "^8.53.1",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.2",
-    "prettier": "^3.8.1",
+    "prettier": "^3.8.3",
     "typescript": "^5.9.3"
   },
   "engines": {

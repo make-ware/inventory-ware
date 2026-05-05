@@ -11,11 +11,12 @@ import {
   CheckCircle,
   XCircle,
   Package,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function UploadTracker() {
-  const { queue, clearCompleted } = useUpload();
+  const { queue, clearQueue, removeItem } = useUpload();
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Auto-expand when new items are added, and auto-hide completed after some time
@@ -87,6 +88,17 @@ export function UploadTracker() {
                     {item.status === 'failed' && (
                       <XCircle className="h-3 w-3 text-red-500" />
                     )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 hover:bg-destructive/10 hover:text-destructive shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeItem(item.id);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
                   {(item.status === 'uploading' ||
                     item.status === 'analyzing') && (
@@ -103,18 +115,18 @@ export function UploadTracker() {
                 </div>
               ))}
             </div>
-            {(completedCount > 0 || failedCount > 0) && (
+            {queue.length > 0 && (
               <div className="p-2 border-t flex justify-end">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    clearCompleted();
+                    clearQueue();
                   }}
                   className="text-[10px] h-7"
                 >
-                  Clear Finished
+                  Clear Queue
                 </Button>
               </div>
             )}
