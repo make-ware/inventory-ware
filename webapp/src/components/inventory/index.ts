@@ -2,6 +2,7 @@ export { AttributesEditor } from './attributes-editor';
 export { ContainerCard } from './container-card';
 export { ContainerCreateForm } from './container-create-form';
 export { ContainerUpdateForm } from './container-update-form';
+export { ContainerImageUpload } from './container-image-upload';
 export { ImageCard } from './image-card';
 export { ImageUpload } from './image-upload';
 export { ItemCard } from './item-card';
