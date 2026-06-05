@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.2...inventory-ware-v0.4.3) (2026-06-05)
+
+
+### Bug Fixes
+
+* add env for ai models ([e9e0ef5](https://github.com/make-ware/inventory-ware/commit/e9e0ef5a5cd0b7260e3d1c7405268483923a7a23))
+
 ## [0.4.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.1...inventory-ware-v0.4.2) (2026-05-05)
 
 
