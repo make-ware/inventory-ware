@@ -21,7 +21,21 @@ export interface CategoryLibrary {
 }
 
 /**
- * AI Analysis Service for image analysis using gpt-5.2-2025-12-11
+ * Default OpenAI model used for image analysis.
+ * Override at runtime via the OPENAI_MODEL environment variable.
+ */
+const DEFAULT_OPENAI_MODEL = 'gpt-5.4-2026-03-05';
+
+/**
+ * Resolve the model id, allowing OPENAI_MODEL to override the default.
+ */
+function getModelId(): string {
+  return process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
+}
+
+/**
+ * AI Analysis Service for image analysis using OpenAI (default model gpt-5.4-2026-03-05).
+ * Both the model and the API base URL can be overridden via OPENAI_MODEL and OPENAI_BASE_URL.
  */
 export interface AIAnalysisService {
   /**
@@ -99,9 +113,14 @@ export function createAIAnalysisService(): AIAnalysisService {
 
       // Create OpenAI instance with explicit API key configuration
       // According to https://ai-sdk.dev/providers/ai-sdk-providers/openai
-      // The apiKey can be passed explicitly or defaults to OPENAI_API_KEY env var
+      // The apiKey can be passed explicitly or defaults to OPENAI_API_KEY env var.
+      // OPENAI_BASE_URL lets end users point at an OpenAI-compatible endpoint
+      // (e.g. a proxy, Azure, or a self-hosted/local inference server).
+      const baseURL = process.env.OPENAI_BASE_URL?.trim();
+
       openaiInstance = createOpenAI({
         apiKey,
+        ...(baseURL ? { baseURL } : {}),
       });
     }
     return openaiInstance;
@@ -111,7 +130,7 @@ export function createAIAnalysisService(): AIAnalysisService {
     async determineImageType(imageData: string): Promise<'item' | 'container'> {
       const openai = getOpenAI();
       const { object } = await generateObject({
-        model: openai('gpt-5.2-2025-12-11'),
+        model: openai(getModelId()),
         schema: z.object({
           type: z
             .enum(['item', 'container'])
@@ -166,7 +185,7 @@ Existing example categories for your reference:
         // Analyze single item
         const openai = getOpenAI();
         const { object } = await generateObject({
-          model: openai('gpt-5.2-2025-12-11'),
+          model: openai(getModelId()),
           schema: ItemImageMetadataSchema,
           messages: [
             {
@@ -191,7 +210,7 @@ Return the final result as a structured object.`,
         // Analyze container with multiple items
         const openai = getOpenAI();
         const { object } = await generateObject({
-          model: openai('gpt-5.2-2025-12-11'),
+          model: openai(getModelId()),
           schema: ContainerImageMetadataSchema,
           messages: [
             {
@@ -273,7 +292,7 @@ This container currently has no items. Analyze all items you see in the image.
 
       const openai = getOpenAI();
       const { object } = await generateObject({
-        model: openai('gpt-5.2-2025-12-11'),
+        model: openai(getModelId()),
         schema: ContainerImageMetadataSchema,
         messages: [
           {

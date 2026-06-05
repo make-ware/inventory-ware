@@ -1544,7 +1544,11 @@ describe('Property 12: Item metadata updated from AI on single-item upload', () 
         itemMetadataArb,
         itemsResponseArb,
         fc.uuid(),
-        fc.date({ min: new Date('2020-01-01'), max: new Date('2030-12-31') }),
+        fc.date({
+          min: new Date('2020-01-01'),
+          max: new Date('2030-12-31'),
+          noInvalidDate: true,
+        }),
         (aiDetectedMetadata, existingItem, newImageId, updateTime) => {
           // Simulate the complete update including ImageRef
           const updatedItem: ItemsResponse = {

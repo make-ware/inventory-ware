@@ -8,6 +8,9 @@
     "shared",
     "pocketbase"
   ],
+  "resolutions": {
+    "zod": "4.4.3"
+  },
   "scripts": {
     "setup": "node --env-file-if-exists=./.env scripts/setup-pocketbase.js",
     "dev": "concurrently \"yarn workspace @project/webapp dev\" \"yarn workspace @project/shared dev\" \"yarn workspace @project/pb dev\"",
@@ -28,11 +31,11 @@
     "db:start": "yarn workspace @project/pb dev"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
-    "@typescript-eslint/eslint-plugin": "^8.53.1",
-    "@typescript-eslint/parser": "^8.53.1",
+    "@eslint/js": "^9.39.4",
+    "@typescript-eslint/eslint-plugin": "^8.60.1",
+    "@typescript-eslint/parser": "^8.60.1",
     "concurrently": "^9.2.1",
-    "eslint": "^9.39.2",
+    "eslint": "^9.39.4",
     "prettier": "^3.8.3",
     "typescript": "^5.9.3"
   },
