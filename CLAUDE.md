@@ -55,7 +55,11 @@ and passes it into the shared mutators — there is no auth helper in `shared`,
 and `UserRef` is never auto-filled, so the CLI supplies
 `pb.authStore.record.id` explicitly on every create. It does **not** duplicate
 the AI pipeline: `iw image analyze` POSTs to the webapp's `/api-next` routes
-with a bearer token, so the CLI never needs `OPENAI_API_KEY`. Root `build` and
+with a bearer token, so the CLI never needs `OPENAI_API_KEY`. It takes a single
+absolute `APP_URL` (flag `--url`) for both services, since nginx serves them on
+one origin split by path; unset, it falls back to `localhost:8090`/`localhost:3000`.
+It deliberately ignores `POCKETBASE_URL`, which is the webapp's server-side
+internal address. Root `build` and
 `typecheck` use `yarn workspaces foreach -A -t` — the `-t` (topological) flag
 is required, since `foreach` otherwise iterates alphabetically and would build
 `cli` before `shared`.

@@ -14,6 +14,7 @@ export async function run(
 ): Promise<void> {
   const opts = command.optsWithGlobals() as GlobalFlags;
   const ctx = await createContext({
+    url: opts.url,
     pbUrl: opts.pbUrl,
     apiUrl: opts.apiUrl,
   });

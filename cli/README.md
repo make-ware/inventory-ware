@@ -55,19 +55,51 @@ mode), so `iw --version` reports the `inventory-ware` release version.
 
 ## Configuration
 
-Precedence for every setting is **flag > environment > config file > default**.
+There is one setting: the application URL.
 
-| Setting        | Flag        | Environment               | Default                 |
-| -------------- | ----------- | ------------------------- | ----------------------- |
-| PocketBase URL | `--pb-url`  | `POCKETBASE_URL`          | `http://localhost:8090` |
-| Webapp API URL | `--api-url` | `INVENTORY_WARE_API_URL`  | `http://localhost:3000` |
+| Setting         | Flag    | Environment | Default                                       |
+| --------------- | ------- | ----------- | --------------------------------------------- |
+| Application URL | `--url` | `APP_URL`   | `http://localhost:8090` + `http://localhost:3000` |
 
-Config file: `~/.config/inventory-ware/config.json` (honors `XDG_CONFIG_HOME`).
-The session token is cached separately in `auth.json` in the same directory,
-written `0600`.
+Precedence is **flag > environment > config file > default**.
 
-The webapp URL is separate from the PocketBase URL because AI image analysis
-is delegated to the Next.js app — see below.
+```bash
+export APP_URL=https://inventory.example.com
+iw item list
+```
+
+One value covers both services because the deployed app sits behind nginx on a
+single origin, which routes by path: `/api/` and `/_/` go to PocketBase, while
+`/api-next/` and `/` go to the webapp. The PocketBase SDK appends `/api/...` to
+the base URL and the CLI appends `/api-next/...`, so both land in the right
+place.
+
+**`APP_URL` must be absolute.** The webapp accepts a relative
+`NEXT_PUBLIC_POCKETBASE_URL=/` because a browser can resolve it against the
+current origin; a CLI has no origin to resolve against.
+
+When `APP_URL` is unset the CLI falls back to `http://localhost:8090` for
+PocketBase and `http://localhost:3000` for the webapp — the `yarn dev` layout,
+which is also what `docker-compose` exposes (it publishes both ports and runs
+no nginx).
+
+Config file: `~/.config/inventory-ware/config.json` (honors `XDG_CONFIG_HOME`),
+with an `appUrl` key. The session token is cached separately in `auth.json` in
+the same directory, written `0600`.
+
+### Split deployments
+
+If PocketBase and the webapp are not on the same origin, two hidden flags
+override each independently and take precedence over `--url`/`APP_URL`:
+
+```bash
+iw --pb-url https://pb.example.com --api-url https://app.example.com item list
+```
+
+The equivalent config file keys are `pocketbaseUrl` and `apiUrl`. Note that the
+CLI deliberately does **not** read `POCKETBASE_URL` — that variable is the
+webapp's server-side internal address (in `docker-compose` it is a container
+hostname that will not resolve from your shell).
 
 ## Commands
 

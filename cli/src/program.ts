@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import { registerAuthCommands } from './commands/auth.js';
 import { registerContainerCommands } from './commands/container.js';
 import { registerImageCommands } from './commands/image.js';
@@ -20,13 +20,22 @@ export function buildProgram(): Command {
     .name('iw')
     .description('Command line interface for Inventory Ware')
     .version(VERSION, '-V, --version')
-    .option('--pb-url <url>', 'PocketBase URL (env: POCKETBASE_URL)')
-    .option(
-      '--api-url <url>',
-      'Inventory Ware webapp URL (env: INVENTORY_WARE_API_URL)'
-    )
+    .option('--url <url>', 'Inventory Ware application URL (env: APP_URL)')
     .option('-v, --verbose', 'show underlying errors and stack traces')
     .showHelpAfterError();
+
+  // Advanced overrides for deployments where PocketBase and the webapp are not
+  // behind the same origin. Hidden to keep --help to a single URL flag.
+  program
+    .addOption(
+      new Option(
+        '--pb-url <url>',
+        'override just the PocketBase URL'
+      ).hideHelp()
+    )
+    .addOption(
+      new Option('--api-url <url>', 'override just the webapp URL').hideHelp()
+    );
 
   program.hook('preAction', (thisCommand) => {
     setVerbose(Boolean(thisCommand.opts().verbose));

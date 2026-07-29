@@ -39,7 +39,7 @@ export class ApiClient {
       throw new CliError(
         `Could not reach the Inventory Ware API at ${this.baseUrl}.`,
         EXIT.API,
-        `Is the webapp running? Override with --api-url or INVENTORY_WARE_API_URL. (${
+        `Is the webapp running, and does --url / APP_URL point at it? (${
           error instanceof Error ? error.message : String(error)
         })`
       );

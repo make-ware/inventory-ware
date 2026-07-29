@@ -76,7 +76,9 @@ export function registerAuthCommands(program: Command): void {
         );
 
         success(`Logged in as ${auth.record?.email ?? email}`);
+        // Show both so a misdirected --url / APP_URL is obvious right away.
         console.log(`PocketBase: ${ctx.config.pocketbaseUrl}`);
+        console.log(`Webapp:     ${ctx.config.apiUrl}`);
       });
     });
 
