@@ -6,7 +6,8 @@
   "workspaces": [
     "webapp",
     "shared",
-    "pocketbase"
+    "pocketbase",
+    "cli"
   ],
   "resolutions": {
     "zod": "4.4.3"
@@ -14,12 +15,12 @@
   "scripts": {
     "setup": "node --env-file-if-exists=./.env scripts/setup-pocketbase.js",
     "dev": "concurrently \"yarn workspace @project/webapp dev\" \"yarn workspace @project/shared dev\" \"yarn workspace @project/pb dev\"",
-    "build": "yarn workspaces foreach -A run build",
-    "test": "yarn workspace @project/shared test && yarn workspace @project/webapp test",
-    "test:watch": "concurrently \"yarn workspace @project/shared test:watch\" \"yarn workspace @project/webapp test:watch\"",
+    "build": "yarn workspaces foreach -A -t run build",
+    "test": "yarn workspace @project/shared test && yarn workspace @project/webapp test && yarn workspace @project/cli test",
+    "test:watch": "concurrently \"yarn workspace @project/shared test:watch\" \"yarn workspace @project/webapp test:watch\" \"yarn workspace @project/cli test:watch\"",
     "lint:check": "yarn workspaces foreach -A run lint",
     "lint": "yarn workspaces foreach -A run lint:fix",
-    "typecheck": "yarn workspaces foreach -A run typecheck",
+    "typecheck": "yarn workspaces foreach -A -t run typecheck",
     "format": "yarn workspaces foreach -A run format",
     "format:check": "yarn workspaces foreach -A run format:check",
     "precommit": "yarn run format && yarn run lint && yarn run typecheck && yarn run test",

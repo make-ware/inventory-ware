@@ -1548,6 +1548,29 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@project/cli@workspace:cli":
+  version: 0.0.0-use.local
+  resolution: "@project/cli@workspace:cli"
+  dependencies:
+    "@eslint/js": "npm:^9.39.4"
+    "@project/shared": "workspace:*"
+    "@types/node": "npm:^25.9.1"
+    "@typescript-eslint/eslint-plugin": "npm:^8.60.1"
+    "@typescript-eslint/parser": "npm:^8.60.1"
+    commander: "npm:^14.0.0"
+    eslint: "npm:^9.39.4"
+    pocketbase: "npm:^0.27.0"
+    prettier: "npm:^3.8.3"
+    tsup: "npm:^8.5.1"
+    tsx: "npm:^4.22.4"
+    typescript: "npm:^5.9.3"
+    vitest: "npm:^4.1.8"
+    zod: "npm:4.4.3"
+  bin:
+    iw: ./dist/cli.js
+  languageName: unknown
+  linkType: soft
+
 "@project/pb@workspace:pocketbase":
   version: 0.0.0-use.local
   resolution: "@project/pb@workspace:pocketbase"
@@ -4852,6 +4875,13 @@ __metadata:
   version: 12.1.0
   resolution: "commander@npm:12.1.0"
   checksum: 10/cdaeb672d979816853a4eed7f1310a9319e8b976172485c2a6b437ed0db0a389a44cfb222bfbde772781efa9f215bdd1b936f80d6b249485b465c6cb906e1f93
+  languageName: node
+  linkType: hard
+
+"commander@npm:^14.0.0":
+  version: 14.0.3
+  resolution: "commander@npm:14.0.3"
+  checksum: 10/dfa9ebe2a433d277de5cb0252d23b10a543d245d892db858d23b516336a835c50fd4f52bee4cd13c705cc8acb6f03dc632c73dd806f7d06d3353eb09953dd17a
   languageName: node
   linkType: hard
 

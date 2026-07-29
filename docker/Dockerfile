@@ -14,6 +14,9 @@ COPY package.json yarn.lock .yarnrc.yml* ./
 COPY webapp/package.json ./webapp/
 COPY shared/package.json ./shared/
 COPY pocketbase/package.json ./pocketbase/
+# The CLI is not shipped in any image, but its manifest must be present so the
+# workspace set matches the lockfile for `yarn install --immutable`.
+COPY cli/package.json ./cli/
 
 # Install dependencies
 RUN yarn install --immutable
@@ -59,6 +62,7 @@ COPY shared ./shared
 COPY pocketbase/pb_hooks ./pocketbase/pb_hooks
 COPY pocketbase/pb_migrations ./pocketbase/pb_migrations
 COPY pocketbase/package.json ./pocketbase/package.json
+COPY cli/package.json ./cli/package.json
 
 # Build shared package first (required by webapp)
 RUN yarn workspace @project/shared build

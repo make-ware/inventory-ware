@@ -7,29 +7,14 @@ dist
 **/dist
 bundle
 **/bundle
-.next
-**/.next
-out
-**/out
-build
-**/build
 coverage
 **/coverage
 
 # Yarn
 .yarn
 **/.yarn
-.pnp.*
-**/.pnp.*
-
-# PocketBase
-pb/pocketbase
-pb/pb_data
 
 # Other
 .DS_Store
 *.log
 *.md
-**/src/pocketbase-types.ts
-
-

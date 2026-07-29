@@ -22,6 +22,10 @@ inventory-ware/
 │   ├── pocketbase*            # PocketBase binary (auto-downloaded)
 │   ├── pb_data/              # Database and files (auto-created)
 │   └── pb_hooks/             # PocketBase JavaScript hooks
+├── cli/                       # `iw` command line interface
+│   └── src/
+│       ├── commands/         # item / container / image / auth commands
+│       └── ...               # config, auth store, output formatting
 ├── scripts/                   # Setup and utility scripts
 └── package.json              # Monorepo configuration
 ```
@@ -95,6 +99,35 @@ inventory-ware/
 - `yarn workspace shared typegen` - Generate types from PocketBase schema
 - `yarn workspace shared migrate:generate` - Generate database migration
 - `yarn workspace shared migrate:status` - Check migration status
+
+### CLI Commands (`iw`)
+
+The `cli` workspace provides `iw`, which talks to PocketBase through the same
+shared mutators the webapp uses.
+
+```bash
+yarn workspace @project/shared build   # required first
+yarn workspace @project/cli build
+node cli/dist/cli.js --help
+
+yarn workspace @project/cli test       # run CLI tests
+yarn workspace @project/cli bundle     # standalone single-file build
+```
+
+Common usage:
+
+```bash
+iw login                          # cache a session token
+iw item list --json | jq          # list items, machine readable
+iw item create --label Drill --functional Tools \
+  --specific "Power Tools" --type Drill
+iw container items <id>           # what's inside a container
+iw image upload photo.jpg --analyze   # upload + AI analysis
+```
+
+Released versions ship as a standalone build attached to each GitHub release,
+and via `brew install make-ware/tap/iw`. See [cli/README.md](./cli/README.md)
+for configuration, exit codes, and the full command reference.
 
 ## Configuration
 

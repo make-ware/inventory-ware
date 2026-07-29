@@ -10,6 +10,7 @@ Workspaces:
 - `@project/webapp` — Next.js 16 (App Router, React 19, Tailwind v4, shadcn/ui)
 - `@project/shared` — Zod schemas, generated PocketBase types, and mutator classes; built with `tsup` to `dist/` and consumed by the webapp as `@project/shared` (subpath exports: `/schema`, `/enums`, `/types`, `/mutator`)
 - `@project/pb` — PocketBase binary + JS hooks (`pocketbase/pb_hooks/main.pb.js`) + migrations (`pocketbase/pb_migrations/`)
+- `@project/cli` — Commander-based CLI (binary `iw`) built with `tsup`; consumes `@project/shared` mutators and talks to PocketBase directly (see `cli/README.md`)
 
 ## Commands
 
@@ -29,6 +30,8 @@ Run from repo root unless noted:
 Single-test / single-workspace:
 - `yarn workspace @project/shared test path/to/file.test.ts`
 - `yarn workspace @project/webapp test -- -t "test name"`
+- `yarn workspace @project/cli test` / `yarn workspace @project/cli build` then `node cli/dist/cli.js --help`
+- `yarn workspace @project/cli bundle` — standalone single-file build to `cli/bundle/iw.js` (release asset)
 - `yarn workspace @project/webapp dev` (webapp only)
 - `yarn workspace @project/pb dev` (PocketBase only)
 - `cd pocketbase && ./pocketbase superuser upsert <email> <password>` — create admin (admin UI at http://localhost:8090/_/)
@@ -44,6 +47,18 @@ Single-test / single-workspace:
 **AI image pipeline.** `webapp/src/services/inventory.ts` orchestrates upload → OpenAI vision analysis → entity creation (Item/Container/Image). The actual vision call lives in `webapp/src/services/ai-analysis.ts` and is invoked from the Next.js route handlers in `webapp/src/app/api-next/analyze-image/` and `webapp/src/app/api-next/process-image/`. Images are downloaded from PocketBase and base64-encoded before being sent to OpenAI because OpenAI cannot reach localhost URLs. `OPENAI_API_KEY` is required for this flow.
 
 **Audit trail via PocketBase hooks.** `pocketbase/pb_hooks/main.pb.js` writes to the `ItemRecords` and `ContainerRecords` collections on create/update to capture field-level diffs, and also maintains the `ItemImages`/`ContainerImages` mapping collections when `ImageRef`/`boundingBox` change. Field-level changes power `item-history.tsx`. If you add a new tracked field, update the hook's blacklist/handling accordingly.
+
+**CLI (`@project/cli`).** ESM-only, because `shared`'s `exports` map declares
+only `import`/`types` conditions. It builds its own `PocketBase` client with a
+file-backed `AsyncAuthStore` (`~/.config/inventory-ware/auth.json`, mode 0600)
+and passes it into the shared mutators — there is no auth helper in `shared`,
+and `UserRef` is never auto-filled, so the CLI supplies
+`pb.authStore.record.id` explicitly on every create. It does **not** duplicate
+the AI pipeline: `iw image analyze` POSTs to the webapp's `/api-next` routes
+with a bearer token, so the CLI never needs `OPENAI_API_KEY`. Root `build` and
+`typecheck` use `yarn workspaces foreach -A -t` — the `-t` (topological) flag
+is required, since `foreach` otherwise iterates alphabetically and would build
+`cli` before `shared`.
 
 **Context providers.** `webapp/src/contexts/auth-context.tsx`, `inventory-context.tsx`, and `upload-context.tsx` provide app-wide state. The upload context owns the multi-file upload queue (including clearing/cancelling) surfaced by `components/inventory/upload-tracker.tsx`.
 

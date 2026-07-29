@@ -65,6 +65,7 @@ Thumbs.db
 *.py
 
 dist/
+cli/bundle/
 
 #AI 
 .kiro/
