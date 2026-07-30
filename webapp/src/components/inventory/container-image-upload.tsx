@@ -32,12 +32,7 @@ interface ContainerUpsertResult {
 }
 
 type UploadStage =
-  | 'idle'
-  | 'uploading'
-  | 'analyzing'
-  | 'processing'
-  | 'success'
-  | 'error';
+  'idle' | 'uploading' | 'analyzing' | 'processing' | 'success' | 'error';
 
 export function ContainerImageUpload({
   containerId,

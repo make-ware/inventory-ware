@@ -11,6 +11,7 @@ inventory-ware/
 ├── webapp/          # Next.js application (@project/webapp)
 ├── shared/         # Shared types, schemas, and utilities (@project/shared)
 ├── pocketbase/      # PocketBase instance and migrations
+├── cli/             # `iw` command line interface (@project/cli)
 └── scripts/         # Setup and utility scripts
 ```
 
@@ -23,6 +24,25 @@ inventory-ware/
   - PocketBase client utilities
   - Migration configuration
   - Type generation tools
+- **`@project/cli`**: Commander-based CLI (binary `iw`) that reuses the shared
+  mutators to read and write PocketBase from a terminal. AI image analysis is
+  delegated to the webapp's `/api-next` routes, so the CLI never needs
+  `OPENAI_API_KEY`. See [cli/README.md](../cli/README.md).
+
+### CLI Development
+
+The CLI imports `@project/shared` from its `dist/`, so build shared first:
+
+```bash
+yarn workspace @project/shared build
+yarn workspace @project/cli dev -- item list   # run from source via tsx
+yarn workspace @project/cli build              # emit dist/cli.js
+yarn workspace @project/cli bundle             # standalone bundle/iw.js
+```
+
+Note that root `build` and `typecheck` use `yarn workspaces foreach -A -t`.
+The `-t` (topological) flag is required: `foreach` otherwise iterates
+workspaces alphabetically, which would build `cli` before `shared`.
 
 ## Getting Started
 
@@ -373,9 +393,12 @@ When running workspace commands, use the package names:
 
 - `@project/webapp` - Next.js application
 - `@project/shared` - Shared types and schemas
+- `@project/cli` - `iw` command line interface
+- `@project/pb` - PocketBase instance and hooks
 
 Example:
 ```bash
 yarn workspace @project/webapp add some-package
 yarn workspace @project/shared add some-package
+yarn workspace @project/cli add some-package
 ```

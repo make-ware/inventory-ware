@@ -13,11 +13,7 @@ import pb from '@/lib/pocketbase-client';
 import { toast } from 'sonner';
 
 export type UploadStatus =
-  | 'idle'
-  | 'uploading'
-  | 'analyzing'
-  | 'completed'
-  | 'failed';
+  'idle' | 'uploading' | 'analyzing' | 'completed' | 'failed';
 
 export interface UploadItem {
   id: string; // Internal unique ID or Image ID once uploaded

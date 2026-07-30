@@ -8,6 +8,7 @@ export default [
     ignores: [
       "**/node_modules/**",
       "**/dist/**",
+      "**/bundle/**",
       "**/build/**",
       "**/.next/**",
       "**/out/**",
@@ -115,6 +116,32 @@ export default [
       }
     },
     rules: {
+      "no-console": "off"
+    }
+  },
+
+  // Node.js environment for the CLI workspace
+  {
+    files: ["cli/**/*.{js,ts}"],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        require: "readonly",
+        module: "readonly",
+        exports: "readonly",
+        fetch: "readonly",
+        File: "readonly",
+        Blob: "readonly",
+        FormData: "readonly",
+        Response: "readonly",
+        URL: "readonly"
+      }
+    },
+    rules: {
+      // A CLI writes to stdout/stderr by design.
       "no-console": "off"
     }
   },

@@ -2,7 +2,7 @@ import {
   RelationField,
   baseSchema,
   defineCollection,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 import { z } from 'zod';
 
 // Define the Zod schema for label input (for creating new labels)

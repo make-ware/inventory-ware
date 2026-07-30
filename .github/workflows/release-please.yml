@@ -107,3 +107,202 @@ jobs:
       version: ${{ needs.release-please.outputs.version }}
       tag_name: ${{ needs.release-please.outputs.tag_name }}
 
+  cli-release-asset:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      sha256: ${{ steps.pack.outputs.sha256 }}
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable Corepack
+        run: corepack enable && corepack prepare yarn@4.12.0 --activate
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      # NOTE: deliberately not `yarn workspace @project/shared build` - that
+      # script runs `yarn typegen`, which needs a live PocketBase. `exec tsup`
+      # builds from the committed shared/src/pocketbase-types.ts instead.
+      - name: Build shared package
+        run: yarn workspace @project/shared exec tsup
+
+      - name: Bundle CLI
+        env:
+          IW_VERSION: ${{ needs.release-please.outputs.version }}
+        run: yarn workspace @project/cli bundle
+
+      - name: Smoke test bundle
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Run from a directory with no node_modules to prove it is self-contained.
+          cp cli/bundle/iw.js "${RUNNER_TEMP}/iw.js"
+          cd "${RUNNER_TEMP}"
+          node iw.js --help > /dev/null
+          test "$(node iw.js --version)" = "${VERSION}"
+
+      - name: Package tarball
+        id: pack
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          set -euo pipefail
+          STAGE="$(mktemp -d)"
+          mkdir -p "${STAGE}/iw-${VERSION}"
+          cp cli/bundle/iw.js "${STAGE}/iw-${VERSION}/iw"
+          chmod +x "${STAGE}/iw-${VERSION}/iw"
+          cp cli/README.md "${STAGE}/iw-${VERSION}/README.md"
+          tar -czf "iw-${VERSION}.tar.gz" -C "${STAGE}" "iw-${VERSION}"
+          sha256sum "iw-${VERSION}.tar.gz" > "iw-${VERSION}.tar.gz.sha256"
+          echo "sha256=$(sha256sum "iw-${VERSION}.tar.gz" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          VERSION: ${{ needs.release-please.outputs.version }}
+        run: |
+          gh release upload "$TAG" \
+            "iw-${VERSION}.tar.gz" \
+            "iw-${VERSION}.tar.gz.sha256" \
+            --clobber
+
+      - name: Add CLI install instructions to release
+        uses: actions/github-script@v7
+        env:
+          SHA256: ${{ steps.pack.outputs.sha256 }}
+        with:
+          script: |
+            const version = '${{ needs.release-please.outputs.version }}';
+            const tagName = '${{ needs.release-please.outputs.tag_name }}';
+            const { owner, repo } = context.repo;
+
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag: tagName
+            });
+
+            const base = `https://github.com/${owner}/${repo}/releases/download/${tagName}`;
+            const instructions = `
+
+            ---
+
+            ## CLI (\`iw\`)
+
+            Standalone single-file build. Requires Node.js >= 22 on your \`PATH\`; no other dependencies.
+
+            ### Homebrew
+
+            \`\`\`bash
+            brew install ${owner}/tap/iw
+            \`\`\`
+
+            ### Manual install
+
+            \`\`\`bash
+            curl -fsSLO ${base}/iw-${version}.tar.gz
+            curl -fsSLO ${base}/iw-${version}.tar.gz.sha256
+            sha256sum -c iw-${version}.tar.gz.sha256
+            tar -xzf iw-${version}.tar.gz
+            sudo install -m 0755 iw-${version}/iw /usr/local/bin/iw
+            \`\`\`
+
+            SHA-256: \`${process.env.SHA256}\`
+
+            ### Getting started
+
+            \`\`\`bash
+            iw login
+            iw item list
+            iw image upload ./photo.jpg --analyze
+            \`\`\`
+            `;
+
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              body: release.body + instructions
+            });
+
+  homebrew-tap:
+    needs: [release-please, cli-release-asset]
+    if: ${{ needs.release-please.outputs.release_created }}
+    runs-on: ubuntu-latest
+    # A tap-repo problem must never mark an otherwise good release as failed.
+    continue-on-error: true
+    steps:
+      # Secrets cannot be referenced in a job-level `if:`, so gate in a step.
+      - name: Check for tap token
+        id: gate
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "HOMEBREW_TAP_TOKEN is not set; skipping Homebrew tap publish."
+          fi
+
+      - name: Checkout tap
+        if: steps.gate.outputs.ok == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Render and push formula
+        if: steps.gate.outputs.ok == 'true'
+        env:
+          VERSION: ${{ needs.release-please.outputs.version }}
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          SHA256: ${{ needs.cli-release-asset.outputs.sha256 }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          mkdir -p tap/Formula
+          cat > tap/Formula/iw.rb <<EOF
+          class Iw < Formula
+            desc "Command line interface for Inventory Ware"
+            homepage "https://github.com/${OWNER}/${REPO}"
+            url "https://github.com/${OWNER}/${REPO}/releases/download/${TAG}/iw-${VERSION}.tar.gz"
+            sha256 "${SHA256}"
+            # Set explicitly: the tag (${TAG}) and the filename version differ.
+            version "${VERSION}"
+            license "MIT"
+
+            depends_on "node"
+
+            def install
+              bin.install "iw"
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/iw --version")
+            end
+          end
+          EOF
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/iw.rb
+          git diff --staged --quiet || git commit -m "iw ${VERSION}"
+          git push
+

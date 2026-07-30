@@ -4,7 +4,7 @@ import {
   TextField,
   defineCollection,
   baseSchema,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 import { z } from 'zod';
 
 // Schema for tracking snapshots of Container history
