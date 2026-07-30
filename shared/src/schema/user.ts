@@ -4,7 +4,7 @@ import {
   FileField,
   baseSchema,
   defineCollection,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 import { z } from 'zod';
 
 /** -- User Collections -- */

@@ -32,15 +32,15 @@
     "db:start": "yarn workspace @project/pb dev"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@typescript-eslint/eslint-plugin": "^8.60.1",
-    "@typescript-eslint/parser": "^8.60.1",
-    "concurrently": "^9.2.1",
-    "eslint": "^9.39.4",
-    "prettier": "^3.8.3",
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "concurrently": "^10.0.4",
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
     "typescript": "^5.9.3"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.13.0"
   }
 }

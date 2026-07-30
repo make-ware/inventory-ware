@@ -1,9 +1,5 @@
 import { z } from 'zod';
-import {
-  baseSchema,
-  defineCollection,
-  JSONField,
-} from 'pocketbase-zod-schema/schema';
+import { baseSchema, defineCollection, JSONField } from 'pocketbase-zod-schema';
 import { AnalysisResultSchema } from '../types/metadata.js';
 
 export const ImageMetadataInputSchema = z.object({

@@ -2,7 +2,7 @@ import {
   RelationField,
   baseSchema,
   defineCollection,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 import z from 'zod';
 import { BoundingBoxSchema } from '../types/bounding-box.js';
 

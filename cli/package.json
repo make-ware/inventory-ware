@@ -25,21 +25,21 @@
   },
   "dependencies": {
     "@project/shared": "workspace:*",
-    "commander": "^14.0.0",
+    "commander": "^15.0.0",
     "pocketbase": "^0.27.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@types/node": "^25.9.1",
-    "@typescript-eslint/eslint-plugin": "^8.60.1",
-    "@typescript-eslint/parser": "^8.60.1",
-    "eslint": "^9.39.4",
-    "prettier": "^3.8.3",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.1.2",
+    "@typescript-eslint/eslint-plugin": "^8.65.0",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
     "tsup": "^8.5.1",
-    "tsx": "^4.22.4",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.10"
   },
   "packageManager": "yarn@4.12.0"
 }

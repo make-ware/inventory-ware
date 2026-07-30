@@ -3,6 +3,9 @@
  * Do not modify it manually.
  */
 
+import PocketBase from "pocketbase";
+import type { RecordService } from "pocketbase";
+
 export interface ContainerImagesRecord {
   id: string;
   created: string;
@@ -274,11 +277,7 @@ export type CollectionResponses = {
   Users: UsersResponse;
 };
 
-import PocketBase from "pocketbase";
-import { RecordService } from "pocketbase";
-
 export interface TypedPocketBase extends PocketBase {
-  collection(idOrName: string): RecordService;
   collection(idOrName: "ContainerImages"): RecordService<ContainerImagesResponse>;
   collection(idOrName: "ContainerRecords"): RecordService<ContainerRecordsResponse>;
   collection(idOrName: "Containers"): RecordService<ContainersResponse>;

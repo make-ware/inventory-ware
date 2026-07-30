@@ -3,7 +3,7 @@ import {
   RelationField,
   baseSchema,
   defineCollection,
-} from 'pocketbase-zod-schema/schema';
+} from 'pocketbase-zod-schema';
 import { z } from 'zod';
 
 // Define the Zod schema for image input (for creating new images)
