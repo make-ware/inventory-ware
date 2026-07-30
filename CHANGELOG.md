@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.3...inventory-ware-v0.5.0) (2026-07-30)
+
+
+### Features
+
+* add iw CLI workspace ([2fedbcd](https://github.com/make-ware/inventory-ware/commit/2fedbcd60505cedf137eb990ff71941ca536a35f))
+* add iw CLI workspace ([67c3c6f](https://github.com/make-ware/inventory-ware/commit/67c3c6f419fe965bed2917874f6663c187072cae))
+* **cli:** use a single APP_URL for the application ([9c893dc](https://github.com/make-ware/inventory-ware/commit/9c893dcdb6feb461f6bedb812899a9fb05f35756))
+
 ## [0.4.3](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.2...inventory-ware-v0.4.3) (2026-06-05)
 
 
