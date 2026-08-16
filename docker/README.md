@@ -2,6 +2,18 @@
 
 This guide provides instructions for running Inventory Ware locally using Docker. Two methods are available: a single monolithic image or Docker Compose.
 
+## Image Registries
+
+Every release publishes the same three images to both GitHub Container Registry and Docker Hub. The two are identical — use whichever you prefer.
+
+| Image | GitHub Container Registry | Docker Hub |
+| --- | --- | --- |
+| Monolith | `ghcr.io/make-ware/inventory-ware` | `dastron/inventory-ware` |
+| Webapp | `ghcr.io/make-ware/inventory-ware-webapp` | `dastron/inventory-ware-webapp` |
+| PocketBase | `ghcr.io/make-ware/inventory-ware-pocketbase` | `dastron/inventory-ware-pocketbase` |
+
+Both registries carry the same tags: `latest`, the full version (`1.2.3`), the major/minor rollups (`1.2`, `1`), and a `sha-` tag for traceability. The examples below use GHCR; substitute the Docker Hub name to pull from there instead.
+
 ## Option 1: Monolithic Image
 
 The monolithic image contains all services (Web Application, PocketBase, and Nginx) in a single container. This is the simplest method for getting started.

@@ -2,6 +2,9 @@
 # 
 # This file uses pre-built images from GitHub Container Registry.
 # Images are automatically built and published when releases are created.
+#
+# The same images are mirrored to Docker Hub. To pull from there instead,
+# swap the `ghcr.io/make-ware/` prefixes below for `dastron/`.
 
 services:
   pocketbase:

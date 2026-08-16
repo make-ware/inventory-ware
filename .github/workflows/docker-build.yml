@@ -39,6 +39,11 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  # Docker Hub is optional: set the DOCKERHUB_USERNAME / DOCKERHUB_TOKEN secrets
+  # (and optionally the DOCKERHUB_NAMESPACE variable, if the org name differs
+  # from the login) to also publish there. Without them the jobs push to GHCR only.
+  DOCKERHUB_REGISTRY: docker.io
+  DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
 
 jobs:
   setup:
@@ -98,6 +103,47 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve Docker Hub target
+        id: dockerhub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_NAMESPACE: ${{ env.DOCKERHUB_NAMESPACE }}
+          DOCKERHUB_REGISTRY: ${{ env.DOCKERHUB_REGISTRY }}
+          GHCR_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: |
+          # Namespace defaults to the login user when the variable is unset.
+          NAMESPACE="${DOCKERHUB_NAMESPACE:-$DOCKERHUB_USERNAME}"
+          # Docker Hub repos are single-segment, so mirror the GHCR name only.
+          REPO="${GITHUB_REPOSITORY##*/}"
+
+          if [ -n "$DOCKERHUB_TOKEN" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$NAMESPACE" ]; then
+            DOCKERHUB_IMAGE="$DOCKERHUB_REGISTRY/$NAMESPACE/$REPO"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            DOCKERHUB_IMAGE=""
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Docker Hub credentials not configured - publishing to ${REGISTRY:-ghcr.io} only."
+          fi
+
+          echo "image=$DOCKERHUB_IMAGE" >> "$GITHUB_OUTPUT"
+
+          # Newline-separated list consumed by docker/metadata-action.
+          {
+            echo "images<<__EOF__"
+            echo "$GHCR_IMAGE"
+            if [ -n "$DOCKERHUB_IMAGE" ]; then echo "$DOCKERHUB_IMAGE"; fi
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        if: steps.dockerhub.outputs.enabled == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Prepare version tags
         id: version-tags
         run: |
@@ -125,7 +171,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ steps.dockerhub.outputs.images }}
           tags: |
             # Use explicit version when provided via workflow_call
             type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
@@ -166,7 +212,7 @@ jobs:
           echo "## Docker Build Summary (monolith)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Image Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Registry:** ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registries:** ${{ env.REGISTRY }}${{ steps.dockerhub.outputs.enabled == 'true' && format(', {0}', env.DOCKERHUB_REGISTRY) || '' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** ${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -178,6 +224,9 @@ jobs:
           echo "### Deployment" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.dockerhub.outputs.image }}" ]; then
+            echo "docker pull ${{ steps.dockerhub.outputs.image }}:latest" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
 
 
@@ -211,6 +260,47 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve Docker Hub target
+        id: dockerhub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_NAMESPACE: ${{ env.DOCKERHUB_NAMESPACE }}
+          DOCKERHUB_REGISTRY: ${{ env.DOCKERHUB_REGISTRY }}
+          GHCR_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp
+        run: |
+          # Namespace defaults to the login user when the variable is unset.
+          NAMESPACE="${DOCKERHUB_NAMESPACE:-$DOCKERHUB_USERNAME}"
+          # Docker Hub repos are single-segment, so mirror the GHCR name only.
+          REPO="${GITHUB_REPOSITORY##*/}-webapp"
+
+          if [ -n "$DOCKERHUB_TOKEN" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$NAMESPACE" ]; then
+            DOCKERHUB_IMAGE="$DOCKERHUB_REGISTRY/$NAMESPACE/$REPO"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            DOCKERHUB_IMAGE=""
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Docker Hub credentials not configured - publishing to ${REGISTRY:-ghcr.io} only."
+          fi
+
+          echo "image=$DOCKERHUB_IMAGE" >> "$GITHUB_OUTPUT"
+
+          # Newline-separated list consumed by docker/metadata-action.
+          {
+            echo "images<<__EOF__"
+            echo "$GHCR_IMAGE"
+            if [ -n "$DOCKERHUB_IMAGE" ]; then echo "$DOCKERHUB_IMAGE"; fi
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        if: steps.dockerhub.outputs.enabled == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Prepare version tags
         id: version-tags
         run: |
@@ -238,7 +328,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp
+          images: ${{ steps.dockerhub.outputs.images }}
           tags: |
             # Use explicit version when provided via workflow_call
             type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
@@ -279,7 +369,7 @@ jobs:
           echo "## Docker Build Summary (webapp)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Image Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Registry:** ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registries:** ${{ env.REGISTRY }}${{ steps.dockerhub.outputs.enabled == 'true' && format(', {0}', env.DOCKERHUB_REGISTRY) || '' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** ${{ env.IMAGE_NAME }}-webapp" >> $GITHUB_STEP_SUMMARY
           echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -291,6 +381,9 @@ jobs:
           echo "### Deployment" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp:latest" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.dockerhub.outputs.image }}" ]; then
+            echo "docker pull ${{ steps.dockerhub.outputs.image }}:latest" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
 
   build-pocketbase:
@@ -323,6 +416,47 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve Docker Hub target
+        id: dockerhub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          DOCKERHUB_NAMESPACE: ${{ env.DOCKERHUB_NAMESPACE }}
+          DOCKERHUB_REGISTRY: ${{ env.DOCKERHUB_REGISTRY }}
+          GHCR_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-pocketbase
+        run: |
+          # Namespace defaults to the login user when the variable is unset.
+          NAMESPACE="${DOCKERHUB_NAMESPACE:-$DOCKERHUB_USERNAME}"
+          # Docker Hub repos are single-segment, so mirror the GHCR name only.
+          REPO="${GITHUB_REPOSITORY##*/}-pocketbase"
+
+          if [ -n "$DOCKERHUB_TOKEN" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$NAMESPACE" ]; then
+            DOCKERHUB_IMAGE="$DOCKERHUB_REGISTRY/$NAMESPACE/$REPO"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            DOCKERHUB_IMAGE=""
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Docker Hub credentials not configured - publishing to ${REGISTRY:-ghcr.io} only."
+          fi
+
+          echo "image=$DOCKERHUB_IMAGE" >> "$GITHUB_OUTPUT"
+
+          # Newline-separated list consumed by docker/metadata-action.
+          {
+            echo "images<<__EOF__"
+            echo "$GHCR_IMAGE"
+            if [ -n "$DOCKERHUB_IMAGE" ]; then echo "$DOCKERHUB_IMAGE"; fi
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        if: steps.dockerhub.outputs.enabled == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKERHUB_REGISTRY }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Prepare version tags
         id: version-tags
         run: |
@@ -350,7 +484,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-pocketbase
+          images: ${{ steps.dockerhub.outputs.images }}
           tags: |
             # Use explicit version when provided via workflow_call
             type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
@@ -391,7 +525,7 @@ jobs:
           echo "## Docker Build Summary (pocketbase)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Image Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Registry:** ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registries:** ${{ env.REGISTRY }}${{ steps.dockerhub.outputs.enabled == 'true' && format(', {0}', env.DOCKERHUB_REGISTRY) || '' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image:** ${{ env.IMAGE_NAME }}-pocketbase" >> $GITHUB_STEP_SUMMARY
           echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -403,4 +537,7 @@ jobs:
           echo "### Deployment" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-pocketbase:latest" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.dockerhub.outputs.image }}" ]; then
+            echo "docker pull ${{ steps.dockerhub.outputs.image }}:latest" >> $GITHUB_STEP_SUMMARY
+          fi
           echo '```' >> $GITHUB_STEP_SUMMARY
