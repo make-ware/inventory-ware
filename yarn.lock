@@ -25,6 +25,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ai-sdk/google@npm:^4.0.44":
+  version: 4.0.44
+  resolution: "@ai-sdk/google@npm:4.0.44"
+  dependencies:
+    "@ai-sdk/provider": "npm:4.0.7"
+    "@ai-sdk/provider-utils": "npm:5.0.27"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10/9007e91d9398697e60af716775d7be8895ea5b50d7ab51a976dca0057d457cab8f863bf1b8cd353535c6d9ee3aa6e99ad5232cd9b81c2d65360e22780bc47b2e
+  languageName: node
+  linkType: hard
+
 "@ai-sdk/mcp@npm:2.0.19":
   version: 2.0.19
   resolution: "@ai-sdk/mcp@npm:2.0.19"
@@ -65,12 +77,36 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ai-sdk/provider-utils@npm:5.0.27":
+  version: 5.0.27
+  resolution: "@ai-sdk/provider-utils@npm:5.0.27"
+  dependencies:
+    "@ai-sdk/provider": "npm:4.0.7"
+    "@standard-schema/spec": "npm:^1.1.0"
+    "@workflow/serde": "npm:4.1.0"
+    eventsource-parser: "npm:^3.0.8"
+    undici: "npm:^7.28.0"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10/e5bc16e03466ab2aa6fbc56b015a954fc9166c9b718507d405044ca826a2ce2ecc85b8cdd982cf93952f6220464ca60615f1009f53d911a664d64a595779de4d
+  languageName: node
+  linkType: hard
+
 "@ai-sdk/provider@npm:4.0.4":
   version: 4.0.4
   resolution: "@ai-sdk/provider@npm:4.0.4"
   dependencies:
     json-schema: "npm:^0.4.0"
   checksum: 10/f1b814b729cb46e97e6743fd593abdc392457b89fef0b5458c9fc6ad00f8d6416ad1ea789751226936ebdc56a03247d4ee5b97a68cec272ed88e388f011817d8
+  languageName: node
+  linkType: hard
+
+"@ai-sdk/provider@npm:4.0.7":
+  version: 4.0.7
+  resolution: "@ai-sdk/provider@npm:4.0.7"
+  dependencies:
+    json-schema: "npm:^0.4.0"
+  checksum: 10/9c813a89084b66881296d551b8e567f6ba63a625288c2cc7135b0ad58a0beb76f09b95d922f7d6ceb50a70667487138dd0f86c75246cd97effd367bf56a05644
   languageName: node
   linkType: hard
 
@@ -1636,6 +1672,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@project/webapp@workspace:webapp"
   dependencies:
+    "@ai-sdk/google": "npm:^4.0.44"
     "@ai-sdk/openai": "npm:^4.0.24"
     "@ai-sdk/react": "npm:^4.0.45"
     "@hookform/resolvers": "npm:^5.5.7"

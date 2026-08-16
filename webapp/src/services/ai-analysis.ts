@@ -1,5 +1,4 @@
 import { generateObject } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import {
   ItemImageMetadataSchema,
@@ -10,6 +9,7 @@ import type {
   Item,
   ContainerImageMetadata,
 } from '@project/shared';
+import { getLanguageModel } from './ai-provider';
 
 /**
  * Category library for maintaining consistency across AI analysis
@@ -21,21 +21,33 @@ export interface CategoryLibrary {
 }
 
 /**
- * Default OpenAI model used for image analysis.
- * Override at runtime via the OPENAI_MODEL environment variable.
+ * Shared preamble telling the model how to name categories and attributes.
+ * Used by every analysis prompt so the vocabulary stays consistent.
  */
-const DEFAULT_OPENAI_MODEL = 'gpt-5.4-2026-03-05';
+function buildCategoryContext(existingCategories: CategoryLibrary): string {
+  return `
+IMPORTANT CATEGORY & ATTRIBUTE RULES:
+1. Categories AND Attributes allow alphanumeric (A-Z, a-z, 0-9), hyphens (-), and SPACES ( ). 
+2. Use human-readable formats: "Anti-Static Bags", "CPU Cooler", "Input Voltage" are all valid.
+3. Use existing categories whenever possible to avoid duplicates.
+4. If you must create a new category or attribute, keep it concise but descriptive.
 
-/**
- * Resolve the model id, allowing OPENAI_MODEL to override the default.
- */
-function getModelId(): string {
-  return process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
+DISPLAY NAME RULES:
+- 'itemType' is the PRIMARY DISPLAY NAME. It should be a concise, generic noun (e.g., "Drill", "Screws", "Bin").
+- 'itemName' is the SPECIFIC IDENTITY. It should include the brand and record if possible (e.g., "DeWalt DCD771", "Grizzly G8688").
+- 'itemLabel' is a descriptive tag for the specific instance (e.g., "Main Workshop Drill").
+
+Existing example categories for your reference:
+- Functional: ${existingCategories.functional.join(', ') || 'None yet'}
+- Specific: ${existingCategories.specific.join(', ') || 'None yet'}
+- Item Types: ${existingCategories.itemType.join(', ') || 'None yet'}
+`;
 }
 
 /**
- * AI Analysis Service for image analysis using OpenAI (default model gpt-5.4-2026-03-05).
- * Both the model and the API base URL can be overridden via OPENAI_MODEL and OPENAI_BASE_URL.
+ * AI Analysis Service for image analysis.
+ * The provider, model, credential and base URL are resolved from the
+ * environment by `ai-config.ts` — see that module for the supported variables.
  */
 export interface AIAnalysisService {
   /**
@@ -80,57 +92,10 @@ export interface AIAnalysisService {
  * Note: This should only be called server-side or in API routes where environment variables are available
  */
 export function createAIAnalysisService(): AIAnalysisService {
-  // Lazy initialization of OpenAI client - only create when actually needed
-  let openaiInstance: ReturnType<typeof createOpenAI> | null = null;
-
-  const getOpenAI = () => {
-    if (!openaiInstance) {
-      // Get API key from environment variable
-      // In Next.js, this will be available server-side but not in client components
-      const apiKey = process.env.OPENAI_API_KEY;
-
-      if (!apiKey) {
-        // Debug: Log available env vars (without exposing values)
-        const envKeys = Object.keys(process.env).filter(
-          (key) => key.includes('OPENAI') || key.includes('API')
-        );
-
-        const errorMessage = [
-          'OPENAI_API_KEY environment variable is not set.',
-          '',
-          'To fix this:',
-          '1. Create or edit .env or .env.local file at the project root',
-          '2. Add: OPENAI_API_KEY=your-api-key-here',
-          '3. Restart your Next.js dev server (stop and start again)',
-          '',
-          'Note: The .env file can be at the project root (preferred) or in webapp/ directory.',
-          'Available env vars with "OPENAI" or "API" in name: ' +
-            (envKeys.length > 0 ? envKeys.join(', ') : 'none found'),
-        ].join('\n');
-
-        throw new Error(errorMessage);
-      }
-
-      // Create OpenAI instance with explicit API key configuration
-      // According to https://ai-sdk.dev/providers/ai-sdk-providers/openai
-      // The apiKey can be passed explicitly or defaults to OPENAI_API_KEY env var.
-      // OPENAI_BASE_URL lets end users point at an OpenAI-compatible endpoint
-      // (e.g. a proxy, Azure, or a self-hosted/local inference server).
-      const baseURL = process.env.OPENAI_BASE_URL?.trim();
-
-      openaiInstance = createOpenAI({
-        apiKey,
-        ...(baseURL ? { baseURL } : {}),
-      });
-    }
-    return openaiInstance;
-  };
-
   return {
     async determineImageType(imageData: string): Promise<'item' | 'container'> {
-      const openai = getOpenAI();
       const { object } = await generateObject({
-        model: openai(getModelId()),
+        model: getLanguageModel(),
         schema: z.object({
           type: z
             .enum(['item', 'container'])
@@ -162,30 +127,12 @@ export function createAIAnalysisService(): AIAnalysisService {
       const imageType = await this.determineImageType(imageData);
 
       // Build category context for AI
-      const categoryContext = `
-IMPORTANT CATEGORY & ATTRIBUTE RULES:
-1. Categories AND Attributes allow alphanumeric (A-Z, a-z, 0-9), hyphens (-), and SPACES ( ). 
-2. Use human-readable formats: "Anti-Static Bags", "CPU Cooler", "Input Voltage" are all valid.
-3. Use existing categories whenever possible to avoid duplicates.
-4. If you are unsure, use the 'searchCategories' tool to find similar existing categories.
-5. If you must create a new category or attribute, keep it concise but descriptive.
-
-DISPLAY NAME RULES:
-- 'itemType' is the PRIMARY DISPLAY NAME. It should be a concise, generic noun (e.g., "Drill", "Screws", "Bin").
-- 'itemName' is the SPECIFIC IDENTITY. It should include the brand and record if possible (e.g., "DeWalt DCD771", "Grizzly G8688").
-- 'itemLabel' is a descriptive tag for the specific instance (e.g., "Main Workshop Drill").
-
-Existing example categories for your reference:
-- Functional: ${existingCategories.functional.join(', ') || 'None yet'}
-- Specific: ${existingCategories.specific.join(', ') || 'None yet'}
-- Item Types: ${existingCategories.itemType.join(', ') || 'None yet'}
-`;
+      const categoryContext = buildCategoryContext(existingCategories);
 
       if (imageType === 'item') {
         // Analyze single item
-        const openai = getOpenAI();
         const { object } = await generateObject({
-          model: openai(getModelId()),
+          model: getLanguageModel(),
           schema: ItemImageMetadataSchema,
           messages: [
             {
@@ -208,9 +155,8 @@ Return the final result as a structured object.`,
         return { type: 'item', data: object };
       } else {
         // Analyze container with multiple items
-        const openai = getOpenAI();
         const { object } = await generateObject({
-          model: openai(getModelId()),
+          model: getLanguageModel(),
           schema: ContainerImageMetadataSchema,
           messages: [
             {
@@ -240,24 +186,7 @@ Return the final result as a structured object.`,
       existingCategories: CategoryLibrary
     ): Promise<ContainerImageMetadata> {
       // Build category context for AI
-      const categoryContext = `
-IMPORTANT CATEGORY & ATTRIBUTE RULES:
-1. Categories AND Attributes allow alphanumeric (A-Z, a-z, 0-9), hyphens (-), and SPACES ( ). 
-2. Use human-readable formats: "Anti-Static Bags", "CPU Cooler", "Input Voltage" are all valid.
-3. Use existing categories whenever possible to avoid duplicates.
-4. If you are unsure, use the 'searchCategories' tool to find similar existing categories.
-5. If you must create a new category or attribute, keep it concise but descriptive.
-
-DISPLAY NAME RULES:
-- 'itemType' is the PRIMARY DISPLAY NAME. It should be a concise, generic noun (e.g., "Drill", "Screws", "Bin").
-- 'itemName' is the SPECIFIC IDENTITY. It should include the brand and record if possible (e.g., "DeWalt DCD771", "Grizzly G8688").
-- 'itemLabel' is a descriptive tag for the specific instance (e.g., "Main Workshop Drill").
-
-Existing example categories for your reference:
-- Functional: ${existingCategories.functional.join(', ') || 'None yet'}
-- Specific: ${existingCategories.specific.join(', ') || 'None yet'}
-- Item Types: ${existingCategories.itemType.join(', ') || 'None yet'}
-`;
+      const categoryContext = buildCategoryContext(existingCategories);
 
       // Build existing items context for consistent naming
       const existingItemsContext =
@@ -290,9 +219,8 @@ When analyzing the new image:
 This container currently has no items. Analyze all items you see in the image.
 `;
 
-      const openai = getOpenAI();
       const { object } = await generateObject({
-        model: openai(getModelId()),
+        model: getLanguageModel(),
         schema: ContainerImageMetadataSchema,
         messages: [
           {
