@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.5.1...inventory-ware-v0.5.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* deploy to docker hub ([972548d](https://github.com/make-ware/inventory-ware/commit/972548d8057ccec72ab5af6af31d56e75ea899c1))
+
 ## [0.5.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.5.0...inventory-ware-v0.5.1) (2026-08-16)
 
 
