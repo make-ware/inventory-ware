@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.5.0...inventory-ware-v0.5.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* update CLI shape ([9f814e6](https://github.com/make-ware/inventory-ware/commit/9f814e62a2c12b0b18beb99cbc1eb93da95c4544))
+
 ## [0.5.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.4.3...inventory-ware-v0.5.0) (2026-07-30)
 
 
