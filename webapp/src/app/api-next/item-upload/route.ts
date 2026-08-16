@@ -4,10 +4,12 @@ import {
   createServerPocketBaseClient,
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
+import { aiConfigErrorResponse } from '@/lib/ai-error-response';
 
 /**
  * API route to process an item image upload with metadata enhancement
- * This ensures environment variables (like OPENAI_API_KEY) are available
+ * This ensures environment variables (like the AI provider credentials)
+ * are available
  *
  * Validates Requirements: 8.1, 8.2, 8.3, 8.4
  */
@@ -99,6 +101,8 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error processing item image upload:', error);
+    const aiError = aiConfigErrorResponse(error);
+    if (aiError) return aiError;
     return NextResponse.json(
       {
         error:
