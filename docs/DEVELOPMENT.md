@@ -26,8 +26,8 @@ inventory-ware/
   - Type generation tools
 - **`@project/cli`**: Commander-based CLI (binary `iw`) that reuses the shared
   mutators to read and write PocketBase from a terminal. AI image analysis is
-  delegated to the webapp's `/api-next` routes, so the CLI never needs
-  `OPENAI_API_KEY`. See [cli/README.md](../cli/README.md).
+  delegated to the webapp's `/api-next` routes, so the CLI never needs an AI
+  provider key. See [cli/README.md](../cli/README.md).
 
 ### CLI Development
 

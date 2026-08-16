@@ -27,8 +27,18 @@ docker run -d \
   -v data:/data \
   -e POCKETBASE_ADMIN_EMAIL=admin@example.com \
   -e POCKETBASE_ADMIN_PASSWORD=change-this-password \
+  -e OPENAI_API_KEY=your-openai-api-key \
   ghcr.io/make-ware/inventory-ware:latest
 ```
+
+To use Google Gemini instead of OpenAI, swap the key line for:
+
+```bash
+  -e GEMINI_API_KEY=your-gemini-api-key \
+```
+
+Without an AI provider key the container still runs, but image analysis is
+disabled and the AI routes return `503 AI_NOT_CONFIGURED`.
 
 This command will:
 -   Start the container in detached mode (`-d`).
@@ -53,6 +63,30 @@ To stop the services:
 ```bash
 docker compose down
 ```
+
+## Environment Variables
+
+All variables are optional unless noted. For Docker Compose these can go in a
+`.env` file next to `docker-compose.yml`.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `POCKETBASE_ADMIN_EMAIL` | `admin@example.com` | Auto-created superuser (monolith only). |
+| `POCKETBASE_ADMIN_PASSWORD` | `your-secure-password` | Superuser password. The superuser is **not** created while this is left at the default. |
+| `POCKETBASE_URL` | `http://localhost:8090` | Internal address the webapp uses to reach PocketBase. |
+| `NEXT_PUBLIC_POCKETBASE_URL` | `/` | Public address the browser uses. Baked in at image build time, so setting it at runtime on a prebuilt image has no effect. |
+| `LOG_LEVEL` | `warn` | `warn`, `info`, `debug`, or `verbose`. |
+| `GRACEFUL_SHUTDOWN_TIMEOUT` | `30` | Seconds to allow for connection draining. |
+| `OPENAI_API_KEY` | — | OpenAI credential. Enables AI image analysis. |
+| `GEMINI_API_KEY` | — | Google Gemini credential. `GOOGLE_GENERATIVE_AI_API_KEY` is also accepted. |
+| `AI_PROVIDER` | auto-detected | `openai` or `google` (`gemini` is accepted). Only needed when both keys are set. |
+| `AI_MODEL` | `gpt-5.4-2026-03-05` / `gemini-3.5-flash` | Model id for the active provider. An unusable value falls back to the default with a warning in the log. |
+| `AI_BASE_URL` | — | Point at a compatible endpoint (proxy, Azure, local inference server). |
+
+If exactly one AI provider key is present, that provider is selected
+automatically. If both are present, OpenAI wins unless `AI_PROVIDER` says
+otherwise. With no key at all the app runs normally with image analysis
+disabled.
 
 ## Accessing the Application
 

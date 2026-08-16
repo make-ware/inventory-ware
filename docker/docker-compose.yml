@@ -32,6 +32,14 @@ services:
       - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
       # Internal URL for SSR to access PocketBase
       - POCKETBASE_URL=http://pocketbase:8090
+      # AI image analysis (optional). Set one provider key and the provider is
+      # detected automatically; AI_PROVIDER only disambiguates. Unset variables
+      # expand to an empty string, which is treated the same as unset.
+      - AI_PROVIDER=${AI_PROVIDER:-}
+      - AI_MODEL=${AI_MODEL:-}
+      - AI_BASE_URL=${AI_BASE_URL:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:
       pocketbase:
         condition: service_healthy

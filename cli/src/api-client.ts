@@ -10,8 +10,8 @@ export interface AnalysisResponse {
 /**
  * Thin client for the webapp's Next.js route handlers.
  *
- * The AI vision pipeline lives in `@project/webapp` (it needs OPENAI_API_KEY
- * and the server-only PocketBase client), so the CLI drives it over HTTP with
+ * The AI vision pipeline lives in `@project/webapp` (it needs an AI provider
+ * key and the server-only PocketBase client), so the CLI drives it over HTTP with
  * the same bearer token it uses for PocketBase - exactly like the webapp's own
  * upload flow does.
  */

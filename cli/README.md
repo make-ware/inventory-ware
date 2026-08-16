@@ -231,11 +231,12 @@ iw item create --label Drill --functional Tools --specific "Power Tools" \
   `item create`, and the schema slugifies them. The CLI echoes back the stored
   record so you can see the transformed values.
 - **AI analysis needs the webapp running.** The vision pipeline lives in
-  `@project/webapp` (it needs `OPENAI_API_KEY` and the server-only PocketBase
-  client), so `--analyze` and `iw image analyze` upload to PocketBase directly
-  and then POST to `/api-next/analyze-image` with the same bearer token. The
-  CLI never reads `OPENAI_API_KEY` itself. This mirrors the webapp's own
-  upload flow.
+  `@project/webapp` (it needs an AI provider key - `OPENAI_API_KEY` or
+  `GEMINI_API_KEY` - and the server-only PocketBase client), so `--analyze` and
+  `iw image analyze` upload to PocketBase directly and then POST to
+  `/api-next/analyze-image` with the same bearer token. The CLI never reads any
+  AI key itself. This mirrors the webapp's own upload flow. If the webapp has no
+  provider configured, those routes answer `503 AI_NOT_CONFIGURED`.
 - **Everything is scoped to the logged-in user** by PocketBase access rules
   (`UserRef = @request.auth.id`), so all data commands require `iw login`.
 - **`item update` is validated by the CLI**, not by the mutator —
