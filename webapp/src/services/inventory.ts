@@ -673,7 +673,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
       try {
         // 4. Fetch existing container items
-        const existingItems = await itemMutator.getByContainer(containerId);
+        const existingItems = (await itemMutator.getByContainer(containerId))
+          .items;
 
         // 5. Get existing categories for AI context
         const categories = await this.getCategoryLibrary();

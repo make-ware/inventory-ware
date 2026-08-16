@@ -174,7 +174,8 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
               itemType: filters.itemType,
             }
           : undefined;
-        return await itemMutator.search(query, itemFilters);
+        return (await itemMutator.search(query, { filters: itemFilters }))
+          .items;
       } catch (error) {
         console.error('Search failed:', error);
         return [];
@@ -298,7 +299,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         // First, remove container reference from all items in this container
-        const itemsInContainer = await itemMutator.getByContainer(id);
+        const itemsInContainer = (await itemMutator.getByContainer(id)).items;
         for (const item of itemsInContainer) {
           await itemMutator.update(item.id, {
             container: undefined,
@@ -326,7 +327,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
   const getItemsByContainer = useCallback(
     async (containerId: string): Promise<Item[]> => {
       try {
-        return await itemMutator.getByContainer(containerId);
+        return (await itemMutator.getByContainer(containerId)).items;
       } catch (error) {
         console.error('Failed to get items by container:', error);
         return [];

@@ -80,6 +80,56 @@ export function printRecord(
   }
 }
 
+/**
+ * Footer showing where the current page sits in the full result set.
+ *
+ * Printed to stdout only for a TTY - the same rule colour uses - so piping to
+ * jq or a file stays clean.
+ */
+export function printListFooter(result: {
+  page: number;
+  perPage: number;
+  totalItems: number;
+  totalPages: number;
+}): void {
+  if (!process.stdout.isTTY) return;
+  if (result.totalItems === 0) return;
+
+  const first = (result.page - 1) * result.perPage + 1;
+  const last = Math.min(first + result.perPage - 1, result.totalItems);
+
+  let line = `Showing ${first}-${last} of ${result.totalItems}`;
+  if (result.totalPages > 1) {
+    line += ` (page ${result.page}/${result.totalPages})`;
+    if (result.page < result.totalPages) {
+      line += ` \u00b7 next: --page ${result.page + 1}`;
+    }
+  }
+  console.log(dim(line));
+}
+
+/**
+ * Narrow records to the requested keys.
+ *
+ * `expand` is carried through untouched when present, since dropping it would
+ * throw away the relations the caller explicitly asked to expand.
+ */
+export function projectFields<T extends Record<string, unknown>>(
+  rows: T[],
+  keys: string[]
+): Array<Record<string, unknown>> {
+  return rows.map((row) => {
+    const projected: Record<string, unknown> = {};
+    for (const key of keys) {
+      if (key in row) projected[key] = row[key];
+    }
+    if ('expand' in row && row.expand !== undefined) {
+      projected.expand = row.expand;
+    }
+    return projected;
+  });
+}
+
 export function success(message: string): void {
   console.log(`${green('✓')} ${message}`);
 }

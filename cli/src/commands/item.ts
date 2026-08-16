@@ -1,18 +1,16 @@
 import { Command } from 'commander';
 import { ItemUpdateSchema, type ItemInput } from '@project/shared';
 import { CliError, EXIT, withQuietMutators } from '../errors.js';
-import { printJson, printRecord, printTable, success } from '../output.js';
+import { printJson, printRecord, success } from '../output.js';
 import { requireUserId, type Context } from '../context.js';
-import { collectAttr, compact, parseIntOption, run } from './shared.js';
-
-const COLUMNS: Array<[string, string]> = [
-  ['id', 'ID'],
-  ['itemLabel', 'LABEL'],
-  ['itemType', 'TYPE'],
-  ['categoryFunctional', 'FUNCTIONAL'],
-  ['categorySpecific', 'SPECIFIC'],
-  ['ContainerRef', 'CONTAINER'],
-];
+import {
+  addQueryOptions,
+  parseQueryOptions,
+  type RawQueryOptions,
+} from '../query/options.js';
+import { executeQuery, renderQuery } from '../query/run.js';
+import { ITEM_SPEC } from '../query/spec.js';
+import { collectAttr, compact, run } from './shared.js';
 
 const DETAIL_KEYS = [
   'id',
@@ -59,96 +57,52 @@ function toInput(flags: ItemFlags) {
   });
 }
 
-function renderList(
-  ctx: Context,
-  items: Array<Record<string, unknown>>,
-  json: boolean
-) {
-  void ctx;
-  if (json) {
-    printJson(items);
-    return;
-  }
-  printTable(items, COLUMNS);
+/**
+ * The body behind both `item list` and its `item search` alias.
+ *
+ * Filters are handed to `ItemMutator.search`, which builds the PocketBase
+ * filter expression with proper escaping - the CLI never interpolates one.
+ */
+async function listItems(
+  opts: RawQueryOptions,
+  command: Command
+): Promise<void> {
+  // Validate flags before opening a context: a bad --sort should report the
+  // bad flag, not "not logged in".
+  const query = parseQueryOptions(ITEM_SPEC, opts, command);
+
+  await run(command, async (ctx: Context) => {
+    requireUserId(ctx);
+
+    const result = await executeQuery(query, (page) =>
+      ctx.items.search(query.search, { ...page, filters: query.filters })
+    );
+
+    renderQuery(query, result);
+  });
 }
 
 export function registerItemCommands(program: Command): void {
   const item = program.command('item').description('Manage inventory items');
 
-  item
-    .command('list')
-    .description('List items')
-    .option('-c, --container <id>', 'only items in this container')
-    .option('--page <n>', 'page number', (v) => parseIntOption(v, '--page'))
-    .option('--per-page <n>', 'items per page', (v) =>
-      parseIntOption(v, '--per-page')
-    )
-    .option('-s, --sort <sort>', 'sort expression', '-created')
-    .option('-e, --expand <fields>', 'relations to expand')
-    .option('--json', 'output raw JSON')
-    .action(async (opts, command: Command) => {
-      await run(command, async (ctx) => {
-        requireUserId(ctx);
-        const filter = opts.container
-          ? `ContainerRef="${opts.container}"`
-          : undefined;
+  const list = item.command('list').description('List items');
+  addQueryOptions(list, ITEM_SPEC);
+  list.action(async (opts: RawQueryOptions, command: Command) => {
+    await listItems(opts, command);
+  });
 
-        const result = await withQuietMutators(() =>
-          ctx.items.getList(
-            opts.page ?? 1,
-            opts.perPage ?? 100,
-            filter,
-            opts.sort,
-            opts.expand
-          )
-        );
-
-        if (opts.json) {
-          printJson(result);
-          return;
-        }
-        renderList(
-          ctx,
-          result.items as unknown as Array<Record<string, unknown>>,
-          false
-        );
-      });
-    });
-
-  item
+  // Kept as an alias so existing scripts keep working; `list --search` is the
+  // canonical form and both run the same code.
+  const search = item
     .command('search')
-    .description('Full-text search across item fields')
-    .argument('<query>', 'text to search for')
-    .option('--functional <category>', 'filter by functional category')
-    .option('--specific <category>', 'filter by specific category')
-    .option('--type <type>', 'filter by item type')
-    .option('-c, --container <id>', 'filter by container')
-    .option('-e, --expand <fields>', 'relations to expand')
-    .option('-s, --sort <sort>', 'sort expression')
-    .option('--json', 'output raw JSON')
-    .action(async (query: string, opts, command: Command) => {
-      await run(command, async (ctx) => {
-        requireUserId(ctx);
-        const items = await withQuietMutators(() =>
-          ctx.items.search(
-            query,
-            compact({
-              categoryFunctional: opts.functional,
-              categorySpecific: opts.specific,
-              itemType: opts.type,
-              container: opts.container,
-            }),
-            opts.expand,
-            opts.sort
-          )
-        );
-        renderList(
-          ctx,
-          items as unknown as Array<Record<string, unknown>>,
-          Boolean(opts.json)
-        );
-      });
-    });
+    .description('Alias for `item list --search <query>`')
+    .argument('<query>', 'text to search for');
+  addQueryOptions(search, ITEM_SPEC, { search: false });
+  search.action(
+    async (query: string, opts: RawQueryOptions, command: Command) => {
+      await listItems({ ...opts, search: query }, command);
+    }
+  );
 
   item
     .command('get')
@@ -179,7 +133,7 @@ export function registerItemCommands(program: Command): void {
     .requiredOption('-l, --label <label>', 'item label')
     .requiredOption('--functional <category>', 'functional category')
     .requiredOption('--specific <category>', 'specific category')
-    .requiredOption('--type <type>', 'item type')
+    .requiredOption('-t, --type <type>', 'item type')
     .option('-n, --name <name>', 'item name')
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')
@@ -219,7 +173,7 @@ export function registerItemCommands(program: Command): void {
     .option('-l, --label <label>', 'item label')
     .option('--functional <category>', 'functional category')
     .option('--specific <category>', 'specific category')
-    .option('--type <type>', 'item type')
+    .option('-t, --type <type>', 'item type')
     .option('-n, --name <name>', 'item name')
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')

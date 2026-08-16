@@ -1,24 +1,18 @@
 import { readFile } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
+import { IMAGE_TYPES, type ImageType } from '@project/shared';
 import { CliError, EXIT, withQuietMutators } from '../errors.js';
-import { printJson, printRecord, printTable, success } from '../output.js';
+import { printJson, printRecord, success } from '../output.js';
 import { requireUserId } from '../context.js';
+import {
+  addQueryOptions,
+  parseQueryOptions,
+  type RawQueryOptions,
+} from '../query/options.js';
+import { executeQuery, renderQuery } from '../query/run.js';
+import { IMAGE_SPEC } from '../query/spec.js';
 import { run } from './shared.js';
-
-const COLUMNS: Array<[string, string]> = [
-  ['id', 'ID'],
-  ['file', 'FILE'],
-  ['imageType', 'TYPE'],
-  ['analysisStatus', 'STATUS'],
-  ['created', 'CREATED'],
-];
-
-const IMAGE_TYPES = ['item', 'container', 'unprocessed'] as const;
-const STATUSES = ['pending', 'processing', 'completed', 'failed'] as const;
-
-type ImageType = (typeof IMAGE_TYPES)[number];
-type AnalysisStatus = (typeof STATUSES)[number];
 
 /**
  * PocketBase's file field enforces a mimeType allowlist, so an
@@ -60,22 +54,6 @@ async function fileFromPath(path: string): Promise<File> {
   return new File([new Uint8Array(buffer)], basename(path), { type });
 }
 
-function assertOneOf<T extends string>(
-  value: string | undefined,
-  allowed: readonly T[],
-  flag: string
-): T | undefined {
-  if (value === undefined) return undefined;
-  if (!(allowed as readonly string[]).includes(value)) {
-    throw new CliError(
-      `Invalid ${flag} "${value}".`,
-      EXIT.USAGE,
-      `Expected one of: ${allowed.join(', ')}`
-    );
-  }
-  return value as T;
-}
-
 export function registerImageCommands(program: Command): void {
   const image = program.command('image').description('Manage images');
 
@@ -83,19 +61,17 @@ export function registerImageCommands(program: Command): void {
     .command('upload')
     .description('Upload one or more image files')
     .argument('<file...>', 'paths to image files')
-    .option(
-      '-t, --type <type>',
-      `image type (${IMAGE_TYPES.join('|')})`,
-      'unprocessed'
+    .addOption(
+      new Option('-t, --type <type>', 'image type')
+        .choices([...IMAGE_TYPES])
+        .default('unprocessed')
     )
     .option('--analyze', 'run AI analysis after upload (requires the webapp)')
     .option('--json', 'output raw JSON')
     .action(async (files: string[], opts, command: Command) => {
       await run(command, async (ctx) => {
         const userId = requireUserId(ctx);
-        const imageType =
-          assertOneOf<ImageType>(opts.type, IMAGE_TYPES, '--type') ??
-          'unprocessed';
+        const imageType = (opts.type ?? 'unprocessed') as ImageType;
 
         const results: unknown[] = [];
         for (const path of files) {
@@ -143,48 +119,21 @@ export function registerImageCommands(program: Command): void {
       });
     });
 
-  image
-    .command('list')
-    .description('List images')
-    .option(
-      '--status <status>',
-      `filter by analysis status (${STATUSES.join('|')})`
-    )
-    .option('--page <n>', 'page number')
-    .option('--per-page <n>', 'items per page')
-    .option('--json', 'output raw JSON')
-    .action(async (opts, command: Command) => {
-      await run(command, async (ctx) => {
-        requireUserId(ctx);
-        const status = assertOneOf<AnalysisStatus>(
-          opts.status,
-          STATUSES,
-          '--status'
-        );
+  const list = image.command('list').description('List images');
+  addQueryOptions(list, IMAGE_SPEC);
+  list.action(async (opts: RawQueryOptions, command: Command) => {
+    const query = parseQueryOptions(IMAGE_SPEC, opts, command);
 
-        const records = status
-          ? await withQuietMutators(() =>
-              ctx.images.getByAnalysisStatus(status)
-            )
-          : (
-              await withQuietMutators(() =>
-                ctx.images.getList(
-                  Number(opts.page ?? 1),
-                  Number(opts.perPage ?? 100)
-                )
-              )
-            ).items;
+    await run(command, async (ctx) => {
+      requireUserId(ctx);
 
-        if (opts.json) {
-          printJson(records);
-          return;
-        }
-        printTable(
-          records as unknown as Array<Record<string, unknown>>,
-          COLUMNS
-        );
-      });
+      const result = await executeQuery(query, (page) =>
+        ctx.images.search({ ...page, filters: query.filters })
+      );
+
+      renderQuery(query, result);
     });
+  });
 
   image
     .command('get')

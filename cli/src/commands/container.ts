@@ -1,16 +1,16 @@
 import { Command } from 'commander';
 import { ContainerUpdateSchema, type ContainerInput } from '@project/shared';
 import { CliError, EXIT, withQuietMutators } from '../errors.js';
-import { printJson, printRecord, printTable, success } from '../output.js';
-import { requireUserId } from '../context.js';
-import { compact, parseIntOption, run } from './shared.js';
-
-const COLUMNS: Array<[string, string]> = [
-  ['id', 'ID'],
-  ['containerLabel', 'LABEL'],
-  ['containerNotes', 'NOTES'],
-  ['created', 'CREATED'],
-];
+import { printJson, printRecord, success } from '../output.js';
+import { requireUserId, type Context } from '../context.js';
+import {
+  addQueryOptions,
+  parseQueryOptions,
+  type RawQueryOptions,
+} from '../query/options.js';
+import { executeQuery, renderQuery } from '../query/run.js';
+import { CONTAINER_SPEC, ITEM_SPEC } from '../query/spec.js';
+import { compact, run } from './shared.js';
 
 const DETAIL_KEYS = [
   'id',
@@ -19,13 +19,6 @@ const DETAIL_KEYS = [
   'ImageRef',
   'created',
   'updated',
-];
-
-const ITEM_COLUMNS: Array<[string, string]> = [
-  ['id', 'ID'],
-  ['itemLabel', 'LABEL'],
-  ['itemType', 'TYPE'],
-  ['categoryFunctional', 'FUNCTIONAL'],
 ];
 
 interface ContainerFlags {
@@ -43,69 +36,48 @@ function toInput(flags: ContainerFlags) {
   });
 }
 
+/** The body behind both `container list` and its `container search` alias. */
+async function listContainers(
+  opts: RawQueryOptions,
+  command: Command
+): Promise<void> {
+  // Validate flags before opening a context: a bad --sort should report the
+  // bad flag, not "not logged in".
+  const query = parseQueryOptions(CONTAINER_SPEC, opts, command);
+
+  await run(command, async (ctx: Context) => {
+    requireUserId(ctx);
+
+    const result = await executeQuery(query, (page) =>
+      ctx.containers.search(query.search, { ...page, filters: query.filters })
+    );
+
+    renderQuery(query, result);
+  });
+}
+
 export function registerContainerCommands(program: Command): void {
   const container = program
     .command('container')
     .description('Manage containers');
 
-  container
-    .command('list')
-    .description('List containers')
-    .option('--page <n>', 'page number', (v) => parseIntOption(v, '--page'))
-    .option('--per-page <n>', 'items per page', (v) =>
-      parseIntOption(v, '--per-page')
-    )
-    .option('-s, --sort <sort>', 'sort expression', '-created')
-    .option('-e, --expand <fields>', 'relations to expand')
-    .option('--json', 'output raw JSON')
-    .action(async (opts, command: Command) => {
-      await run(command, async (ctx) => {
-        requireUserId(ctx);
-        const result = await withQuietMutators(() =>
-          ctx.containers.getList(
-            opts.page ?? 1,
-            opts.perPage ?? 100,
-            undefined,
-            opts.sort,
-            opts.expand
-          )
-        );
+  const list = container.command('list').description('List containers');
+  addQueryOptions(list, CONTAINER_SPEC);
+  list.action(async (opts: RawQueryOptions, command: Command) => {
+    await listContainers(opts, command);
+  });
 
-        if (opts.json) {
-          printJson(result);
-          return;
-        }
-        printTable(
-          result.items as unknown as Array<Record<string, unknown>>,
-          COLUMNS
-        );
-      });
-    });
-
-  container
+  // Kept as an alias so existing scripts keep working.
+  const search = container
     .command('search')
-    .description('Search containers by label or notes')
-    .argument('<query>', 'text to search for')
-    .option('-e, --expand <fields>', 'relations to expand')
-    .option('-s, --sort <sort>', 'sort expression')
-    .option('--json', 'output raw JSON')
-    .action(async (query: string, opts, command: Command) => {
-      await run(command, async (ctx) => {
-        requireUserId(ctx);
-        const results = await withQuietMutators(() =>
-          ctx.containers.search(query, opts.expand, opts.sort)
-        );
-
-        if (opts.json) {
-          printJson(results);
-          return;
-        }
-        printTable(
-          results as unknown as Array<Record<string, unknown>>,
-          COLUMNS
-        );
-      });
-    });
+    .description('Alias for `container list --search <query>`')
+    .argument('<query>', 'text to search for');
+  addQueryOptions(search, CONTAINER_SPEC, { search: false });
+  search.action(
+    async (query: string, opts: RawQueryOptions, command: Command) => {
+      await listContainers({ ...opts, search: query }, command);
+    }
+  );
 
   container
     .command('get')
@@ -218,27 +190,24 @@ export function registerContainerCommands(program: Command): void {
       });
     });
 
-  container
+  // Items inside a container: the same flag set as `item list`, minus
+  // --container, which the positional <id> already supplies.
+  const items = container
     .command('items')
     .description('List the items inside a container')
-    .argument('<id>', 'container id')
-    .option('-e, --expand <fields>', 'relations to expand')
-    .option('--json', 'output raw JSON')
-    .action(async (id: string, opts, command: Command) => {
-      await run(command, async (ctx) => {
-        requireUserId(ctx);
-        const items = await withQuietMutators(() =>
-          ctx.items.getByContainer(id, opts.expand)
-        );
+    .argument('<id>', 'container id');
+  addQueryOptions(items, ITEM_SPEC, { omitFilters: ['container'] });
+  items.action(async (id: string, opts: RawQueryOptions, command: Command) => {
+    const query = parseQueryOptions(ITEM_SPEC, opts, command);
 
-        if (opts.json) {
-          printJson(items);
-          return;
-        }
-        printTable(
-          items as unknown as Array<Record<string, unknown>>,
-          ITEM_COLUMNS
-        );
-      });
+    await run(command, async (ctx) => {
+      requireUserId(ctx);
+
+      const result = await executeQuery(query, (page) =>
+        ctx.items.getByContainer(id, { ...page, filters: query.filters })
+      );
+
+      renderQuery(query, result);
     });
+  });
 }

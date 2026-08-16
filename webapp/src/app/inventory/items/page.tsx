@@ -163,16 +163,17 @@ function ItemsPageContent() {
 
   const loadItems = useCallback(async () => {
     try {
-      const results = await itemMutator.search(
-        searchQuery,
-        {
-          categoryFunctional: searchFilters.functional,
-          categorySpecific: searchFilters.specific,
-          itemType: searchFilters.itemType,
-        },
-        'ImageRef',
-        sortValue
-      );
+      const results = (
+        await itemMutator.search(searchQuery, {
+          filters: {
+            categoryFunctional: searchFilters.functional,
+            categorySpecific: searchFilters.specific,
+            itemType: searchFilters.itemType,
+          },
+          expand: 'ImageRef',
+          sort: sortValue,
+        })
+      ).items;
       setItems(results);
 
       setImages((prev) => {

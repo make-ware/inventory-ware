@@ -1,6 +1,22 @@
-import { type Image, type ImageInput, ImageInputSchema } from '../index';
+import type { ListResult } from 'pocketbase';
+import {
+  type AnalysisStatus,
+  type Image,
+  type ImageInput,
+  ImageInputSchema,
+  type ImageType,
+} from '../index';
 import type { TypedPocketBase } from '../types';
-import { BaseMutator, TypedRecordService } from './base';
+import { allOf, eq } from '../utils/filter';
+import { BaseMutator, type ListQuery, TypedRecordService } from './base';
+
+export interface ImageSearchFilters {
+  analysisStatus?: AnalysisStatus;
+  imageType?: ImageType;
+}
+
+/** A paged query plus the image-specific filters. */
+export type ImageListQuery = ListQuery & { filters?: ImageSearchFilters };
 
 export class ImageMutator extends BaseMutator<Image, ImageInput> {
   constructor(pb: TypedPocketBase) {
@@ -29,7 +45,7 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
   async uploadImage(
     file: File,
     userId: string,
-    imageType: 'item' | 'container' | 'unprocessed' = 'unprocessed'
+    imageType: ImageType = 'unprocessed'
   ): Promise<Image> {
     try {
       if (!userId) {
@@ -58,7 +74,7 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
    */
   async updateAnalysisStatus(
     id: string,
-    status: 'pending' | 'processing' | 'completed' | 'failed'
+    status: AnalysisStatus
   ): Promise<Image> {
     try {
       const data: Partial<ImageInput> = { analysisStatus: status };
@@ -69,19 +85,58 @@ export class ImageMutator extends BaseMutator<Image, ImageInput> {
   }
 
   /**
-   * Get images by analysis status
-   * @param status The analysis status to filter by
-   * @returns Array of Image records
+   * Build the filter expression `search()` uses.
+   *
+   * Images carry no free-text field worth matching, so the query argument is
+   * accepted for symmetry with the other mutators and only the filters apply.
    */
-  async getByAnalysisStatus(
-    status: 'pending' | 'processing' | 'completed' | 'failed'
-  ): Promise<Image[]> {
+  buildSearchFilter(filters?: ImageSearchFilters): string | undefined {
+    const parts: string[] = [];
+
+    if (filters?.analysisStatus) {
+      parts.push(eq('analysisStatus', filters.analysisStatus));
+    }
+    if (filters?.imageType) {
+      parts.push(eq('imageType', filters.imageType));
+    }
+
+    return allOf(parts);
+  }
+
+  /**
+   * Search images by filters.
+   *
+   * @param options Filters plus the standard page/perPage/sort/expand
+   * @returns A paged result, so callers can see the true total
+   */
+  async search(options: ImageListQuery = {}): Promise<ListResult<Image>> {
     try {
-      const result = await this.getList(1, 100, `analysisStatus="${status}"`);
-      return result.items;
+      const { filters, ...list } = options;
+      return await this.getList({
+        ...list,
+        filter: this.buildSearchFilter(filters),
+      });
     } catch (error) {
       return this.errorWrapper(error);
     }
+  }
+
+  /**
+   * Get images by analysis status.
+   *
+   * @param status The analysis status to filter by
+   * @param options The standard page/perPage/sort/expand
+   * @returns A paged result
+   */
+  async getByAnalysisStatus(
+    status: AnalysisStatus,
+    options: ImageListQuery = {}
+  ): Promise<ListResult<Image>> {
+    const { filters, ...list } = options;
+    return await this.search({
+      ...list,
+      filters: { ...filters, analysisStatus: status },
+    });
   }
 
   /**

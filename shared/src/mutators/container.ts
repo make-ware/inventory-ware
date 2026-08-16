@@ -1,10 +1,27 @@
+import type { ListResult } from 'pocketbase';
 import {
   type Container,
   type ContainerInput,
   ContainerInputSchema,
 } from '../index';
 import type { TypedPocketBase } from '../types';
-import { BaseMutator, TypedRecordService } from './base';
+import { allOf, anyOf, eq } from '../utils/filter';
+import { BaseMutator, type ListQuery, TypedRecordService } from './base';
+
+export interface ContainerSearchFilters {
+  image?: string;
+}
+
+/** A paged query plus the container-specific filters. */
+export type ContainerListQuery = ListQuery & {
+  filters?: ContainerSearchFilters;
+};
+
+/** Fields `search()` matches a free-text query against. */
+export const CONTAINER_SEARCH_FIELDS = [
+  'containerLabel',
+  'containerNotes',
+] as const;
 
 export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
   constructor(pb: TypedPocketBase) {
@@ -46,22 +63,43 @@ export class ContainerMutator extends BaseMutator<Container, ContainerInput> {
   }
 
   /**
-   * Search for containers by query
-   * @param query Search query to match against label and notes
-   * @param expand Optional relation fields to expand (e.g., 'ImageRef')
-   * @returns Array of matching Container records
+   * Build the filter expression `search()` uses.
+   */
+  buildSearchFilter(
+    query: string,
+    filters?: ContainerSearchFilters
+  ): string | undefined {
+    const parts: string[] = [];
+
+    // An empty query must not produce `containerLabel~""`, which matches
+    // everything - omit the text clause entirely instead.
+    if (query && query.trim()) {
+      parts.push(anyOf(CONTAINER_SEARCH_FIELDS, query));
+    }
+    if (filters?.image) {
+      parts.push(eq('ImageRef', filters.image));
+    }
+
+    return allOf(parts);
+  }
+
+  /**
+   * Search for containers by free-text query and filters.
+   *
+   * @param query Text matched against label and notes
+   * @param options Filters plus the standard page/perPage/sort/expand
+   * @returns A paged result, so callers can see the true total
    */
   async search(
     query: string,
-    expand?: string | string[],
-    sort?: string
-  ): Promise<Container[]> {
+    options: ContainerListQuery = {}
+  ): Promise<ListResult<Container>> {
     try {
-      const escapedQuery = query.replace(/"/g, '\\"');
-      const filter = `(containerLabel~"${escapedQuery}" || containerNotes~"${escapedQuery}")`;
-
-      const result = await this.getList(1, 500, filter, sort, expand);
-      return result.items;
+      const { filters, ...list } = options;
+      return await this.getList({
+        ...list,
+        filter: this.buildSearchFilter(query, filters),
+      });
     } catch (error) {
       return this.errorWrapper(error);
     }

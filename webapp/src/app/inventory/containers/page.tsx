@@ -53,11 +53,12 @@ function ContainersPageContent() {
   const loadContainers = useCallback(async () => {
     try {
       // Pass sortValue to search
-      const results = await containerMutator.search(
-        searchQuery,
-        'ImageRef',
-        sortValue
-      );
+      const results = (
+        await containerMutator.search(searchQuery, {
+          expand: 'ImageRef',
+          sort: sortValue,
+        })
+      ).items;
       setContainers(results);
 
       setImages((prev) => {

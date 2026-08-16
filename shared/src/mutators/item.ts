@@ -1,13 +1,27 @@
+import type { ListResult } from 'pocketbase';
 import { type Item, type ItemInput, ItemInputSchema } from '../index';
 import type { TypedPocketBase } from '../types';
-import { BaseMutator, TypedRecordService } from './base';
+import { allOf, anyOf, eq } from '../utils/filter';
+import { BaseMutator, type ListQuery, TypedRecordService } from './base';
 
 export interface ItemSearchFilters {
   categoryFunctional?: string;
   categorySpecific?: string;
   itemType?: string;
   container?: string;
+  image?: string;
 }
+
+/** A paged query plus the item-specific filters. */
+export type ItemListQuery = ListQuery & { filters?: ItemSearchFilters };
+
+/** Fields `search()` matches a free-text query against. */
+export const ITEM_SEARCH_FIELDS = [
+  'itemLabel',
+  'itemName',
+  'itemNotes',
+  'itemManufacturer',
+] as const;
 
 export interface CategoryLibrary {
   functional: string[];
@@ -53,90 +67,88 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
   }
 
   /**
-   * Search for items by query and filters
-   * @param query Search query to match against label, notes, and manufacturer
-   * @param filters Optional category and container filters
-   * @param expand Optional relation fields to expand (e.g., 'ImageRef')
-   * @returns Array of matching Item records
+   * Build the filter expression `search()` uses.
+   *
+   * Exported separately so callers can echo the filter when debugging.
+   */
+  buildSearchFilter(
+    query: string,
+    filters?: ItemSearchFilters
+  ): string | undefined {
+    const parts: string[] = [];
+
+    if (query && query.trim()) {
+      parts.push(anyOf(ITEM_SEARCH_FIELDS, query));
+    }
+    if (filters?.categoryFunctional) {
+      parts.push(eq('categoryFunctional', filters.categoryFunctional));
+    }
+    if (filters?.categorySpecific) {
+      parts.push(eq('categorySpecific', filters.categorySpecific));
+    }
+    if (filters?.itemType) {
+      parts.push(eq('itemType', filters.itemType));
+    }
+    if (filters?.container) {
+      parts.push(eq('ContainerRef', filters.container));
+    }
+    if (filters?.image) {
+      parts.push(eq('ImageRef', filters.image));
+    }
+
+    return allOf(parts);
+  }
+
+  /**
+   * Search for items by free-text query and filters.
+   *
+   * @param query Text matched against label, name, notes and manufacturer
+   * @param options Filters plus the standard page/perPage/sort/expand
+   * @returns A paged result, so callers can see the true total
    */
   async search(
     query: string,
-    filters?: ItemSearchFilters,
-    expand?: string | string[],
-    sort?: string
-  ): Promise<Item[]> {
+    options: ItemListQuery = {}
+  ): Promise<ListResult<Item>> {
     try {
-      const filterParts: string[] = [];
-
-      // Add text search filter
-      if (query && query.trim()) {
-        const escapedQuery = query.replace(/"/g, '\\"');
-        filterParts.push(
-          `(itemLabel~"${escapedQuery}" || itemName~"${escapedQuery}" || itemNotes~"${escapedQuery}" || itemManufacturer~"${escapedQuery}")`
-        );
-      }
-
-      // Add category filters
-      if (filters?.categoryFunctional) {
-        const escaped = filters.categoryFunctional.replace(/"/g, '\\"');
-        filterParts.push(`categoryFunctional="${escaped}"`);
-      }
-      if (filters?.categorySpecific) {
-        const escaped = filters.categorySpecific.replace(/"/g, '\\"');
-        filterParts.push(`categorySpecific="${escaped}"`);
-      }
-      if (filters?.itemType) {
-        const escaped = filters.itemType.replace(/"/g, '\\"');
-        filterParts.push(`itemType="${escaped}"`);
-      }
-      if (filters?.container) {
-        const escaped = filters.container.replace(/"/g, '\\"');
-        filterParts.push(`ContainerRef="${escaped}"`);
-      }
-
-      const filter =
-        filterParts.length > 0 ? filterParts.join(' && ') : undefined;
-
-      const result = await this.getList(1, 500, filter, sort, expand);
-      return result.items;
+      const { filters, ...list } = options;
+      return await this.getList({
+        ...list,
+        filter: this.buildSearchFilter(query, filters),
+      });
     } catch (error) {
       return this.errorWrapper(error);
     }
   }
 
   /**
-   * Get all items in a specific container
+   * Get the items in a specific container.
+   *
    * @param containerId The container ID
-   * @param expand Optional expand parameter for related records
-   * @returns Array of Item records
+   * @param options The standard page/perPage/sort/expand, plus extra filters
+   * @returns A paged result
    */
   async getByContainer(
     containerId: string,
-    expand?: string | string[]
-  ): Promise<Item[]> {
-    try {
-      const escapedId = containerId.replace(/"/g, '\\"');
-      const result = await this.getList(
-        1,
-        500,
-        `ContainerRef="${escapedId}"`,
-        undefined,
-        expand
-      );
-      return result.items;
-    } catch (error) {
-      return this.errorWrapper(error);
-    }
+    options: ItemListQuery = {}
+  ): Promise<ListResult<Item>> {
+    const { filters, ...list } = options;
+    return await this.search('', {
+      ...list,
+      filters: { ...filters, container: containerId },
+    });
   }
 
   /**
    * Get distinct category values from all items
    * @returns Object containing arrays of unique category values
    */
-  async getDistinctCategories(): Promise<CategoryLibrary> {
+  async getDistinctCategories(
+    options: { perPage?: number } = {}
+  ): Promise<CategoryLibrary> {
     try {
       // Fetch all items (we'll use a large page size to get everything)
-      const result = await this.getList(1, 5000);
+      const result = await this.getList({ perPage: options.perPage ?? 5000 });
       const items = result.items;
 
       // Extract unique values for each category tier

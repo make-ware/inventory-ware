@@ -28,6 +28,21 @@ export interface MutatorOptions {
   sort: string[];
 }
 
+/**
+ * The standard shape for a paged query.
+ *
+ * Every list-style mutator method takes this so callers (notably the CLI) can
+ * thread page/perPage/sort/expand through uniformly instead of remembering a
+ * positional argument order per method.
+ */
+export interface ListQuery {
+  page?: number;
+  perPage?: number;
+  filter?: string | string[];
+  sort?: string;
+  expand?: string | string[];
+}
+
 // T represents the output record type that extends RecordModel
 // InputType represents the input type for creation operations
 export abstract class BaseMutator<T extends RecordModel, InputType> {
@@ -162,20 +177,33 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
   /**
    * Get list of entities
    */
+  async getList(query?: ListQuery): Promise<ListResult<T>>;
   async getList(
-    page = 1,
+    page?: number,
+    perPage?: number,
+    filter?: string | string[],
+    sort?: string,
+    expand?: string | string[]
+  ): Promise<ListResult<T>>;
+  async getList(
+    pageOrQuery: number | ListQuery = 1,
     perPage = 100,
     filter?: string | string[],
     sort?: string,
     expand?: string | string[]
   ): Promise<ListResult<T>> {
+    const query: ListQuery =
+      typeof pageOrQuery === 'object' && pageOrQuery !== null
+        ? pageOrQuery
+        : { page: pageOrQuery, perPage, filter, sort, expand };
+
     try {
       const result = await this.entityGetList(
-        page,
-        perPage,
-        filter,
-        sort,
-        expand
+        query.page ?? 1,
+        query.perPage ?? 100,
+        query.filter,
+        query.sort,
+        query.expand
       );
       return await this.processListResult(result);
     } catch (error) {
@@ -292,8 +320,11 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
       return undefined;
     }
 
-    // Join with AND operator
-    return validFilters.join('&&');
+    // Join with AND, parenthesising each part so a part containing `||`
+    // cannot change how the whole expression binds. A single part is left
+    // as-is to keep simple filters readable.
+    if (validFilters.length === 1) return validFilters[0];
+    return validFilters.map((f) => `(${f})`).join(' && ');
   }
 
   /**

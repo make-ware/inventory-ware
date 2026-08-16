@@ -40,6 +40,8 @@ Single-test / single-workspace:
 
 **Data layer — always go through `shared` mutators.** All PocketBase reads/writes in the webapp use the mutator classes in `shared/src/mutators/` (`ItemMutator`, `ContainerMutator`, `ImageMutator`, `ImageMetadataMutator`, `UserMutator`). They extend `BaseMutator`, validate input via Zod, and return typed records. Do **not** call `pb.collection(...)` directly from app code — tests and consumers assume the mutator layer handles validation, default expands/filters/sorts, and error normalization. When adding a collection, add its schema in `shared/src/schema/`, a mutator in `shared/src/mutators/`, and re-export from `shared/src/index.ts`.
 
+**Filters are built in the mutator layer, never in app or CLI code.** List flows go through `<Entity>Mutator.search(query, options)`, which returns a `ListResult<T>` and builds its PocketBase filter with the helpers in `shared/src/utils/filter.ts` (`eq`, `like`, `anyOf`, `allOf`). Never interpolate a user-supplied value into a filter string — `escapeFilterValue` handles quoting, and `isUnrepresentableFilterValue` flags the one case PocketBase cannot parse (a trailing backslash). All list methods take the standard `ListQuery` (`page`, `perPage`, `filter`, `sort`, `expand`); `BaseMutator.getList` accepts it as an object or as the legacy positional arguments.
+
 **Client-side only PocketBase access.** The webapp deliberately does not use SSR for PocketBase data (see `docs/PB_SSR.md`). `webapp/src/lib/pocketbase-client.ts` is a `'use client'` singleton with `autoCancellation(false)`; its URL resolves from `NEXT_PUBLIC_POCKETBASE_URL` and supports relative paths for nginx routing. Any module importing from `@/lib/pocketbase-client` should itself be client-only. Server-side code (Next.js route handlers under `webapp/src/app/api/` and `webapp/src/app/api-next/`) uses `@/lib/pocketbase-server` instead.
 
 **Shared package must be built before the webapp resolves imports.** The webapp imports from `dist/`, so when editing `shared/` either run `yarn dev` (which includes the shared watcher) or `yarn workspace @project/shared build`. After schema changes in PocketBase, run `yarn typegen` to refresh `shared/src/pocketbase-types.ts`.
@@ -59,7 +61,16 @@ with a bearer token, so the CLI never needs `OPENAI_API_KEY`. It takes a single
 absolute `APP_URL` (flag `--url`) for both services, since nginx serves them on
 one origin split by path; unset, it falls back to `localhost:8090`/`localhost:3000`.
 It deliberately ignores `POCKETBASE_URL`, which is the webapp's server-side
-internal address. Root `build` and
+internal address. Every list-style command (`item list`, `container list`, `image list`,
+`container items`) shares one flag set built by `addQueryOptions` in
+`cli/src/query/` — `-q/--search`, `--sort`, `--expand`, `--fields`, `--page`,
+`--per-page`, `--all`, `--count`, `--json` — plus per-entity filters declared
+in `cli/src/query/spec.ts`. Add a new list command by writing an `EntitySpec`
+rather than hand-rolling flags. `search` subcommands are thin aliases for
+`list --search`. Usage errors all exit `2` and print the usage line, targeted
+hints and a `--help` pointer: `program.ts` routes Commander's own parse errors
+through `reportError`, and argParsers must throw `InvalidArgumentError` (not a
+plain `Error`) for Commander to report them. Root `build` and
 `typecheck` use `yarn workspaces foreach -A -t` — the `-t` (topological) flag
 is required, since `foreach` otherwise iterates alphabetically and would build
 `cli` before `shared`.

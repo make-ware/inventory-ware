@@ -1,11 +1,22 @@
 // Mutator exports
-export { BaseMutator, type MutatorOptions } from './base';
+export { BaseMutator, type MutatorOptions, type ListQuery } from './base';
 export { UserMutator } from './user';
-export { ImageMutator } from './image';
+export {
+  ImageMutator,
+  type ImageSearchFilters,
+  type ImageListQuery,
+} from './image';
 export { ImageMetadataMutator } from './image-metadata';
 export {
   ItemMutator,
   type ItemSearchFilters,
+  type ItemListQuery,
   type CategoryLibrary,
+  ITEM_SEARCH_FIELDS,
 } from './item';
-export { ContainerMutator } from './container';
+export {
+  ContainerMutator,
+  type ContainerSearchFilters,
+  type ContainerListQuery,
+  CONTAINER_SEARCH_FIELDS,
+} from './container';

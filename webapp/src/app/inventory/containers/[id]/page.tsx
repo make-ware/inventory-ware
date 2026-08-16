@@ -71,13 +71,15 @@ export default function ContainerDetailPage() {
       setContainer(containerData);
 
       // Load items in this container with expanded ImageRef
-      const items = await itemMutator.getByContainer(containerId, 'ImageRef');
+      const items = (
+        await itemMutator.getByContainer(containerId, { expand: 'ImageRef' })
+      ).items;
       setContainerItems(items);
 
       // Load all items (for add item dropdown)
       const allItemsResult = await itemMutator.search('');
       // Filter out items already in this container
-      const availableItems = allItemsResult.filter(
+      const availableItems = allItemsResult.items.filter(
         (item) => item.ContainerRef !== containerId
       );
       setAllItems(availableItems);

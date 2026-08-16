@@ -6,16 +6,30 @@ import {
 } from 'pocketbase-zod-schema';
 import { z } from 'zod';
 
+/**
+ * The canonical image enumerations.
+ *
+ * Exported as const tuples so consumers (the CLI's `--type`/`--status` flags,
+ * mutator signatures) can validate against the same list the schemas use,
+ * instead of redeclaring it and drifting.
+ */
+export const IMAGE_TYPES = ['item', 'container', 'unprocessed'] as const;
+export const ANALYSIS_STATUSES = [
+  'pending',
+  'processing',
+  'completed',
+  'failed',
+] as const;
+
+export type ImageType = (typeof IMAGE_TYPES)[number];
+export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number];
+
 // Define the Zod schema for image input (for creating new images)
 export const ImageInputSchema = z.object({
   file: FileField(),
   fileHash: z.string().nullable().optional(),
-  imageType: z
-    .enum(['item', 'container', 'unprocessed'])
-    .default('unprocessed'),
-  analysisStatus: z
-    .enum(['pending', 'processing', 'completed', 'failed'])
-    .default('pending'),
+  imageType: z.enum(IMAGE_TYPES).default('unprocessed'),
+  analysisStatus: z.enum(ANALYSIS_STATUSES).default('pending'),
   UserRef: RelationField({ collection: 'Users' }),
 });
 
@@ -23,10 +37,8 @@ export const ImageInputSchema = z.object({
 export const ImageUpdateSchema = z.object({
   file: FileField().optional(),
   fileHash: z.string().nullable().optional(),
-  imageType: z.enum(['item', 'container', 'unprocessed']).optional(),
-  analysisStatus: z
-    .enum(['pending', 'processing', 'completed', 'failed'])
-    .optional(),
+  imageType: z.enum(IMAGE_TYPES).optional(),
+  analysisStatus: z.enum(ANALYSIS_STATUSES).optional(),
   UserRef: RelationField({ collection: 'Users' }).optional(),
 });
 
@@ -36,12 +48,8 @@ export const ImageSchema = z
   .object({
     file: FileField(),
     fileHash: z.string().nullable().optional(),
-    imageType: z
-      .enum(['item', 'container', 'unprocessed'])
-      .default('unprocessed'),
-    analysisStatus: z
-      .enum(['pending', 'processing', 'completed', 'failed'])
-      .default('pending'),
+    imageType: z.enum(IMAGE_TYPES).default('unprocessed'),
+    analysisStatus: z.enum(ANALYSIS_STATUSES).default('pending'),
     UserRef: RelationField({ collection: 'Users' }),
   })
   .extend(baseSchema);

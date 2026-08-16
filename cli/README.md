@@ -108,8 +108,8 @@ iw login                       # authenticate (Users collection); caches a token
 iw logout                      # clear the cached session
 iw whoami                      # show the current user
 
-iw item list                   # list items (--container, --page, --per-page, --sort)
-iw item search <query>         # search label/name/notes/manufacturer
+iw item list                   # list/search/filter items
+iw item search <query>         # alias for `item list --search <query>`
 iw item get <id>               # show one item
 iw item create --label <l> --functional <c> --specific <c> --type <t>
 iw item update <id> [flags]    # update fields
@@ -121,16 +121,102 @@ iw container items <id>        # items inside a container
 
 iw image upload <file...>      # upload images (--type, --analyze)
 iw image analyze <id>          # run AI analysis on an uploaded image
-iw image list                  # list images (--status)
+iw image list                  # list/filter images
 iw image get <id>
 iw image url <id>              # print the file download URL
 ```
 
-Every read command accepts `--json` for scripting:
+## Query flags
+
+`item list`, `container list`, `image list` and `container items` all take the
+**same** flags. Learn them once and they transfer between entities.
+
+| Flag                     | Short | Default    | Meaning                                          |
+| ------------------------ | ----- | ---------- | ------------------------------------------------ |
+| `--search <text>`        | `-q`  | —          | free-text match across the entity's text fields   |
+| `--sort <expr>`          | `-s`  | `-created` | comma list; prefix a field with `-` for descending |
+| `--expand <relations>`   | `-e`  | —          | comma list of relations to expand                 |
+| `--fields <names>`       |       | per entity | comma list of columns to show                     |
+| `--page <n>`             |       | `1`        | page number                                       |
+| `--per-page <n>`         |       | `100`      | results per page (max 500)                        |
+| `--all`                  |       | off        | fetch every page                                  |
+| `--count`                |       | off        | print only the number of matches                  |
+| `--json`                 |       | off        | machine-readable output                           |
+
+Entity-specific filters:
+
+| Entity      | Filters                                                              |
+| ----------- | -------------------------------------------------------------------- |
+| `item`      | `-c/--container`, `-i/--image`, `--functional`, `--specific`, `-t/--type` |
+| `container` | `-i/--image`                                                          |
+| `image`     | `--status`, `-t/--type`                                               |
+
+```bash
+iw item list -q drill --type "Cordless Drill" --sort itemLabel --per-page 20
+iw item list --container abc123 --fields id,itemLabel --json
+iw image list --status pending --page 2 --per-page 10
+iw container items abc123 --sort itemLabel --all
+```
+
+`iw item search <query>` and `iw container search <query>` are aliases that
+accept the identical flag set; they exist so older scripts keep working.
+
+**Valid values are listed in `--help`.** Every list command prints its sort
+fields, expandable relations and selectable fields at the bottom of
+`iw <entity> list --help`, and names them again if you get one wrong.
+
+### Pagination
+
+`--all` walks every page for you and is the right flag for scripting. It
+conflicts with `--page` (rather than silently ignoring one of them). It fetches
+200 records per request unless you set `--per-page`, and stops at 10,000
+records, in which case it warns on stderr and sets `"truncated": true` in the
+JSON envelope.
+
+Without `--json`, a footer shows where you are — `Showing 1-20 of 137 (page
+1/7) · next: --page 2`. It is printed only to a terminal, so pipes stay clean.
+
+### JSON output
+
+Every list command emits the **same** envelope, so one `jq` expression works
+everywhere:
 
 ```bash
 iw item list --json | jq -r '.items[].itemLabel'
+iw container items abc123 --json | jq -r '.items[].itemLabel'
+iw item list --count --json | jq '.totalItems'
 ```
+
+```json
+{ "page": 1, "perPage": 100, "totalItems": 137, "totalPages": 2, "items": [] }
+```
+
+`--fields` narrows the objects in `items` as well as the table columns.
+
+## Errors
+
+Usage mistakes print the message, the usage line, targeted hints, and a pointer
+to the full help — never a wall of text:
+
+```console
+$ iw item list --sort -crated
+error: Unknown sort field "crated" in --sort.
+
+Usage: iw item list [options]
+hint: did you mean "created"?
+hint: valid sort fields: id, created, updated, @random, itemLabel, itemName, ...
+hint: prefix with "-" for descending, e.g. --sort -created
+Run `iw item list --help` for all options.
+```
+
+Errors that help text cannot fix (not logged in, record not found, network
+failures) print just the message and a hint.
+
+Exit codes: `1` general, `2` usage, `3` not found, `4` not authenticated,
+`5` API/network. **All usage errors exit `2`**, including Commander's own parse
+errors, which previously exited `1`.
+
+Pass `-v/--verbose` to see the underlying error and stack trace.
 
 Custom attributes are repeatable `name=value` pairs:
 
@@ -155,8 +241,12 @@ iw item create --label Drill --functional Tools --specific "Power Tools" \
 - **`item update` is validated by the CLI**, not by the mutator —
   `BaseMutator.update()` skips `validateInput`, so the CLI runs
   `ItemUpdateSchema` before sending the patch.
-- Exit codes: `1` general, `2` usage, `3` not found, `4` not authenticated,
-  `5` API/network.
+- **Filters are built in the mutator layer**, never by string-interpolating in
+  the CLI, so search text and ids are escaped. One case cannot be represented
+  at all: PocketBase's filter parser rejects every escaping of a value ending
+  in a backslash, so the CLI rejects that input up front with an explanation.
+- **`iw item search` / `iw container search` are aliases** for
+  `list --search <query>`; they run the same code and take the same flags.
 
 ## Tests
 

@@ -55,7 +55,13 @@ describe('InventoryProvider', () => {
           getDistinctCategories: vi
             .fn()
             .mockResolvedValue({ functional: [], specific: [], itemType: [] }),
-          search: vi.fn().mockResolvedValue([]),
+          search: vi.fn().mockResolvedValue({
+            page: 1,
+            perPage: 100,
+            totalItems: 0,
+            totalPages: 0,
+            items: [],
+          }),
         };
       }
     );
