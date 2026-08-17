@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.6.0...inventory-ware-v0.6.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* increase image max size ([4657ebf](https://github.com/make-ware/inventory-ware/commit/4657ebf454c3488ee44e34583c2993e4c2d0a920))
+
 ## [0.6.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.5.2...inventory-ware-v0.6.0) (2026-08-17)
 
 
