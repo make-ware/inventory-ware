@@ -101,6 +101,8 @@ jobs:
           fi
 
           echo "image=$DOCKERHUB_IMAGE" >> "$GITHUB_OUTPUT"
+          # peter-evans/dockerhub-description wants namespace/name, no registry.
+          echo "repository=${DOCKERHUB_IMAGE#"$DOCKERHUB_REGISTRY/"}" >> "$GITHUB_OUTPUT"
 
           # Newline-separated list consumed by docker/metadata-action.
           {
@@ -180,6 +182,40 @@ jobs:
           cache-to: type=gha,mode=max,scope=monolith
           build-args: |
             POCKETBASE_VERSION=0.35.0
+
+      # Compose the Docker Hub overview from only the most recent release
+      # section of the changelog. Pushing the full changelog would eventually
+      # exceed Docker Hub's 25,000-byte cap and be blindly truncated, breaking
+      # the markdown; one release section stays well under the limit.
+      - name: Compose Docker Hub description
+        if: steps.dockerhub.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+
+          # Most recent release: lines from the first "## [" version heading up
+          # to (but not including) the next one.
+          {
+            echo "📦 Source: [${GITHUB_SERVER_URL#https://}/${GITHUB_REPOSITORY}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY})"
+            echo
+            echo "# Changelog"
+            echo
+            awk '/^## \[/ { if (++seen == 2) exit } seen' CHANGELOG.md
+          } > DOCKERHUB_README.md
+
+          echo "Docker Hub description: $(wc -c < DOCKERHUB_README.md) bytes"
+
+      # Best-effort: continue-on-error, so a Docker Hub API hiccup can never
+      # fail a build whose images already pushed. The action truncates content
+      # over Docker Hub's 25,000-byte limit and warns in the log.
+      - name: Update Docker Hub description
+        if: steps.dockerhub.outputs.enabled == 'true'
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ steps.dockerhub.outputs.repository }}
+          readme-filepath: ./DOCKERHUB_README.md
 
       - name: Generate build summary
         run: |
