@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.6.1...inventory-ware-v0.6.2) (2026-08-17)
+
+
+### Bug Fixes
+
+* make page layouts and CTAs mobile friendly ([bb1676e](https://github.com/make-ware/inventory-ware/commit/bb1676e5beac46f8b803f2b13e19084f2e7b666d))
+
 ## [0.6.1](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.6.0...inventory-ware-v0.6.1) (2026-08-17)
 
 
