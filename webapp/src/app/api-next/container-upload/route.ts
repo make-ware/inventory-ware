@@ -4,10 +4,12 @@ import {
   createServerPocketBaseClient,
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
+import { aiConfigErrorResponse } from '@/lib/ai-error-response';
 
 /**
  * API route to process a container image upload with intelligent upsert
- * This ensures environment variables (like OPENAI_API_KEY) are available
+ * This ensures environment variables (like the AI provider credentials)
+ * are available
  *
  * Validates Requirements: 7.1, 7.2, 7.3, 7.4
  */
@@ -106,6 +108,8 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error('Error processing container image upload:', error);
+    const aiError = aiConfigErrorResponse(error);
+    if (aiError) return aiError;
     return NextResponse.json(
       {
         error:

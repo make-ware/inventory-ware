@@ -94,6 +94,13 @@ else
     echo "Warning: Using default admin password - superuser creation skipped. Set POCKETBASE_ADMIN_PASSWORD to auto-create superuser." >&2
 fi
 
+# AI image analysis is optional; warn once rather than failing the container.
+# No defaults are exported for AI_PROVIDER/AI_MODEL: an empty default would
+# defeat provider auto-detection and the built-in per-provider model defaults.
+if [ -z "${OPENAI_API_KEY}" ] && [ -z "${GEMINI_API_KEY}" ] && [ -z "${GOOGLE_GENERATIVE_AI_API_KEY}" ]; then
+    echo "Warning: No AI provider key set (OPENAI_API_KEY or GEMINI_API_KEY). Image analysis will be disabled." >&2
+fi
+
 # =============================================================================
 # Step 4: Setup signal handlers for graceful shutdown
 # =============================================================================

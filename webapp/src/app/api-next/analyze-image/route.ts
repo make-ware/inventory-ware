@@ -4,6 +4,7 @@ import {
   createServerPocketBaseClient,
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
+import { aiConfigErrorResponse } from '@/lib/ai-error-response';
 
 /**
  * API route to analyze an existing image server-side
@@ -61,6 +62,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error analyzing image:', error);
+    const aiError = aiConfigErrorResponse(error);
+    if (aiError) return aiError;
     return NextResponse.json(
       {
         error:

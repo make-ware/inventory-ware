@@ -17,6 +17,7 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.44",
     "@ai-sdk/openai": "^4.0.24",
     "@ai-sdk/react": "^4.0.45",
     "@hookform/resolvers": "^5.5.7",

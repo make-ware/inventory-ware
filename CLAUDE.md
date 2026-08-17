@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Inventory Ware is a self-hosted inventory management app that labels items via AI image analysis (OpenAI) and stores them in PocketBase. The repo is a Yarn v4 workspace monorepo; Node ≥22 is required.
+Inventory Ware is a self-hosted inventory management app that labels items via AI image analysis (OpenAI or Google Gemini, selectable via env) and stores them in PocketBase. The repo is a Yarn v4 workspace monorepo; Node ≥22 is required.
 
 Workspaces:
 - `@project/webapp` — Next.js 16 (App Router, React 19, Tailwind v4, shadcn/ui)
@@ -46,7 +46,9 @@ Single-test / single-workspace:
 
 **Shared package must be built before the webapp resolves imports.** The webapp imports from `dist/`, so when editing `shared/` either run `yarn dev` (which includes the shared watcher) or `yarn workspace @project/shared build`. After schema changes in PocketBase, run `yarn typegen` to refresh `shared/src/pocketbase-types.ts`.
 
-**AI image pipeline.** `webapp/src/services/inventory.ts` orchestrates upload → OpenAI vision analysis → entity creation (Item/Container/Image). The actual vision call lives in `webapp/src/services/ai-analysis.ts` and is invoked from the Next.js route handlers in `webapp/src/app/api-next/analyze-image/` and `webapp/src/app/api-next/process-image/`. Images are downloaded from PocketBase and base64-encoded before being sent to OpenAI because OpenAI cannot reach localhost URLs. `OPENAI_API_KEY` is required for this flow.
+**AI image pipeline.** `webapp/src/services/inventory.ts` orchestrates upload → vision analysis → entity creation (Item/Container/Image). The actual vision call lives in `webapp/src/services/ai-analysis.ts` and is invoked from the Next.js route handlers in `webapp/src/app/api-next/analyze-image/` and `webapp/src/app/api-next/process-image/`. Images are downloaded from PocketBase and base64-encoded before being sent to the provider, because providers cannot reach localhost URLs.
+
+**AI provider selection.** `webapp/src/services/ai-config.ts` resolves provider, model, credential and base URL from the environment (`AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`); `webapp/src/services/ai-provider.ts` is the only module that imports a vendor SDK, and `ai-analysis.ts` just calls `getLanguageModel()`. Misconfiguration is tiered: an unusable model id falls back to the provider default with a warning, while a missing API key throws `AIConfigError` and the AI routes return **503 `AI_NOT_CONFIGURED`**. `resolveAIConfig` is pure (env in, config out) — add provider entries and test them there, not in the service. Neither `ai-config.ts` nor `ai-provider.ts` may use `import 'server-only'`: the `@/services` barrel is imported by `'use client'` modules, so a server-only marker anywhere in that graph breaks the client build.
 
 **Audit trail via PocketBase hooks.** `pocketbase/pb_hooks/main.pb.js` writes to the `ItemRecords` and `ContainerRecords` collections on create/update to capture field-level diffs, and also maintains the `ItemImages`/`ContainerImages` mapping collections when `ImageRef`/`boundingBox` change. Field-level changes power `item-history.tsx`. If you add a new tracked field, update the hook's blacklist/handling accordingly.
 
@@ -57,7 +59,7 @@ and passes it into the shared mutators — there is no auth helper in `shared`,
 and `UserRef` is never auto-filled, so the CLI supplies
 `pb.authStore.record.id` explicitly on every create. It does **not** duplicate
 the AI pipeline: `iw image analyze` POSTs to the webapp's `/api-next` routes
-with a bearer token, so the CLI never needs `OPENAI_API_KEY`. It takes a single
+with a bearer token, so the CLI never needs an AI provider key. It takes a single
 absolute `APP_URL` (flag `--url`) for both services, since nginx serves them on
 one origin split by path; unset, it falls back to `localhost:8090`/`localhost:3000`.
 It deliberately ignores `POCKETBASE_URL`, which is the webapp's server-side
@@ -79,7 +81,7 @@ is required, since `foreach` otherwise iterates alphabetically and would build
 
 ## Environment
 
-Copy `.env.example` to `.env` at repo root. Keys in use: `POCKETBASE_URL`, `POCKETBASE_ADMIN_EMAIL`, `POCKETBASE_ADMIN_PASSWORD` (used by setup/migrations), `NEXT_PUBLIC_POCKETBASE_URL` (embedded at webapp build time), `OPENAI_API_KEY` (required for AI analysis routes).
+Copy `.env.example` to `.env` at repo root. Keys in use: `POCKETBASE_URL`, `POCKETBASE_ADMIN_EMAIL`, `POCKETBASE_ADMIN_PASSWORD` (used by setup/migrations), `NEXT_PUBLIC_POCKETBASE_URL` (embedded at webapp build time), and the AI block — `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. At least one provider key is required for the AI analysis routes.
 
 ## Releases & CI
 

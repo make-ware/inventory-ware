@@ -5,10 +5,12 @@ import {
   createServerPocketBaseClient,
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
+import { aiConfigErrorResponse } from '@/lib/ai-error-response';
 
 /**
  * API route to process an existing image server-side
- * This ensures environment variables (like OPENAI_API_KEY) are available
+ * This ensures environment variables (like the AI provider credentials)
+ * are available
  */
 export async function POST(
   request: NextRequest,
@@ -76,16 +78,6 @@ export async function POST(
       );
     }
 
-    // Debug: Log that we're in server context (don't log the actual key value)
-    if (!process.env.OPENAI_API_KEY) {
-      console.warn(
-        'OPENAI_API_KEY not found in API route. Available env vars:',
-        Object.keys(process.env)
-          .filter((k) => k.includes('OPENAI') || k.includes('API'))
-          .join(', ') || 'none'
-      );
-    }
-
     // Create service server-side where env vars are available
     const service = createInventoryService(pb);
 
@@ -100,6 +92,9 @@ export async function POST(
     });
   } catch (error: unknown) {
     console.error('Error processing image:', error);
+
+    const aiError = aiConfigErrorResponse(error);
+    if (aiError) return aiError;
 
     // Handle 404 errors specifically
     const err = error as { status?: number; response?: { code?: number } };

@@ -54,7 +54,7 @@ async function downloadImageAsBase64(
   const mimeType = blob.type || 'image/jpeg';
 
   // Return as data URL
-  return `data:${mimeType}; base64, ${base64} `;
+  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
@@ -64,7 +64,7 @@ async function fileToBase64(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString('base64');
   const mimeType = file.type || 'image/jpeg';
-  return `data:${mimeType}; base64, ${base64} `;
+  return `data:${mimeType};base64,${base64}`;
 }
 
 /**
@@ -419,7 +419,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
         throw new Error(`Image with ID ${imageId} not found`);
       }
 
-      // Download image and convert to base64 for AI analysis (OpenAI cannot access localhost URLs)
+      // Download image and convert to base64 for AI analysis (providers cannot access localhost URLs)
       const imageData = await downloadImageAsBase64(pb, imageMutator, image);
 
       // Get existing categories for context
@@ -482,7 +482,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
       const cachedEntry = await imageMetadataMutator.findByHash(fileHash);
       const cachedMetadata = cachedEntry?.metadata;
 
-      // Download image and convert to base64 for AI analysis (OpenAI cannot access localhost URLs)
+      // Download image and convert to base64 for AI analysis (providers cannot access localhost URLs)
       const imageData = await downloadImageAsBase64(pb, imageMutator, image);
 
       try {

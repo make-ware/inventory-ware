@@ -154,6 +154,25 @@ yarn lint:shared   # Lint only the shared package
 - **Data Directory:** `./pocketbase/pb_data/`
 - **Hooks Directory:** `./pocketbase/pb_hooks/`
 
+### AI Provider
+
+Image analysis runs against OpenAI or Google Gemini. Set the API key for the one
+you want in `.env`:
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | Use OpenAI. Default model `gpt-5.4-2026-03-05`. |
+| `GEMINI_API_KEY` | Use Google Gemini. Default model `gemini-3.5-flash`. |
+| `AI_PROVIDER` | `openai` or `google`. Only needed when both keys are set. |
+| `AI_MODEL` | Override the model for the active provider. |
+| `AI_BASE_URL` | Point at a compatible endpoint (proxy, Azure, local server). |
+
+If exactly one key is present that provider is selected automatically. An
+unusable `AI_MODEL` falls back to the provider default with a warning; with no
+key configured the app runs normally but the AI routes return
+`503 AI_NOT_CONFIGURED`. `OPENAI_MODEL` and `OPENAI_BASE_URL` remain supported
+as legacy aliases.
+
 ### Next.js
 
 - **Dev Server:** http://localhost:3000
