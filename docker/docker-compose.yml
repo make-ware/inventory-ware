@@ -1,14 +1,19 @@
 # Docker Compose configuration for Inventory Ware
-# 
-# This file uses pre-built images from GitHub Container Registry.
-# Images are automatically built and published when releases are created.
 #
-# The same images are mirrored to Docker Hub. To pull from there instead,
-# swap the `ghcr.io/make-ware/` prefixes below for `dastron/`.
+# Only the monolithic image is published (ghcr.io/make-ware/inventory-ware and
+# dastron/inventory-ware). The split webapp/pocketbase images are no longer
+# pushed to any registry, so this file builds those two targets from the
+# Dockerfile in this repo. Run it from a checkout:
+#
+#   docker compose -f docker/docker-compose.yml up -d --build
 
 services:
   pocketbase:
-    image: ghcr.io/make-ware/inventory-ware-pocketbase:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: pocketbase
+    image: inventory-ware-pocketbase:local
     restart: unless-stopped
     ports:
       - "8090:8090"
@@ -23,14 +28,21 @@ services:
       retries: 5
 
   webapp:
-    image: ghcr.io/make-ware/inventory-ware-webapp:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: webapp
+      args:
+        # NEXT_PUBLIC_* values are inlined at build time, so the browser-facing
+        # PocketBase URL has to be passed here, not only as a runtime env var.
+        - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+    image: inventory-ware-webapp:local
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      # Public URL for the browser to access PocketBase
-      - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
-      # Internal URL for SSR to access PocketBase
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Internal URL for server-side route handlers to access PocketBase
       - POCKETBASE_URL=http://pocketbase:8090
       # AI image analysis (optional). Set one provider key and the provider is
       # detected automatically; AI_PROVIDER only disambiguates. Unset variables

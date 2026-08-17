@@ -5,13 +5,19 @@ import {
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
 import { aiConfigErrorResponse } from '@/lib/ai-error-response';
+import { createLogger, errorMessage } from '@/lib/logger';
+
+const log = createLogger('api-next/analyze-image');
 
 /**
  * API route to analyze an existing image server-side
  */
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+
   try {
     const { imageId } = await request.json();
+    log.debug('analyze requested', { imageId });
 
     if (!imageId) {
       return NextResponse.json(
@@ -27,7 +33,7 @@ export async function POST(request: NextRequest) {
     try {
       await authenticateAsUser(pb, request);
     } catch (authError) {
-      console.error('Authentication failed:', authError);
+      log.warn('authentication failed', { reason: errorMessage(authError) });
       return NextResponse.json(
         {
           error:
@@ -54,6 +60,14 @@ export async function POST(request: NextRequest) {
     // Process the existing image
     const result = await service.processExistingImage(imageId, userId);
 
+    log.info('image analyzed', {
+      imageId,
+      userId,
+      items: result.items?.length ?? 0,
+      container: result.container?.id,
+      durationMs: Date.now() - startedAt,
+    });
+
     return NextResponse.json({
       success: true,
       image: result.image,
@@ -61,7 +75,10 @@ export async function POST(request: NextRequest) {
       container: result.container,
     });
   } catch (error) {
-    console.error('Error analyzing image:', error);
+    log.error('image analysis failed', {
+      err: error,
+      durationMs: Date.now() - startedAt,
+    });
     const aiError = aiConfigErrorResponse(error);
     if (aiError) return aiError;
     return NextResponse.json(

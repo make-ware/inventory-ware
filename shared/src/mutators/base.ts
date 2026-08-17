@@ -43,6 +43,66 @@ export interface ListQuery {
   expand?: string | string[];
 }
 
+/** A single field entry from a PocketBase validation response. */
+interface PocketBaseFieldError {
+  code?: string;
+  message?: string;
+}
+
+/**
+ * Pull the per-field reasons out of a PocketBase error response.
+ *
+ * A rejected create/update answers with a bare `"Failed to create record."`
+ * and puts the reason that actually matters under `response.data`, keyed by
+ * field. Anything that only reads `error.message` therefore reports a failure
+ * with no cause attached.
+ */
+function extractFieldErrors(error: unknown): string[] {
+  if (!error || typeof error !== 'object') {
+    return [];
+  }
+
+  const { response } = error as { response?: unknown };
+  if (!response || typeof response !== 'object') {
+    return [];
+  }
+
+  const { data } = response as { data?: unknown };
+  if (!data || typeof data !== 'object') {
+    return [];
+  }
+
+  return Object.entries(data as Record<string, PocketBaseFieldError>)
+    .map(([field, detail]) => {
+      const message = detail?.message?.trim();
+      return message ? `${field}: ${message}` : undefined;
+    })
+    .filter((part): part is string => part !== undefined);
+}
+
+/**
+ * Append the per-field reasons to a PocketBase error's message.
+ *
+ * The error is enriched in place rather than replaced so it stays a
+ * `ClientResponseError` - callers that branch on `status` or read `response`
+ * keep working, and errors we raise ourselves (Zod, argument checks) carry no
+ * `response.data` and so pass through untouched.
+ */
+function withFieldErrorDetails(error: unknown): unknown {
+  const details = extractFieldErrors(error);
+  if (details.length === 0 || !(error instanceof Error)) {
+    return error;
+  }
+
+  const summary = details.join('; ');
+  if (error.message.includes(summary)) {
+    return error;
+  }
+
+  error.message = `${error.message} (${summary})`;
+  return error;
+}
+
 // T represents the output record type that extends RecordModel
 // InputType represents the input type for creation operations
 export abstract class BaseMutator<T extends RecordModel, InputType> {
@@ -490,8 +550,9 @@ export abstract class BaseMutator<T extends RecordModel, InputType> {
    */
 
   protected errorWrapper(error: unknown): never {
-    console.error(`Error in ${this.constructor.name}:`, error);
-    throw error;
+    const detailed = withFieldErrorDetails(error);
+    console.error(`Error in ${this.constructor.name}:`, detailed);
+    throw detailed;
   }
 
   /**

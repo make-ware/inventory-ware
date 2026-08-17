@@ -5,6 +5,9 @@ import {
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
 import { aiConfigErrorResponse } from '@/lib/ai-error-response';
+import { createLogger, errorMessage } from '@/lib/logger';
+
+const log = createLogger('api-next/container-upload');
 
 /**
  * API route to process a container image upload with intelligent upsert
@@ -14,10 +17,17 @@ import { aiConfigErrorResponse } from '@/lib/ai-error-response';
  * Validates Requirements: 7.1, 7.2, 7.3, 7.4
  */
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const containerId = formData.get('containerId') as string;
+    log.debug('container upload received', {
+      containerId,
+      filename: file?.name,
+      bytes: file?.size,
+    });
 
     // Validate required fields
     if (!file) {
@@ -38,7 +48,7 @@ export async function POST(request: NextRequest) {
     try {
       await authenticateAsUser(pb, request);
     } catch (authError) {
-      console.error('Authentication failed:', authError);
+      log.warn('authentication failed', { reason: errorMessage(authError) });
       return NextResponse.json(
         {
           error:
@@ -70,6 +80,17 @@ export async function POST(request: NextRequest) {
         containerId,
         userId
       );
+
+      log.info('container image processed', {
+        containerId,
+        imageId: result.image?.id,
+        userId,
+        bytes: file.size,
+        updatedItems: result.updatedItems?.length ?? 0,
+        createdItems: result.createdItems?.length ?? 0,
+        unmatchedExisting: result.unmatchedExisting?.length ?? 0,
+        durationMs: Date.now() - startedAt,
+      });
 
       return NextResponse.json({
         success: true,
@@ -107,7 +128,10 @@ export async function POST(request: NextRequest) {
       throw serviceError;
     }
   } catch (error) {
-    console.error('Error processing container image upload:', error);
+    log.error('container image upload failed', {
+      err: error,
+      durationMs: Date.now() - startedAt,
+    });
     const aiError = aiConfigErrorResponse(error);
     if (aiError) return aiError;
     return NextResponse.json(

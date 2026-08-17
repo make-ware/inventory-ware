@@ -5,6 +5,9 @@
  * an argument so it can be unit-tested without mutating `process.env`. No
  * vendor SDKs are imported here — see `ai-provider.ts` for client construction.
  */
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ai-config');
 
 /**
  * Providers supported for image analysis.
@@ -240,7 +243,7 @@ export function getAIConfig(): ResolvedAIConfig {
   if (!cached) {
     cached = resolveAIConfig(process.env);
     for (const warning of cached.warnings) {
-      console.warn(`[ai-config] ${warning}`);
+      log.warn(warning, { provider: cached.provider, model: cached.model });
     }
   }
   return cached;

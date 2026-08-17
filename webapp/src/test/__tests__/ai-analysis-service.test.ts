@@ -88,14 +88,27 @@ describe('AIAnalysisService', () => {
     await expect(service.determineImageType(IMAGE)).resolves.toBe('container');
   });
 
-  it('sends the image as an image content part', async () => {
+  it('sends the image as a file content part with its media type', async () => {
     generateObject.mockResolvedValueOnce({ object: { type: 'item' } });
 
     await createAIAnalysisService().determineImageType(IMAGE);
 
     expect(generateObject.mock.calls[0][0].messages[0].content).toContainEqual({
-      type: 'image',
-      image: IMAGE,
+      type: 'file',
+      mediaType: 'image/jpeg',
+      data: IMAGE,
+    });
+  });
+
+  it('falls back to image/jpeg when the payload is not a data URL', async () => {
+    generateObject.mockResolvedValueOnce({ object: { type: 'item' } });
+
+    await createAIAnalysisService().determineImageType('AAAA');
+
+    expect(generateObject.mock.calls[0][0].messages[0].content).toContainEqual({
+      type: 'file',
+      mediaType: 'image/jpeg',
+      data: 'AAAA',
     });
   });
 

@@ -294,7 +294,7 @@ export default function ItemDetailPage() {
           {/* Item Image Upload */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Upload New Image</CardTitle>
+              <CardTitle className="text-lg">Replace Image</CardTitle>
             </CardHeader>
             <CardContent>
               <ItemImageUpload

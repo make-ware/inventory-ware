@@ -5,6 +5,8 @@ export { ContainerUpdateForm } from './container-update-form';
 export { ContainerImageUpload } from './container-image-upload';
 export { ImageCard } from './image-card';
 export { ImageUpload } from './image-upload';
+export { InventoryUploadBar } from './inventory-upload-bar';
+export { UploadDropzone } from './upload-dropzone';
 export { ItemCard } from './item-card';
 export { ItemCreateForm } from './item-create-form';
 export { ItemUpdateForm } from './item-update-form';

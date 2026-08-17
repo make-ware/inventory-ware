@@ -3,11 +3,10 @@
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import pb from '@/lib/pocketbase-client';
+import { UploadDropzone } from './upload-dropzone';
 import type { ItemsResponse, ImagesResponse } from '@project/shared';
 
 interface ItemImageUploadProps {
@@ -15,6 +14,7 @@ interface ItemImageUploadProps {
   onSuccess?: (result: ItemUploadResult) => void;
   onError?: (error: Error) => void;
   acceptedTypes?: string[];
+  className?: string;
 }
 
 interface ItemUploadResult {
@@ -30,6 +30,7 @@ export function ItemImageUpload({
   onSuccess,
   onError,
   acceptedTypes = ['image/jpeg', 'image/png', 'image/webp'],
+  className,
 }: ItemImageUploadProps) {
   const [stage, setStage] = useState<UploadStage>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -112,17 +113,23 @@ export function ItemImageUpload({
 
   const getStatusIcon = () => {
     if (stage === 'success') {
-      return <CheckCircle2 className="h-12 w-12 text-green-500" />;
+      return <CheckCircle2 className="h-5 w-5 text-green-500" />;
     }
     if (stage === 'error') {
-      return <AlertCircle className="h-12 w-12 text-destructive" />;
+      return <AlertCircle className="h-5 w-5 text-destructive" />;
     }
     if (isProcessing) {
-      return (
-        <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-      );
+      return <Loader2 className="h-5 w-5 animate-spin" />;
     }
-    return <Upload className="h-12 w-12 text-muted-foreground" />;
+    return <Upload className="h-5 w-5" />;
+  };
+
+  const getDropzoneState = () => {
+    if (stage === 'success') return 'success' as const;
+    if (stage === 'error') return 'error' as const;
+    if (isProcessing) return 'busy' as const;
+    if (isDragActive) return 'active' as const;
+    return 'idle' as const;
   };
 
   const getStatusText = () => {
@@ -152,29 +159,15 @@ export function ItemImageUpload({
 
   return (
     <div className="space-y-4">
-      <Card
-        className={cn(
-          'border-2 border-dashed transition-colors',
-          isDragActive && 'border-primary bg-primary/5',
-          isProcessing && 'border-primary/50',
-          stage === 'success' && 'border-green-500',
-          stage === 'error' && 'border-destructive'
-        )}
-      >
-        <CardContent
-          {...getRootProps()}
-          className="flex flex-col items-center justify-center p-8 cursor-pointer"
-        >
-          <input {...getInputProps()} />
-          {getStatusIcon()}
-          <p className="mt-4 text-sm text-center text-muted-foreground">
-            {getStatusText()}
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Supported formats: JPEG, PNG, WebP
-          </p>
-        </CardContent>
-      </Card>
+      <UploadDropzone
+        rootProps={getRootProps()}
+        inputProps={getInputProps()}
+        className={className}
+        state={getDropzoneState()}
+        icon={getStatusIcon()}
+        label={getStatusText()}
+        hint="JPEG, PNG or WebP"
+      />
 
       {/* Error Display */}
       {stage === 'error' && error && (

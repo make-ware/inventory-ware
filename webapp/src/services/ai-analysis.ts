@@ -10,6 +10,53 @@ import type {
   ContainerImageMetadata,
 } from '@project/shared';
 import { getLanguageModel } from './ai-provider';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('ai-analysis');
+
+/**
+ * Runs one model call, recording what it cost. A vision call is the slowest and
+ * most expensive thing this app does, and until now it produced no log line at
+ * all - an upload that hung on the provider looked identical to one that was
+ * never made.
+ */
+async function traced<T>(operation: string, run: () => Promise<T>): Promise<T> {
+  const model = getLanguageModel();
+  const modelId =
+    typeof model === 'string'
+      ? model
+      : `${model.provider ?? 'unknown'}/${model.modelId ?? 'unknown'}`;
+  const startedAt = Date.now();
+
+  log.debug('model call started', { operation, model: modelId });
+
+  try {
+    const result = await run();
+    const usage = (
+      result as {
+        usage?: { inputTokens?: number; outputTokens?: number };
+      }
+    ).usage;
+
+    log.info('model call complete', {
+      operation,
+      model: modelId,
+      durationMs: Date.now() - startedAt,
+      inputTokens: usage?.inputTokens,
+      outputTokens: usage?.outputTokens,
+    });
+
+    return result;
+  } catch (err) {
+    log.error('model call failed', {
+      operation,
+      model: modelId,
+      durationMs: Date.now() - startedAt,
+      err,
+    });
+    throw err;
+  }
+}
 
 /**
  * Category library for maintaining consistency across AI analysis
@@ -42,6 +89,19 @@ Existing example categories for your reference:
 - Specific: ${existingCategories.specific.join(', ') || 'None yet'}
 - Item Types: ${existingCategories.itemType.join(', ') || 'None yet'}
 `;
+}
+
+/**
+ * Wrap a base64 data URL as an AI SDK `file` content part.
+ *
+ * The older `{ type: 'image', image }` part is deprecated; a `file` part wants
+ * the media type declared alongside the payload, so split it back out of the
+ * data URL and fall back to JPEG for anything that is not one.
+ */
+function imageFilePart(imageData: string) {
+  const mediaType =
+    /^data:(image\/[^;,]+)/.exec(imageData)?.[1] ?? 'image/jpeg';
+  return { type: 'file' as const, mediaType, data: imageData };
 }
 
 /**
@@ -94,28 +154,30 @@ export interface AIAnalysisService {
 export function createAIAnalysisService(): AIAnalysisService {
   return {
     async determineImageType(imageData: string): Promise<'item' | 'container'> {
-      const { object } = await generateObject({
-        model: getLanguageModel(),
-        schema: z.object({
-          type: z
-            .enum(['item', 'container'])
-            .describe(
-              'Whether image shows a single item or a container with multiple items'
-            ),
-        }),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Determine if this image shows a single inventory item or a container/box with multiple items inside.',
-              },
-              { type: 'image', image: imageData },
-            ],
-          },
-        ],
-      });
+      const { object } = await traced('determine-image-type', () =>
+        generateObject({
+          model: getLanguageModel(),
+          schema: z.object({
+            type: z
+              .enum(['item', 'container'])
+              .describe(
+                'Whether image shows a single item or a container with multiple items'
+              ),
+          }),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Determine if this image shows a single inventory item or a container/box with multiple items inside.',
+                },
+                imageFilePart(imageData),
+              ],
+            },
+          ],
+        })
+      );
       return object.type;
     },
 
@@ -131,51 +193,55 @@ export function createAIAnalysisService(): AIAnalysisService {
 
       if (imageType === 'item') {
         // Analyze single item
-        const { object } = await generateObject({
-          model: getLanguageModel(),
-          schema: ItemImageMetadataSchema,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Analyze this image of an inventory item. Extract detailed metadata including label, notes, categories, manufacturer, and attributes.
+        const { object } = await traced('analyze-item-image', () =>
+          generateObject({
+            model: getLanguageModel(),
+            schema: ItemImageMetadataSchema,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: `Analyze this image of an inventory item. Extract detailed metadata including label, notes, categories, manufacturer, and attributes.
 
 ${categoryContext}
 
 Be thorough and specific in your analysis. Include relevant attributes like dimensions, specifications, quantities, colors, or other distinguishing features.
 Return the final result as a structured object.`,
-                },
-                { type: 'image', image: imageData },
-              ],
-            },
-          ],
-        });
+                  },
+                  imageFilePart(imageData),
+                ],
+              },
+            ],
+          })
+        );
         return { type: 'item', data: object };
       } else {
         // Analyze container with multiple items
-        const { object } = await generateObject({
-          model: getLanguageModel(),
-          schema: ContainerImageMetadataSchema,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: `Analyze this image of a container with multiple items. Extract metadata for the container and each visible item inside.
+        const { object } = await traced('analyze-container-image', () =>
+          generateObject({
+            model: getLanguageModel(),
+            schema: ContainerImageMetadataSchema,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: `Analyze this image of a container with multiple items. Extract metadata for the container and each visible item inside.
 
 ${categoryContext}
 
 For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.
 Return the final result as a structured object.`,
-                },
-                { type: 'image', image: imageData },
-              ],
-            },
-          ],
-        });
+                  },
+                  imageFilePart(imageData),
+                ],
+              },
+            ],
+          })
+        );
         return { type: 'container', data: object };
       }
     },
@@ -219,16 +285,19 @@ When analyzing the new image:
 This container currently has no items. Analyze all items you see in the image.
 `;
 
-      const { object } = await generateObject({
-        model: getLanguageModel(),
-        schema: ContainerImageMetadataSchema,
-        messages: [
-          {
-            role: 'user',
-            content: [
+      const { object } = await traced(
+        'analyze-container-image-with-context',
+        () =>
+          generateObject({
+            model: getLanguageModel(),
+            schema: ContainerImageMetadataSchema,
+            messages: [
               {
-                type: 'text',
-                text: `Analyze this image of a container with multiple items. Extract metadata for the container and each visible item inside.
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: `Analyze this image of a container with multiple items. Extract metadata for the container and each visible item inside.
 
 ${categoryContext}
 
@@ -236,12 +305,13 @@ ${existingItemsContext}
 
 For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.
 Return the final result as a structured object.`,
+                  },
+                  imageFilePart(imageData),
+                ],
               },
-              { type: 'image', image: imageData },
             ],
-          },
-        ],
-      });
+          })
+      );
       return object;
     },
   };

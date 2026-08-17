@@ -77,11 +77,26 @@ plain `Error`) for Commander to report them. Root `build` and
 is required, since `foreach` otherwise iterates alphabetically and would build
 `cli` before `shared`.
 
+**Logging.** One line format across the whole stack:
+`<server> [<service>] <ISO-8601 timestamp> <LEVEL> <message>`. In the Docker
+image `docker/log-prefix.awk` is the filter that produces it — `start.sh`
+attaches one per stream per service (via FIFOs that supervisord writes into) and
+the single-process images do the same through `docker/run-service.sh`. App code
+logs through `webapp/src/lib/logger.ts` (`createLogger(scope)`), which emits the
+timestamp/level/scope prefix the filter parses; use `errorMessage(err)` for
+routine failures and pass the `Error` itself only when a stack is wanted.
+`LOG_LEVEL` (error|warn|info|debug|verbose, default `info`) gates every service
+at once. nginx's access log is the only per-request log in production — neither
+Next.js nor PocketBase logs requests — and `pocketbase/pb_hooks/logging.pb.js`
+mirrors failed PocketBase requests to stdout, since PocketBase's own log only
+goes to its `_logs` table. See `docker/README.md` for the operator-facing
+version.
+
 **Context providers.** `webapp/src/contexts/auth-context.tsx`, `inventory-context.tsx`, and `upload-context.tsx` provide app-wide state. The upload context owns the multi-file upload queue (including clearing/cancelling) surfaced by `components/inventory/upload-tracker.tsx`.
 
 ## Environment
 
-Copy `.env.example` to `.env` at repo root. Keys in use: `POCKETBASE_URL`, `POCKETBASE_ADMIN_EMAIL`, `POCKETBASE_ADMIN_PASSWORD` (used by setup/migrations), `NEXT_PUBLIC_POCKETBASE_URL` (embedded at webapp build time), and the AI block — `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. At least one provider key is required for the AI analysis routes.
+Copy `.env.example` to `.env` at repo root. Keys in use: `POCKETBASE_URL`, `POCKETBASE_ADMIN_EMAIL`, `POCKETBASE_ADMIN_PASSWORD` (used by setup/migrations), `NEXT_PUBLIC_POCKETBASE_URL` (embedded at webapp build time), `LOG_LEVEL`, and the AI block — `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. At least one provider key is required for the AI analysis routes.
 
 ## Releases & CI
 

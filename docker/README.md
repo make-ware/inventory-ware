@@ -4,13 +4,13 @@ This guide provides instructions for running Inventory Ware locally using Docker
 
 ## Image Registries
 
-Every release publishes the same three images to both GitHub Container Registry and Docker Hub. The two are identical — use whichever you prefer.
+Every release publishes the monolithic image to both GitHub Container Registry and Docker Hub. The two are identical — use whichever you prefer.
 
 | Image | GitHub Container Registry | Docker Hub |
 | --- | --- | --- |
 | Monolith | `ghcr.io/make-ware/inventory-ware` | `dastron/inventory-ware` |
-| Webapp | `ghcr.io/make-ware/inventory-ware-webapp` | `dastron/inventory-ware-webapp` |
-| PocketBase | `ghcr.io/make-ware/inventory-ware-pocketbase` | `dastron/inventory-ware-pocketbase` |
+
+The split `webapp` and `pocketbase` targets still exist in `docker/Dockerfile`, but they are not published to any registry — Docker Compose builds them locally (see Option 2).
 
 Both registries carry the same tags: `latest`, the full version (`1.2.3`), the major/minor rollups (`1.2`, `1`), and a `sha-` tag for traceability. The examples below use GHCR; substitute the Docker Hub name to pull from there instead.
 
@@ -48,13 +48,13 @@ This command will:
 
 ## Option 2: Docker Compose
 
-Docker Compose runs the Web Application and PocketBase in separate containers.
+Docker Compose runs the Web Application and PocketBase in separate containers. Because those two images are not published, Compose builds them from this repo — you need a checkout, and the first run takes as long as a full build.
 
 1.  Navigate to the `docker` directory where `docker-compose.yml` is located.
-2.  Start the services:
+2.  Build and start the services:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 3.  **Important:** You must manually create the first admin account by visiting the PocketBase Admin UI (see below).
@@ -74,8 +74,9 @@ All variables are optional unless noted. For Docker Compose these can go in a
 | `POCKETBASE_ADMIN_EMAIL` | `admin@example.com` | Auto-created superuser (monolith only). |
 | `POCKETBASE_ADMIN_PASSWORD` | `your-secure-password` | Superuser password. The superuser is **not** created while this is left at the default. |
 | `POCKETBASE_URL` | `http://localhost:8090` | Internal address the webapp uses to reach PocketBase. |
-| `NEXT_PUBLIC_POCKETBASE_URL` | `/` | Public address the browser uses. Baked in at image build time, so setting it at runtime on a prebuilt image has no effect. |
-| `LOG_LEVEL` | `warn` | `warn`, `info`, `debug`, or `verbose`. |
+| `NEXT_PUBLIC_POCKETBASE_URL` | `/` | Public address the browser uses. Baked in at image build time, so setting it at runtime on a prebuilt image has no effect; Compose passes it through as a build arg. |
+| `LOG_LEVEL` | `info` | `error`, `warn`, `info`, `debug`, or `verbose`. Applies to every service in the container - see [Logs](#logs). |
+| `LOG_SERVER_NAME` | container hostname | The `<server>` field every log line starts with. Set it when aggregating logs from several hosts. |
 | `GRACEFUL_SHUTDOWN_TIMEOUT` | `30` | Seconds to allow for connection draining. |
 | `OPENAI_API_KEY` | — | OpenAI credential. Enables AI image analysis. |
 | `GEMINI_API_KEY` | — | Google Gemini credential. `GOOGLE_GENERATIVE_AI_API_KEY` is also accepted. |
@@ -87,6 +88,59 @@ If exactly one AI provider key is present, that provider is selected
 automatically. If both are present, OpenAI wins unless `AI_PROVIDER` says
 otherwise. With no key at all the app runs normally with image analysis
 disabled.
+
+## Logs
+
+Everything the container writes to `docker logs` is normalised to one line
+format, whichever of the four processes produced it:
+
+```
+<server> [<service>] <ISO-8601 timestamp> <LEVEL> <message>
+```
+
+```
+inventory-ware [startup]    2026-08-17T03:59:36Z INFO  Inventory Ware starting (log level info, node env production)
+inventory-ware [supervisor] 2026-08-17T03:59:37.820Z INFO  spawned: 'nginx' with pid 23
+inventory-ware [pocketbase] 2026-08-17T03:59:38Z INFO  Server started at http://0.0.0.0:8090
+inventory-ware [nginx]      2026-08-17T04:01:02Z INFO  10.1.26.67 "GET /inventory/items HTTP/1.1" 200 5123B 0.031s upstream=127.0.0.1:3000 ref="-" ua="Mozilla/5.0"
+inventory-ware [nextjs]     2026-08-17T04:01:04.812Z INFO  [api-next/process-image] image processed imageId=r83kd9 bytes=2216417 items=4 durationMs=8123
+```
+
+`<service>` is one of `startup`, `supervisor`, `nginx`, `pocketbase`, `nextjs`.
+Multi-line output (stack traces) is indented and carries the level of the line
+it belongs to. Timestamps are UTC.
+
+### What gets logged at each level
+
+| `LOG_LEVEL` | You get |
+| --- | --- |
+| `error` | Failures only. |
+| `warn` | Failures, plus failed API requests, auth rejections and configuration warnings. |
+| `info` (default) | The above, plus one line per HTTP request, per AI model call (with duration and token counts) and per completed upload/analysis. |
+| `debug` | The above, plus request entry points, PocketBase request logging, and the container's own startup steps. |
+| `verbose` | The above, plus PocketBase dev mode - every SQL statement. Loud. |
+
+nginx's error log stays at its own `warn` level regardless: its `info` level
+narrates every connection teardown and drowns out everything else.
+
+### How it works
+
+`docker/log-prefix.awk` is a filter that rewrites one stream into the format
+above, working out the level from what the source already emits (supervisord's
+`INFO`/`CRIT`, nginx's `[error]`, the level our own logger writes) and falling
+back to INFO for stdout and ERROR for stderr. `start.sh` attaches one filter per
+stream, per service, before supervisord starts; supervisord writes each
+program's output into those FIFOs. The single-process images do the same thing
+with `docker/run-service.sh`.
+
+Two consequences worth knowing:
+
+- **nginx access logging is on.** It is the only place a request to Next.js or
+  PocketBase is logged with its status and duration, since neither logs its own
+  requests in production. `/health` is excluded.
+- **PocketBase failures reach the console.** PocketBase's own request log goes
+  to its `_logs` table, so `pb_hooks/logging.pb.js` mirrors failed requests (and
+  at `debug`, all requests) to stdout with the error message.
 
 ## Accessing the Application
 

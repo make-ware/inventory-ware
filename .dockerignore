@@ -1,0 +1,36 @@
+# Keep the build context to source only. Without this, a developer's local
+# webapp/.next and node_modules (~2GB) get shipped to the daemon on every
+# build and `COPY webapp ./webapp` bakes them into the builder stage.
+# CI checkouts are already clean, so this mainly protects local builds - and
+# keeps stray local artifacts from invalidating layer cache.
+
+.git
+.github
+
+# Dependencies - reinstalled in the deps stage from package.json + yarn.lock
+node_modules
+**/node_modules
+.yarn
+.pnp.*
+
+# Build output - regenerated in the builder stage
+**/.next
+**/dist
+**/bundle
+**/*.tsbuildinfo
+
+# Local PocketBase state: dev database, and the binary fetched by `yarn setup`.
+# The image downloads its own binary in the pbbin stage.
+pocketbase/pb_data
+pocketbase/pocketbase
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.DS_Store
+.vscode
+.idea
+*.log

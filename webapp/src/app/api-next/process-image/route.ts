@@ -5,6 +5,9 @@ import {
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
 import { aiConfigErrorResponse } from '@/lib/ai-error-response';
+import { createLogger, errorMessage } from '@/lib/logger';
+
+const log = createLogger('api-next/process-image');
 
 /**
  * API route to process an image server-side
@@ -12,9 +15,12 @@ import { aiConfigErrorResponse } from '@/lib/ai-error-response';
  * are available
  */
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    log.debug('upload received', { filename: file?.name, bytes: file?.size });
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -27,7 +33,7 @@ export async function POST(request: NextRequest) {
     try {
       await authenticateAsUser(pb, request);
     } catch (authError) {
-      console.error('Authentication failed:', authError);
+      log.warn('authentication failed', { reason: errorMessage(authError) });
       return NextResponse.json(
         {
           error:
@@ -54,6 +60,15 @@ export async function POST(request: NextRequest) {
     // Process the image
     const result = await service.processImageUpload(file, userId);
 
+    log.info('image processed', {
+      imageId: result.image?.id,
+      userId,
+      bytes: file.size,
+      items: result.items?.length ?? 0,
+      container: result.container?.id,
+      durationMs: Date.now() - startedAt,
+    });
+
     return NextResponse.json({
       success: true,
       image: result.image,
@@ -61,7 +76,10 @@ export async function POST(request: NextRequest) {
       container: result.container,
     });
   } catch (error) {
-    console.error('Error processing image:', error);
+    log.error('image processing failed', {
+      err: error,
+      durationMs: Date.now() - startedAt,
+    });
     const aiError = aiConfigErrorResponse(error);
     if (aiError) return aiError;
     return NextResponse.json(

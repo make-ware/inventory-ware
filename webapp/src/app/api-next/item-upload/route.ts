@@ -5,6 +5,9 @@ import {
   authenticateAsUser,
 } from '@/lib/pocketbase-server';
 import { aiConfigErrorResponse } from '@/lib/ai-error-response';
+import { createLogger, errorMessage } from '@/lib/logger';
+
+const log = createLogger('api-next/item-upload');
 
 /**
  * API route to process an item image upload with metadata enhancement
@@ -14,10 +17,17 @@ import { aiConfigErrorResponse } from '@/lib/ai-error-response';
  * Validates Requirements: 8.1, 8.2, 8.3, 8.4
  */
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const itemId = formData.get('itemId') as string;
+    log.debug('item upload received', {
+      itemId,
+      filename: file?.name,
+      bytes: file?.size,
+    });
 
     // Validate required fields
     if (!file) {
@@ -38,7 +48,7 @@ export async function POST(request: NextRequest) {
     try {
       await authenticateAsUser(pb, request);
     } catch (authError) {
-      console.error('Authentication failed:', authError);
+      log.warn('authentication failed', { reason: errorMessage(authError) });
       return NextResponse.json(
         {
           error:
@@ -66,6 +76,14 @@ export async function POST(request: NextRequest) {
     // This will verify item ownership and throw if unauthorized
     try {
       const result = await service.processItemImageUpload(file, itemId, userId);
+
+      log.info('item image processed', {
+        itemId,
+        imageId: result.image?.id,
+        userId,
+        bytes: file.size,
+        durationMs: Date.now() - startedAt,
+      });
 
       return NextResponse.json({
         success: true,
@@ -100,7 +118,10 @@ export async function POST(request: NextRequest) {
       throw serviceError;
     }
   } catch (error) {
-    console.error('Error processing item image upload:', error);
+    log.error('item image upload failed', {
+      err: error,
+      durationMs: Date.now() - startedAt,
+    });
     const aiError = aiConfigErrorResponse(error);
     if (aiError) return aiError;
     return NextResponse.json(

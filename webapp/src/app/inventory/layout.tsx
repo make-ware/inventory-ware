@@ -4,6 +4,7 @@ import { ReactNode, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { InventoryProvider } from '@/contexts/inventory-context';
+import { InventoryUploadBar } from '@/components/inventory/inventory-upload-bar';
 import { cn } from '@/lib/utils';
 import { Package, Box, Image as ImageIcon } from 'lucide-react';
 
@@ -67,13 +68,27 @@ function InventoryNavigation() {
   );
 }
 
+// Routes that are dedicated forms/flows of their own, where a general-purpose
+// drop box would compete with the task on screen.
+const UPLOAD_BAR_HIDDEN_SUFFIXES = ['/new', '/edit', '/wizard'];
+
 export default function InventoryLayout({ children }: InventoryLayoutProps) {
+  const pathname = usePathname();
+  const showUploadBar =
+    pathname !== '/inventory' &&
+    !UPLOAD_BAR_HIDDEN_SUFFIXES.some((suffix) => pathname?.endsWith(suffix));
+
   return (
     <InventoryProvider>
       <div className="min-h-screen bg-background">
         <Suspense fallback={<div className="h-14 border-b bg-background" />}>
           <InventoryNavigation />
         </Suspense>
+        {showUploadBar && (
+          <div className="container pt-4 sm:pt-6">
+            <InventoryUploadBar />
+          </div>
+        )}
         {/* Main content */}
         <div className="container py-4 sm:py-6">{children}</div>
       </div>

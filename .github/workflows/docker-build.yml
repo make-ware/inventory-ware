@@ -46,58 +46,31 @@ env:
   DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        id: buildx
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
   build-monolith:
-    needs: setup
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag_name || github.ref }}
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: linux/amd64,linux/arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         id: buildx
         with:
           platforms: linux/amd64,linux/arm64
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -138,7 +111,7 @@ jobs:
 
       - name: Log in to Docker Hub
         if: steps.dockerhub.outputs.enabled == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.DOCKERHUB_REGISTRY }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -169,7 +142,7 @@ jobs:
 
       - name: Extract metadata (tags, labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ steps.dockerhub.outputs.images }}
           tags: |
@@ -192,7 +165,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build-push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./docker/Dockerfile
@@ -202,8 +175,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=monolith
+          cache-to: type=gha,mode=max,scope=monolith
           build-args: |
             POCKETBASE_VERSION=0.35.0
 
@@ -224,319 +197,6 @@ jobs:
           echo "### Deployment" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ steps.dockerhub.outputs.image }}" ]; then
-            echo "docker pull ${{ steps.dockerhub.outputs.image }}:latest" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-
-  build-webapp:
-    needs: setup
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag_name || github.ref }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        id: buildx
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Resolve Docker Hub target
-        id: dockerhub
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          DOCKERHUB_NAMESPACE: ${{ env.DOCKERHUB_NAMESPACE }}
-          DOCKERHUB_REGISTRY: ${{ env.DOCKERHUB_REGISTRY }}
-          GHCR_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp
-        run: |
-          # Namespace defaults to the login user when the variable is unset.
-          NAMESPACE="${DOCKERHUB_NAMESPACE:-$DOCKERHUB_USERNAME}"
-          # Docker Hub repos are single-segment, so mirror the GHCR name only.
-          REPO="${GITHUB_REPOSITORY##*/}-webapp"
-
-          if [ -n "$DOCKERHUB_TOKEN" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$NAMESPACE" ]; then
-            DOCKERHUB_IMAGE="$DOCKERHUB_REGISTRY/$NAMESPACE/$REPO"
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            DOCKERHUB_IMAGE=""
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Docker Hub credentials not configured - publishing to ${REGISTRY:-ghcr.io} only."
-          fi
-
-          echo "image=$DOCKERHUB_IMAGE" >> "$GITHUB_OUTPUT"
-
-          # Newline-separated list consumed by docker/metadata-action.
-          {
-            echo "images<<__EOF__"
-            echo "$GHCR_IMAGE"
-            if [ -n "$DOCKERHUB_IMAGE" ]; then echo "$DOCKERHUB_IMAGE"; fi
-            echo "__EOF__"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Log in to Docker Hub
-        if: steps.dockerhub.outputs.enabled == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKERHUB_REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Prepare version tags
-        id: version-tags
-        run: |
-          # Use version input if provided, otherwise extract from tag_name
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
-          elif [ -n "${{ inputs.tag_name }}" ]; then
-            VERSION="${{ inputs.tag_name }}"
-          fi
-          
-          if [ -n "$VERSION" ]; then
-            # Remove 'v' prefix if present
-            VERSION=${VERSION#v}
-            MAJOR=$(echo $VERSION | cut -d. -f1)
-            MINOR=$(echo $VERSION | cut -d. -f2)
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "major=$MAJOR" >> $GITHUB_OUTPUT
-            echo "minor=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
-            echo "has_version=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_version=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.dockerhub.outputs.images }}
-          tags: |
-            # Use explicit version when provided via workflow_call
-            type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            type=raw,value=${{ steps.version-tags.outputs.minor }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            type=raw,value=${{ steps.version-tags.outputs.major }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            # Tag with version on release/tag push (semver detection)
-            type=semver,pattern={{version}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            # Tag as latest on release or when version is provided
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || inputs.tag_name != '' || steps.version-tags.outputs.has_version == 'true' }}
-            # Tag with sha for traceability
-            type=sha,prefix=sha-
-          labels: |
-            org.opencontainers.image.title=Inventoryware Webapp Container
-            org.opencontainers.image.description=Webapp container (Next.js)
-            org.opencontainers.image.vendor=${{ github.repository_owner }}
-
-      - name: Build and push Docker image
-        id: build-push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./docker/Dockerfile
-          target: webapp
-          builder: ${{ steps.buildx.outputs.name }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            POCKETBASE_VERSION=0.35.0
-
-      - name: Generate build summary
-        run: |
-          echo "## Docker Build Summary (webapp)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Image Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Registries:** ${{ env.REGISTRY }}${{ steps.dockerhub.outputs.enabled == 'true' && format(', {0}', env.DOCKERHUB_REGISTRY) || '' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** ${{ env.IMAGE_NAME }}-webapp" >> $GITHUB_STEP_SUMMARY
-          echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Tags" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Deployment" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp:latest" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ steps.dockerhub.outputs.image }}" ]; then
-            echo "docker pull ${{ steps.dockerhub.outputs.image }}:latest" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-  build-pocketbase:
-    needs: setup
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag_name || github.ref }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        id: buildx
-        with:
-          platforms: linux/amd64,linux/arm64
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Resolve Docker Hub target
-        id: dockerhub
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-          DOCKERHUB_NAMESPACE: ${{ env.DOCKERHUB_NAMESPACE }}
-          DOCKERHUB_REGISTRY: ${{ env.DOCKERHUB_REGISTRY }}
-          GHCR_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-pocketbase
-        run: |
-          # Namespace defaults to the login user when the variable is unset.
-          NAMESPACE="${DOCKERHUB_NAMESPACE:-$DOCKERHUB_USERNAME}"
-          # Docker Hub repos are single-segment, so mirror the GHCR name only.
-          REPO="${GITHUB_REPOSITORY##*/}-pocketbase"
-
-          if [ -n "$DOCKERHUB_TOKEN" ] && [ -n "$DOCKERHUB_USERNAME" ] && [ -n "$NAMESPACE" ]; then
-            DOCKERHUB_IMAGE="$DOCKERHUB_REGISTRY/$NAMESPACE/$REPO"
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            DOCKERHUB_IMAGE=""
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Docker Hub credentials not configured - publishing to ${REGISTRY:-ghcr.io} only."
-          fi
-
-          echo "image=$DOCKERHUB_IMAGE" >> "$GITHUB_OUTPUT"
-
-          # Newline-separated list consumed by docker/metadata-action.
-          {
-            echo "images<<__EOF__"
-            echo "$GHCR_IMAGE"
-            if [ -n "$DOCKERHUB_IMAGE" ]; then echo "$DOCKERHUB_IMAGE"; fi
-            echo "__EOF__"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Log in to Docker Hub
-        if: steps.dockerhub.outputs.enabled == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKERHUB_REGISTRY }}
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Prepare version tags
-        id: version-tags
-        run: |
-          # Use version input if provided, otherwise extract from tag_name
-          if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
-          elif [ -n "${{ inputs.tag_name }}" ]; then
-            VERSION="${{ inputs.tag_name }}"
-          fi
-          
-          if [ -n "$VERSION" ]; then
-            # Remove 'v' prefix if present
-            VERSION=${VERSION#v}
-            MAJOR=$(echo $VERSION | cut -d. -f1)
-            MINOR=$(echo $VERSION | cut -d. -f2)
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "major=$MAJOR" >> $GITHUB_OUTPUT
-            echo "minor=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
-            echo "has_version=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_version=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.dockerhub.outputs.images }}
-          tags: |
-            # Use explicit version when provided via workflow_call
-            type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            type=raw,value=${{ steps.version-tags.outputs.minor }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            type=raw,value=${{ steps.version-tags.outputs.major }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            # Tag with version on release/tag push (semver detection)
-            type=semver,pattern={{version}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            # Tag as latest on release or when version is provided
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || inputs.tag_name != '' || steps.version-tags.outputs.has_version == 'true' }}
-            # Tag with sha for traceability
-            type=sha,prefix=sha-
-          labels: |
-            org.opencontainers.image.title=Inventoryware PocketBase Container
-            org.opencontainers.image.description=PocketBase container with custom hooks and migrations
-            org.opencontainers.image.vendor=${{ github.repository_owner }}
-
-      - name: Build and push Docker image
-        id: build-push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./docker/Dockerfile
-          target: pocketbase
-          builder: ${{ steps.buildx.outputs.name }}
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            POCKETBASE_VERSION=0.35.0
-
-      - name: Generate build summary
-        run: |
-          echo "## Docker Build Summary (pocketbase)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Image Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Registries:** ${{ env.REGISTRY }}${{ steps.dockerhub.outputs.enabled == 'true' && format(', {0}', env.DOCKERHUB_REGISTRY) || '' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** ${{ env.IMAGE_NAME }}-pocketbase" >> $GITHUB_STEP_SUMMARY
-          echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Tags" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Deployment" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-pocketbase:latest" >> $GITHUB_STEP_SUMMARY
           if [ -n "${{ steps.dockerhub.outputs.image }}" ]; then
             echo "docker pull ${{ steps.dockerhub.outputs.image }}:latest" >> $GITHUB_STEP_SUMMARY
           fi

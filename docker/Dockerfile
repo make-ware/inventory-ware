@@ -21,10 +21,21 @@ COPY cli/package.json ./cli/
 # Install dependencies
 RUN yarn install --immutable
 
-# Download PocketBase binary
+# -----------------------------------------------------------------------------
+# PocketBase binary
+#
+# Deliberately a standalone stage that depends only on `base`. PocketBase is a
+# static Go binary and its hooks run in PocketBase's own embedded JS VM, so
+# nothing about this image needs yarn, node_modules, or the Next.js build.
+# Keeping it off the deps -> builder chain is what lets the `pocketbase` target
+# build in about a minute instead of dragging the whole webapp build through
+# QEMU emulation first.
 # Supports multi-architecture builds via TARGETARCH
+# -----------------------------------------------------------------------------
+FROM base AS pbbin
 ARG POCKETBASE_VERSION=0.35.0
 ARG TARGETARCH
+RUN apk add --no-cache unzip curl
 RUN mkdir -p /app/pocketbase && \
     POCKETBASE_ARCH=$(case "${TARGETARCH}" in \
         "amd64") echo "amd64" ;; \
@@ -53,7 +64,7 @@ RUN corepack enable && corepack prepare yarn@4.12.0 --activate
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/.yarn ./.yarn
-COPY --from=deps /app/pocketbase/pocketbase ./pocketbase/pocketbase
+COPY --from=pbbin /app/pocketbase/pocketbase ./pocketbase/pocketbase
 
 # Copy workspace files
 COPY package.json yarn.lock .yarnrc.yml* ./
@@ -109,8 +120,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 # -----------------------------------------------------------------------------
 FROM runner-base AS monolith
 
-# Set default log level
-ENV LOG_LEVEL=warn
+# Log level for every service in the container: trace/verbose, debug, info,
+# warn, error. See docker/log-prefix.awk for how it is applied.
+ENV LOG_LEVEL=info
+# Log timestamps are emitted as UTC and labelled Z.
+ENV TZ=UTC
 ENV POCKETBASE_URL="http://localhost:8090"
 
 # Install supervisor, nginx, and curl
@@ -149,9 +163,12 @@ COPY --chown=root:root docker/supervisord.conf /etc/supervisor/conf.d/supervisor
 COPY --chown=root:root docker/nginx.conf /etc/nginx/nginx.conf
 COPY --chown=nextjs:nodejs docker/start.sh /app/start.sh
 COPY --chown=root:root docker/graceful-shutdown.sh /app/docker/graceful-shutdown.sh
+COPY --chown=root:root docker/log-prefix.sh docker/log-prefix.awk /app/docker/
 
 RUN chmod +x /app/start.sh && \
     chmod +x /app/docker/graceful-shutdown.sh && \
+    chmod +x /app/docker/log-prefix.sh && \
+    chmod 644 /app/docker/log-prefix.awk && \
     chmod 644 /etc/nginx/nginx.conf
 
 EXPOSE 80
@@ -169,6 +186,8 @@ FROM runner-base AS webapp
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+ENV LOG_LEVEL=info
+ENV TZ=UTC
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl && \
@@ -185,32 +204,53 @@ COPY --from=builder --chown=nextjs:nodejs /app/webapp/next.config.ts ./webapp/ne
 COPY --from=builder --chown=nextjs:nodejs /app/webapp/tsconfig.json ./webapp/tsconfig.json
 COPY --from=builder --chown=nextjs:nodejs /app/shared/dist ./shared/dist
 
+# Same log format as the monolith, minus supervisord: the wrapper filters this
+# one process's output.
+COPY --chown=root:root docker/run-service.sh docker/log-prefix.sh docker/log-prefix.awk /app/docker/
+RUN chmod +x /app/docker/run-service.sh /app/docker/log-prefix.sh && \
+    chmod 644 /app/docker/log-prefix.awk
+
 USER nextjs
 EXPOSE 3000
 
-CMD ["yarn", "workspace", "@project/webapp", "start"]
+CMD ["/app/docker/run-service.sh", "nextjs", "yarn", "workspace", "@project/webapp", "start"]
 
 # -----------------------------------------------------------------------------
 # PocketBase Target
 # -----------------------------------------------------------------------------
-FROM runner-base AS pocketbase
+# Built from `base` rather than `runner-base` on purpose: runner-base pulls
+# node_modules out of `builder`, which would make this image wait on the full
+# Next.js build for files it never uses. See the pbbin stage above.
+FROM base AS pocketbase
+WORKDIR /app
 
 # Install curl
 RUN apk add --no-cache curl && \
     rm -rf /var/cache/apk/*
 
-# Copy PocketBase binary and files
-COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pocketbase ./pocketbase/pocketbase
-COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_hooks ./pocketbase/pb_hooks
-COPY --from=builder --chown=nextjs:nodejs /app/pocketbase/pb_migrations ./pocketbase/pb_migrations
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    adduser nextjs nodejs
+
+# Copy PocketBase binary and files. The hooks and migrations are plain source
+# files, so they come straight from the build context - no build step makes them.
+COPY --from=pbbin --chown=nextjs:nodejs /app/pocketbase/pocketbase ./pocketbase/pocketbase
+COPY --chown=nextjs:nodejs pocketbase/pb_hooks ./pocketbase/pb_hooks
+COPY --chown=nextjs:nodejs pocketbase/pb_migrations ./pocketbase/pb_migrations
 COPY --chown=nextjs:nodejs docker/start_pb.sh /app/start_pb.sh
+COPY --chown=root:root docker/run-service.sh docker/log-prefix.sh docker/log-prefix.awk /app/docker/
+
+ENV LOG_LEVEL=info
+ENV TZ=UTC
 
 # Create pb_data and pb_storage directories in /data
 RUN mkdir -p /data/pb_data /data/pb_storage && \
     chown -R nextjs:nodejs /data && \
-    chmod +x /app/start_pb.sh
+    chmod +x /app/start_pb.sh /app/docker/run-service.sh /app/docker/log-prefix.sh && \
+    chmod 644 /app/docker/log-prefix.awk
 
 USER nextjs
 EXPOSE 8090
 
-CMD ["./pocketbase/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/data/pb_data", "--migrationsDir=/app/pocketbase/pb_migrations", "--hooksDir=/app/pocketbase/pb_hooks"]
+CMD ["/app/start_pb.sh"]

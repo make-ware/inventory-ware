@@ -45,6 +45,38 @@ describe('ImageMutator', () => {
         'User ID is required'
       );
     });
+
+    it('should surface the per-field reason from a PocketBase rejection', async () => {
+      const rejection = Object.assign(new Error('Failed to create record.'), {
+        status: 400,
+        response: {
+          code: 400,
+          message: 'Failed to create record.',
+          data: {
+            file: {
+              code: 'validation_file_size_limit',
+              message:
+                'Failed to upload file - the maximum allowed size is 5242880 bytes.',
+            },
+          },
+        },
+      });
+      mockCreate.mockRejectedValue(rejection);
+
+      const file = new File([''], 'test.png', { type: 'image/png' });
+      await expect(mutator.uploadImage(file, 'user-123')).rejects.toThrow(
+        'file: Failed to upload file - the maximum allowed size is 5242880 bytes.'
+      );
+    });
+
+    it('should leave errors without field details untouched', async () => {
+      mockCreate.mockRejectedValue(new Error('Network error'));
+
+      const file = new File([''], 'test.png', { type: 'image/png' });
+      await expect(mutator.uploadImage(file, 'user-123')).rejects.toThrow(
+        /^Network error$/
+      );
+    });
   });
 
   describe('updateAnalysisStatus', () => {

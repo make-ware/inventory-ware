@@ -17,6 +17,9 @@ import type {
   AnalysisResult,
   ItemInput,
 } from '@project/shared';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('inventory');
 
 /**
  * Download an image from PocketBase and convert it to base64 data URL
@@ -394,18 +397,18 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
         return { image, result, items, container };
       } catch (error) {
-        console.error(
-          `Error in processImageUpload for image ${image.id}:`,
-          error
-        );
+        log.error('processImageUpload failed', {
+          imageId: image.id,
+          err: error,
+        });
         // Mark image as failed if analysis or creation fails
         try {
           await imageMutator.updateAnalysisStatus(image.id, 'failed');
         } catch (updateError) {
-          console.error(
-            'Failed to update image status to failed:',
-            updateError
-          );
+          log.error('could not mark image as failed', {
+            imageId: image.id,
+            err: updateError,
+          });
         }
         throw error;
       }
@@ -772,18 +775,19 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           container: updatedContainer,
         };
       } catch (error) {
-        console.error(
-          `Error in processContainerImageUpload for container ${containerId}:`,
-          error
-        );
+        log.error('processContainerImageUpload failed', {
+          containerId,
+          imageId: image.id,
+          err: error,
+        });
         // Mark image as failed if analysis or upsert fails
         try {
           await imageMutator.updateAnalysisStatus(image.id, 'failed');
         } catch (updateError) {
-          console.error(
-            'Failed to update image status to failed:',
-            updateError
-          );
+          log.error('could not mark image as failed', {
+            imageId: image.id,
+            err: updateError,
+          });
         }
         // Preserve existing items - don't modify them on failure
         throw error;
@@ -861,10 +865,11 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           item: updatedItem,
         };
       } catch (error) {
-        console.error(
-          `Error in processItemImageUpload for item ${itemId}:`,
-          error
-        );
+        log.error('processItemImageUpload failed', {
+          itemId,
+          imageId: image.id,
+          err: error,
+        });
 
         // On AI failure: save image and update ImageRef, but preserve existing metadata
         try {
@@ -885,10 +890,11 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             item: updatedItem,
           };
         } catch (updateError) {
-          console.error(
-            'Failed to update item ImageRef after AI failure:',
-            updateError
-          );
+          log.error('could not update item ImageRef after AI failure', {
+            itemId,
+            imageId: image.id,
+            err: updateError,
+          });
           // Mark image as failed
           await imageMutator.updateAnalysisStatus(image.id, 'failed');
           throw error; // Re-throw the original error
@@ -1008,13 +1014,10 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               break;
 
             default:
-              console.warn(`Unknown cleanup action: ${action}`);
+              log.warn('unknown cleanup action', { action, itemId });
           }
         } catch (error) {
-          console.error(
-            `Failed to execute cleanup action ${action} for item ${itemId}:`,
-            error
-          );
+          log.error('cleanup action failed', { action, itemId, err: error });
           // Continue with other actions even if one fails
         }
       }
