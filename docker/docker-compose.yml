@@ -1,19 +1,14 @@
 # Docker Compose configuration for Inventory Ware
+# 
+# This file uses pre-built images from GitHub Container Registry.
+# Images are automatically built and published when releases are created.
 #
-# Only the monolithic image is published (ghcr.io/make-ware/inventory-ware and
-# dastron/inventory-ware). The split webapp/pocketbase images are no longer
-# pushed to any registry, so this file builds those two targets from the
-# Dockerfile in this repo. Run it from a checkout:
-#
-#   docker compose -f docker/docker-compose.yml up -d --build
+# Docker Hub carries the monolithic image (`dastron/inventory-ware`) only, so
+# these two services always pull from GHCR.
 
 services:
   pocketbase:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: pocketbase
-    image: inventory-ware-pocketbase:local
+    image: ghcr.io/make-ware/inventory-ware-pocketbase:latest
     restart: unless-stopped
     ports:
       - "8090:8090"
@@ -28,18 +23,21 @@ services:
       retries: 5
 
   webapp:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-      target: webapp
-      args:
-        # NEXT_PUBLIC_* values are inlined at build time, so the browser-facing
-        # PocketBase URL has to be passed here, not only as a runtime env var.
-        - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8090}
-    image: inventory-ware-webapp:local
+    image: ghcr.io/make-ware/inventory-ware-webapp:latest
     restart: unless-stopped
     ports:
       - "3000:3000"
+    # NEXT_PUBLIC_POCKETBASE_URL is inlined by Next.js at build time, so it is
+    # baked into the published image (as `/`) and cannot be set here. To point
+    # the browser at a different PocketBase origin, build the image from a
+    # checkout instead of pulling it:
+    #
+    #   build:
+    #     context: ..
+    #     dockerfile: docker/Dockerfile
+    #     target: webapp
+    #     args:
+    #       - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       # Internal URL for server-side route handlers to access PocketBase

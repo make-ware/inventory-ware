@@ -4,15 +4,15 @@ This guide provides instructions for running Inventory Ware locally using Docker
 
 ## Image Registries
 
-Every release publishes the monolithic image to both GitHub Container Registry and Docker Hub. The two are identical — use whichever you prefer.
+Every release publishes three images to GitHub Container Registry. The monolith is also mirrored to Docker Hub; the two copies are identical, so use whichever you prefer.
 
 | Image | GitHub Container Registry | Docker Hub |
 | --- | --- | --- |
 | Monolith | `ghcr.io/make-ware/inventory-ware` | `dastron/inventory-ware` |
+| Webapp | `ghcr.io/make-ware/inventory-ware-webapp` | — |
+| PocketBase | `ghcr.io/make-ware/inventory-ware-pocketbase` | — |
 
-The split `webapp` and `pocketbase` targets still exist in `docker/Dockerfile`, but they are not published to any registry — Docker Compose builds them locally (see Option 2).
-
-Both registries carry the same tags: `latest`, the full version (`1.2.3`), the major/minor rollups (`1.2`, `1`), and a `sha-` tag for traceability. The examples below use GHCR; substitute the Docker Hub name to pull from there instead.
+Every image carries the same tags: `latest`, the full version (`1.2.3`), the major/minor rollups (`1.2`, `1`), and a `sha-` tag for traceability. The examples below use GHCR; substitute `dastron/inventory-ware` to pull the monolith from Docker Hub instead.
 
 ## Option 1: Monolithic Image
 
@@ -48,13 +48,13 @@ This command will:
 
 ## Option 2: Docker Compose
 
-Docker Compose runs the Web Application and PocketBase in separate containers. Because those two images are not published, Compose builds them from this repo — you need a checkout, and the first run takes as long as a full build.
+Docker Compose runs the Web Application and PocketBase in separate containers, pulling both images from GHCR.
 
 1.  Navigate to the `docker` directory where `docker-compose.yml` is located.
-2.  Build and start the services:
+2.  Start the services:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 3.  **Important:** You must manually create the first admin account by visiting the PocketBase Admin UI (see below).
@@ -74,7 +74,7 @@ All variables are optional unless noted. For Docker Compose these can go in a
 | `POCKETBASE_ADMIN_EMAIL` | `admin@example.com` | Auto-created superuser (monolith only). |
 | `POCKETBASE_ADMIN_PASSWORD` | `your-secure-password` | Superuser password. The superuser is **not** created while this is left at the default. |
 | `POCKETBASE_URL` | `http://localhost:8090` | Internal address the webapp uses to reach PocketBase. |
-| `NEXT_PUBLIC_POCKETBASE_URL` | `/` | Public address the browser uses. Baked in at image build time, so setting it at runtime on a prebuilt image has no effect; Compose passes it through as a build arg. |
+| `NEXT_PUBLIC_POCKETBASE_URL` | `/` | Public address the browser uses. Baked in at image build time, so setting it at runtime on a prebuilt image has no effect — build the `webapp` target yourself to change it (see the comment in `docker-compose.yml`). |
 | `LOG_LEVEL` | `info` | `error`, `warn`, `info`, `debug`, or `verbose`. Applies to every service in the container - see [Logs](#logs). |
 | `LOG_SERVER_NAME` | container hostname | The `<server>` field every log line starts with. Set it when aggregating logs from several hosts. |
 | `GRACEFUL_SHUTDOWN_TIMEOUT` | `30` | Seconds to allow for connection draining. |

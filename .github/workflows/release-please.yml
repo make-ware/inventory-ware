@@ -59,15 +59,17 @@ jobs:
               ? `\n# ...or from Docker Hub (identical image)\ndocker pull ${dockerHubImage}:${version}\n`
               : '';
 
-            const dockerHubImageTable = dockerHubImage
-              ? `
+            // Only the monolith is mirrored to Docker Hub; the split images
+            // are GHCR-only.
+            const imageTable = `
             ### Images
             
             | Image | GitHub Container Registry | Docker Hub |
             |-------|---------------------------|------------|
-            | Monolith | \`ghcr.io/${owner}/${repo}\` | \`${dockerHubImage}\` |
-            `
-              : '';
+            | Monolith | \`ghcr.io/${owner}/${repo}\` | ${dockerHubImage ? `\`${dockerHubImage}\`` : '—'} |
+            | Webapp | \`ghcr.io/${owner}/${repo}-webapp\` | — |
+            | PocketBase | \`ghcr.io/${owner}/${repo}-pocketbase\` | — |
+            `;
             
             // Get the release
             const { data: release } = await github.rest.repos.getReleaseByTag({
@@ -84,7 +86,7 @@ jobs:
             ## Docker Deployment
             
             Docker images for this release are automatically built and published to ${registryList}.
-            ${dockerHubImageTable}
+            ${imageTable}
             ### Quick Start
             
             \`\`\`bash
