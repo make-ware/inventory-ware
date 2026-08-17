@@ -15,18 +15,15 @@ on:
   # Trigger on release creation (integrates with release-please)
   release:
     types: [published]
-  # Trigger on version tags
+  # Trigger on version tags. release-please tags are component-prefixed
+  # (inventory-ware-v1.2.3); the bare form covers a hand-pushed tag.
   push:
     tags:
+      - 'inventory-ware-v*.*.*'
       - 'v*.*.*'
   # Allow manual trigger for testing
   workflow_dispatch:
     inputs:
-      push_image:
-        description: 'Push image to registry'
-        required: false
-        default: 'false'
-        type: boolean
       version:
         description: 'Version tag to use for Docker images'
         required: false
@@ -120,27 +117,41 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Resolve the release version, in precedence order: the `version` input
+      # (release-please passes it), the `tag_name` input, then the git ref when
+      # a release publish or tag push triggered this run. Deriving from the ref
+      # is what makes every entry point emit the same tags -- release-please
+      # tags are component-prefixed (inventory-ware-v1.2.3), which
+      # docker/metadata-action's `type=semver` cannot parse on its own.
       - name: Prepare version tags
         id: version-tags
         run: |
-          # Use version input if provided, otherwise extract from tag_name
+          set -euo pipefail
+
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
           elif [ -n "${{ inputs.tag_name }}" ]; then
             VERSION="${{ inputs.tag_name }}"
-          fi
-          
-          if [ -n "$VERSION" ]; then
-            # Remove 'v' prefix if present
-            VERSION=${VERSION#v}
-            MAJOR=$(echo $VERSION | cut -d. -f1)
-            MINOR=$(echo $VERSION | cut -d. -f2)
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "major=$MAJOR" >> $GITHUB_OUTPUT
-            echo "minor=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
-            echo "has_version=true" >> $GITHUB_OUTPUT
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="$GITHUB_REF_NAME"
           else
-            echo "has_version=false" >> $GITHUB_OUTPUT
+            VERSION=""
+          fi
+
+          # inventory-ware-v1.2.3 -> v1.2.3 -> 1.2.3; a bare v1.2.3 also works.
+          VERSION="${VERSION#"${GITHUB_REPOSITORY##*/}-"}"
+          VERSION="${VERSION#v}"
+
+          # Anything that is not a real version (a branch dispatch, a stray
+          # tag) leaves has_version=false, so the build is tagged by sha alone.
+          if printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "major=${VERSION%%.*}" >> "$GITHUB_OUTPUT"
+            echo "minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
+            echo "has_version=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_version=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No release version resolved - tagging by sha only."
           fi
 
       - name: Extract metadata (tags, labels)
@@ -149,16 +160,12 @@ jobs:
         with:
           images: ${{ steps.dockerhub.outputs.images }}
           tags: |
-            # Use explicit version when provided via workflow_call
+            # Version tags, resolved above from the input or the git ref
             type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             type=raw,value=${{ steps.version-tags.outputs.minor }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             type=raw,value=${{ steps.version-tags.outputs.major }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            # Tag with version on release/tag push (semver detection)
-            type=semver,pattern={{version}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            # Tag as latest on release or when version is provided
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || inputs.tag_name != '' || steps.version-tags.outputs.has_version == 'true' }}
+            # Tag as latest whenever a real version was resolved
+            type=raw,value=latest,enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             # Tag with sha for traceability
             type=sha,prefix=sha-
           labels: |
@@ -271,27 +278,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Resolve the release version, in precedence order: the `version` input
+      # (release-please passes it), the `tag_name` input, then the git ref when
+      # a release publish or tag push triggered this run. Deriving from the ref
+      # is what makes every entry point emit the same tags -- release-please
+      # tags are component-prefixed (inventory-ware-v1.2.3), which
+      # docker/metadata-action's `type=semver` cannot parse on its own.
       - name: Prepare version tags
         id: version-tags
         run: |
-          # Use version input if provided, otherwise extract from tag_name
+          set -euo pipefail
+
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
           elif [ -n "${{ inputs.tag_name }}" ]; then
             VERSION="${{ inputs.tag_name }}"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="$GITHUB_REF_NAME"
+          else
+            VERSION=""
           fi
 
-          if [ -n "$VERSION" ]; then
-            # Remove 'v' prefix if present
-            VERSION=${VERSION#v}
-            MAJOR=$(echo $VERSION | cut -d. -f1)
-            MINOR=$(echo $VERSION | cut -d. -f2)
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "major=$MAJOR" >> $GITHUB_OUTPUT
-            echo "minor=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
-            echo "has_version=true" >> $GITHUB_OUTPUT
+          # inventory-ware-v1.2.3 -> v1.2.3 -> 1.2.3; a bare v1.2.3 also works.
+          VERSION="${VERSION#"${GITHUB_REPOSITORY##*/}-"}"
+          VERSION="${VERSION#v}"
+
+          # Anything that is not a real version (a branch dispatch, a stray
+          # tag) leaves has_version=false, so the build is tagged by sha alone.
+          if printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "major=${VERSION%%.*}" >> "$GITHUB_OUTPUT"
+            echo "minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
+            echo "has_version=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_version=false" >> $GITHUB_OUTPUT
+            echo "has_version=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No release version resolved - tagging by sha only."
           fi
 
       - name: Extract metadata (tags, labels)
@@ -300,16 +321,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp
           tags: |
-            # Use explicit version when provided via workflow_call
+            # Version tags, resolved above from the input or the git ref
             type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             type=raw,value=${{ steps.version-tags.outputs.minor }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             type=raw,value=${{ steps.version-tags.outputs.major }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            # Tag with version on release/tag push (semver detection)
-            type=semver,pattern={{version}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            # Tag as latest on release or when version is provided
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || inputs.tag_name != '' || steps.version-tags.outputs.has_version == 'true' }}
+            # Tag as latest whenever a real version was resolved
+            type=raw,value=latest,enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             # Tag with sha for traceability
             type=sha,prefix=sha-
           labels: |
@@ -383,27 +400,41 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Resolve the release version, in precedence order: the `version` input
+      # (release-please passes it), the `tag_name` input, then the git ref when
+      # a release publish or tag push triggered this run. Deriving from the ref
+      # is what makes every entry point emit the same tags -- release-please
+      # tags are component-prefixed (inventory-ware-v1.2.3), which
+      # docker/metadata-action's `type=semver` cannot parse on its own.
       - name: Prepare version tags
         id: version-tags
         run: |
-          # Use version input if provided, otherwise extract from tag_name
+          set -euo pipefail
+
           if [ -n "${{ inputs.version }}" ]; then
             VERSION="${{ inputs.version }}"
           elif [ -n "${{ inputs.tag_name }}" ]; then
             VERSION="${{ inputs.tag_name }}"
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            VERSION="$GITHUB_REF_NAME"
+          else
+            VERSION=""
           fi
 
-          if [ -n "$VERSION" ]; then
-            # Remove 'v' prefix if present
-            VERSION=${VERSION#v}
-            MAJOR=$(echo $VERSION | cut -d. -f1)
-            MINOR=$(echo $VERSION | cut -d. -f2)
-            echo "version=$VERSION" >> $GITHUB_OUTPUT
-            echo "major=$MAJOR" >> $GITHUB_OUTPUT
-            echo "minor=$MAJOR.$MINOR" >> $GITHUB_OUTPUT
-            echo "has_version=true" >> $GITHUB_OUTPUT
+          # inventory-ware-v1.2.3 -> v1.2.3 -> 1.2.3; a bare v1.2.3 also works.
+          VERSION="${VERSION#"${GITHUB_REPOSITORY##*/}-"}"
+          VERSION="${VERSION#v}"
+
+          # Anything that is not a real version (a branch dispatch, a stray
+          # tag) leaves has_version=false, so the build is tagged by sha alone.
+          if printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "major=${VERSION%%.*}" >> "$GITHUB_OUTPUT"
+            echo "minor=$(echo "$VERSION" | cut -d. -f1-2)" >> "$GITHUB_OUTPUT"
+            echo "has_version=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_version=false" >> $GITHUB_OUTPUT
+            echo "has_version=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No release version resolved - tagging by sha only."
           fi
 
       - name: Extract metadata (tags, labels)
@@ -412,16 +443,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-pocketbase
           tags: |
-            # Use explicit version when provided via workflow_call
+            # Version tags, resolved above from the input or the git ref
             type=raw,value=${{ steps.version-tags.outputs.version }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             type=raw,value=${{ steps.version-tags.outputs.minor }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             type=raw,value=${{ steps.version-tags.outputs.major }},enable=${{ steps.version-tags.outputs.has_version == 'true' }}
-            # Tag with version on release/tag push (semver detection)
-            type=semver,pattern={{version}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            type=semver,pattern={{major}},enable=${{ steps.version-tags.outputs.has_version == 'false' }}
-            # Tag as latest on release or when version is provided
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || inputs.tag_name != '' || steps.version-tags.outputs.has_version == 'true' }}
+            # Tag as latest whenever a real version was resolved
+            type=raw,value=latest,enable=${{ steps.version-tags.outputs.has_version == 'true' }}
             # Tag with sha for traceability
             type=sha,prefix=sha-
           labels: |

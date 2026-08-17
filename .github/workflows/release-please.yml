@@ -46,8 +46,13 @@ jobs:
             // actually have pushed there (see docker-build.yml).
             const dockerHubNamespace =
               process.env.DOCKERHUB_NAMESPACE || process.env.DOCKERHUB_USERNAME;
+            // Gate matches docker-build.yml exactly: token AND username AND
+            // a resolved namespace. Requiring the username too keeps the notes
+            // from advertising a Docker Hub image the build never pushed.
             const dockerHubImage =
-              process.env.DOCKERHUB_TOKEN && dockerHubNamespace
+              process.env.DOCKERHUB_TOKEN &&
+              process.env.DOCKERHUB_USERNAME &&
+              dockerHubNamespace
                 ? `${dockerHubNamespace}/${repo}`
                 : null;
 
