@@ -48,7 +48,7 @@ function NewContainerContent() {
   };
 
   return (
-    <div className="container mx-auto py-8 max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <Button
         variant="ghost"
         onClick={() => router.push('/inventory')}

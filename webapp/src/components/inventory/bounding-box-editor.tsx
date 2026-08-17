@@ -3,7 +3,7 @@
 import { useState, useRef, MouseEvent, TouchEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { type BoundingBox } from '@project/shared';
-import NextImage from 'next/image';
+import { ImageWithLoader } from '@/components/image/image-with-loader';
 
 interface BoundingBoxEditorProps {
   imageUrl: string;
@@ -134,7 +134,7 @@ export function BoundingBoxEditor({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <NextImage
+          <ImageWithLoader
             src={imageUrl}
             alt="Editor"
             width={1920}

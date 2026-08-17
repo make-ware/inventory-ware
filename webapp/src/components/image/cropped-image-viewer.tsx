@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { type BoundingBox } from '@project/shared';
 import { cn } from '@/lib/utils';
-import NextImage from 'next/image';
+import { ImageWithLoader } from './image-with-loader';
 
 interface CroppedImageViewerProps {
   imageUrl: string;
@@ -12,6 +12,9 @@ interface CroppedImageViewerProps {
   className?: string;
   alt?: string;
 }
+
+// One card per row on phones, up to four across on desktop.
+const IMAGE_SIZES = '(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw';
 
 /**
  * Calculate how object-cover positions an image and transform bounding box coordinates
@@ -136,12 +139,16 @@ export function CroppedImageViewer({
     return (
       <div
         ref={containerRef}
-        className={cn('relative w-full h-full overflow-hidden', className)}
+        className={cn(
+          'relative w-full h-full overflow-hidden bg-muted',
+          className
+        )}
       >
-        <NextImage
+        <ImageWithLoader
           src={imageUrl}
           alt={alt}
           fill
+          sizes={IMAGE_SIZES}
           className="object-cover"
           unoptimized
           onLoad={handleImageLoad}
@@ -176,12 +183,16 @@ export function CroppedImageViewer({
     return (
       <div
         ref={containerRef}
-        className={cn('relative w-full h-full overflow-hidden', className)}
+        className={cn(
+          'relative w-full h-full overflow-hidden bg-muted',
+          className
+        )}
       >
-        <NextImage
+        <ImageWithLoader
           src={imageUrl}
           alt={alt}
           fill
+          sizes={IMAGE_SIZES}
           className="object-cover"
           unoptimized
           onLoad={handleImageLoad}
@@ -220,10 +231,11 @@ export function CroppedImageViewer({
         className
       )}
     >
-      <NextImage
+      <ImageWithLoader
         src={imageUrl}
         alt={alt}
         fill
+        sizes={IMAGE_SIZES}
         className="object-cover"
         style={{
           objectPosition: `${positionX}% ${positionY}%`,

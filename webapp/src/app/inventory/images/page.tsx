@@ -5,9 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator } from '@project/shared';
 import type { Image } from '@project/shared';
-import { ImageCard } from '@/components/inventory';
+import { ImageCard, PaginationControls } from '@/components/inventory';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -228,18 +227,18 @@ function ImagesPageContent() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Images</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Images</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Manage your images ({filteredImages.length} of {images.length}{' '}
             total)
           </p>
@@ -257,9 +256,10 @@ function ImagesPageContent() {
             className="pl-9"
           />
         </div>
-        <div className="flex gap-4">
+        {/* Fixed-width triggers overflow narrow screens, so share the row instead. */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 md:flex">
           <Select value={imageTypeFilter} onValueChange={setImageTypeFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full md:w-[180px]">
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
             <SelectContent>
@@ -271,7 +271,7 @@ function ImagesPageContent() {
           </Select>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full md:w-[180px]">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -295,7 +295,7 @@ function ImagesPageContent() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {paginatedImages.map((image) => (
               <ImageCard
                 key={image.id}
@@ -309,29 +309,11 @@ function ImagesPageContent() {
             ))}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  handlePageChange(Math.min(totalPages, currentPage + 1))
-                }
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          )}
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
         </>
       )}
     </div>
@@ -342,7 +324,7 @@ export default function ImagesPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       }

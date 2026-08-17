@@ -32,41 +32,41 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted/20">
-      <div className="container py-16">
+      <div className="container py-10 sm:py-16">
         {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="flex justify-center mb-8">
+        <div className="text-center mb-12 sm:mb-16">
+          <div className="flex justify-center mb-6 sm:mb-8">
             <Image
               src="/inventory-ware.png"
               alt="Inventory Ware Logo"
               width={160}
               height={160}
-              className="mx-auto"
+              className="mx-auto h-24 w-24 sm:h-40 sm:w-40"
               priority
             />
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold text-foreground mb-4 sm:mb-6 break-words">
             {isAuthenticated && user
               ? `Welcome back, ${user.name || user.email}! 👋`
               : 'Inventory Ware'}
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
+          <p className="text-base sm:text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
             A simple to use inventory management app. Track your items, organize
             containers, and manage images with ease.
           </p>
           {!isAuthenticated && (
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/signup">
-                <Button size="lg" className="text-lg px-8 py-6">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+              <Link href="/signup" className="w-full sm:w-auto">
+                <Button size="lg" className="w-full text-lg px-8 py-6">
                   Get Started
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/login">
+              <Link href="/login" className="w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="lg"
-                  className="text-lg px-8 py-6"
+                  className="w-full text-lg px-8 py-6"
                 >
                   Sign In
                 </Button>
@@ -173,18 +173,14 @@ export default function Home() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/signup">
-                    <Button size="lg" className="w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+                  <Link href="/signup" className="w-full sm:w-auto">
+                    <Button size="lg" className="w-full">
                       Create Account
                     </Button>
                   </Link>
-                  <Link href="/login">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full sm:w-auto"
-                    >
+                  <Link href="/login" className="w-full sm:w-auto">
+                    <Button variant="outline" size="lg" className="w-full">
                       Sign In
                     </Button>
                   </Link>

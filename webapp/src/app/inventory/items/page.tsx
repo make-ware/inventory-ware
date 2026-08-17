@@ -339,14 +339,14 @@ function ItemsPageContent() {
 
   if (isLoading && items.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="container py-4 sm:py-8 space-y-6 sm:space-y-8 relative">
+    <div className="space-y-6 sm:space-y-8 relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Items</h1>
@@ -354,11 +354,11 @@ function ItemsPageContent() {
             Manage your inventory items
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <Button
             variant={isSelectionMode ? 'secondary' : 'outline'}
             onClick={toggleSelectionMode}
-            className="w-full sm:w-auto"
+            className="col-span-2 sm:col-span-1"
           >
             {isSelectionMode ? (
               <X className="h-4 w-4 mr-2" />
@@ -370,7 +370,6 @@ function ItemsPageContent() {
           <Button
             variant="outline"
             onClick={() => setCreateOptionDialog({ open: true, type: 'item' })}
-            className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Item
@@ -378,7 +377,6 @@ function ItemsPageContent() {
           <Button
             variant="outline"
             onClick={() => router.push('/inventory/containers')}
-            className="w-full sm:w-auto"
           >
             View Containers
           </Button>
@@ -461,24 +459,24 @@ function ItemsPageContent() {
               How would you like to create this {createOptionDialog.type}?
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 py-4">
             <Button
               variant="outline"
-              className="h-32 flex flex-col items-center justify-center gap-4 hover:bg-primary/5 hover:border-primary"
+              className="h-24 sm:h-32 flex flex-col items-center justify-center gap-3 sm:gap-4 hover:bg-primary/5 hover:border-primary"
               onClick={handleStartWithImage}
             >
-              <ImageIcon className="h-10 w-10 text-primary" />
+              <ImageIcon className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
               <span className="font-semibold">Start with Image</span>
             </Button>
             <Button
               variant="outline"
-              className="h-32 flex flex-col items-center justify-center gap-4 hover:bg-primary/5 hover:border-primary"
+              className="h-24 sm:h-32 flex flex-col items-center justify-center gap-3 sm:gap-4 hover:bg-primary/5 hover:border-primary"
               onClick={() => {
                 setCreateOptionDialog((prev) => ({ ...prev, open: false }));
                 router.push(`/inventory/${createOptionDialog.type}s/new`);
               }}
             >
-              <PenTool className="h-10 w-10 text-primary" />
+              <PenTool className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
               <span className="font-semibold">Manual Entry</span>
             </Button>
           </div>
@@ -533,7 +531,7 @@ export default function ItemsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       }

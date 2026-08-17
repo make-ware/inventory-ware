@@ -76,7 +76,7 @@ export default function EditContainerPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -87,7 +87,7 @@ export default function EditContainerPage() {
   }
 
   return (
-    <div className="container py-8 max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <Button
         variant="ghost"
         onClick={() => router.push(`/inventory/containers/${containerId}`)}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import NextImage from 'next/image';
+import { ImageWithLoader } from '@/components/image/image-with-loader';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
 import type { Image, Item, Container } from '@project/shared';
@@ -205,7 +205,7 @@ export default function ImageDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -218,17 +218,17 @@ export default function ImageDetailPage() {
   const status = image.analysisStatus || 'pending';
 
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="ghost"
           onClick={() => router.push('/inventory/images')}
-          className="gap-2"
+          className="gap-2 self-start"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Images
         </Button>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <Button
             onClick={handleProcessImage}
             disabled={isProcessing}
@@ -292,11 +292,12 @@ export default function ImageDetailPage() {
               <CardTitle className="text-2xl">Image</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="relative aspect-square rounded-lg overflow-hidden border">
-                <NextImage
+              <div className="relative aspect-square rounded-lg overflow-hidden border bg-muted">
+                <ImageWithLoader
                   src={getImageUrl(image)}
                   alt="Image"
                   fill
+                  sizes="(max-width: 1024px) 100vw, 66vw"
                   className="object-contain"
                   unoptimized
                 />
