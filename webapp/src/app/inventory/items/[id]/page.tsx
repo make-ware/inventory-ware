@@ -92,7 +92,7 @@ export default function ItemDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -103,17 +103,18 @@ export default function ItemDetailPage() {
   }
 
   return (
-    <div className="container py-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Button
           variant="ghost"
           onClick={() => router.push('/inventory')}
-          className="gap-2"
+          className="gap-2 self-start"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Inventory
         </Button>
-        <div className="flex gap-2">
+        {/* Two-up on phones so four actions never push past the viewport. */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <Button
             variant="outline"
             onClick={() =>

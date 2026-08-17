@@ -22,7 +22,7 @@ import { ContainerCreateForm } from '@/components/inventory/container-create-for
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Box, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import NextImage from 'next/image';
+import { ImageWithLoader } from '@/components/image/image-with-loader';
 
 export default function ImageLabelingWizard() {
   const router = useRouter();
@@ -166,7 +166,7 @@ export default function ImageLabelingWizard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -175,8 +175,8 @@ export default function ImageLabelingWizard() {
   if (!image) return null;
 
   return (
-    <div className="container mx-auto py-4 sm:py-8 space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Button
           variant="ghost"
           onClick={() => router.push('/inventory')}
@@ -185,16 +185,18 @@ export default function ImageLabelingWizard() {
           <ArrowLeft className="h-4 w-4" />
           Back to Inventory
         </Button>
-        <h1 className="text-2xl font-bold">Image Labeling</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">Image Labeling</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-12rem)]">
+      {/* The viewport-height split is a desktop affordance; on phones the two
+          panels stack and size to their content instead of fighting for it. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 lg:h-[calc(100vh-12rem)]">
         {/* Left Column: Image / Bbox Editor */}
-        <Card className="h-full flex flex-col">
+        <Card className="flex flex-col lg:h-full">
           <CardHeader>
             <CardTitle>Image Source</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto min-h-0 relative">
+          <CardContent className="flex-1 min-h-0 relative lg:overflow-y-auto">
             {isEditingBbox ? (
               <BoundingBoxEditor
                 imageUrl={getImageUrl(image)}
@@ -205,10 +207,11 @@ export default function ImageLabelingWizard() {
             ) : (
               <div className="flex flex-col gap-4">
                 <div className="relative aspect-square md:aspect-auto md:h-[500px] border rounded-md overflow-hidden bg-muted">
-                  <NextImage
+                  <ImageWithLoader
                     src={getImageUrl(image)}
                     alt="Source"
                     fill
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     className="object-contain"
                     unoptimized
                   />
@@ -224,7 +227,7 @@ export default function ImageLabelingWizard() {
                     />
                   )}
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-2">
                   <Button onClick={() => setIsEditingBbox(true)}>
                     {selectedBbox ? 'Edit Bounding Box' : 'Add Bounding Box'}
                   </Button>
@@ -248,27 +251,33 @@ export default function ImageLabelingWizard() {
         </Card>
 
         {/* Right Column: Creation Tabs */}
-        <Card className="h-full flex flex-col">
+        <Card className="flex flex-col lg:h-full">
           <CardHeader>
             <CardTitle>Create Entities</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto min-h-0">
+          <CardContent className="flex-1 min-h-0 lg:overflow-y-auto">
             <Tabs defaultValue="item" className="h-full flex flex-col">
               <TabsList className="w-full">
-                <TabsTrigger value="item" className="flex-1">
+                <TabsTrigger value="item" className="flex-1 text-xs sm:text-sm">
                   New Item
                 </TabsTrigger>
-                <TabsTrigger value="container" className="flex-1">
+                <TabsTrigger
+                  value="container"
+                  className="flex-1 text-xs sm:text-sm"
+                >
                   New Container
                 </TabsTrigger>
-                <TabsTrigger value="created" className="flex-1">
+                <TabsTrigger
+                  value="created"
+                  className="flex-1 text-xs sm:text-sm"
+                >
                   Created ({items.length + containers.length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent
                 value="item"
-                className="flex-1 mt-4 overflow-y-auto pr-2"
+                className="flex-1 mt-4 lg:overflow-y-auto lg:pr-2"
               >
                 <ItemCreateForm
                   onSubmit={handleItemSubmit}
@@ -281,7 +290,7 @@ export default function ImageLabelingWizard() {
 
               <TabsContent
                 value="container"
-                className="flex-1 mt-4 overflow-y-auto pr-2"
+                className="flex-1 mt-4 lg:overflow-y-auto lg:pr-2"
               >
                 <ContainerCreateForm
                   onSubmit={handleContainerSubmit}
@@ -293,7 +302,7 @@ export default function ImageLabelingWizard() {
 
               <TabsContent
                 value="created"
-                className="flex-1 mt-4 overflow-y-auto"
+                className="flex-1 mt-4 lg:overflow-y-auto"
               >
                 <div className="space-y-6">
                   <div>

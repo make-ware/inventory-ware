@@ -18,7 +18,7 @@ function InventoryRedirect() {
   }, [router, searchParams]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
+    <div className="flex items-center justify-center min-h-[50vh]">
       <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
     </div>
   );
@@ -28,7 +28,7 @@ export default function InventoryPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       }

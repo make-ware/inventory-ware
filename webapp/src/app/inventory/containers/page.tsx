@@ -223,21 +223,23 @@ function ContainersPageContent() {
 
   if (isLoading && containers.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="container py-4 sm:py-8 space-y-6 sm:space-y-8 relative">
+    <div className="space-y-6 sm:space-y-8 relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
+              className="shrink-0"
               onClick={() => router.push('/inventory/items')}
+              aria-label="Back to items"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -247,11 +249,10 @@ function ContainersPageContent() {
             Manage your storage containers
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <Button
             variant={isSelectionMode ? 'secondary' : 'outline'}
             onClick={toggleSelectionMode}
-            className="w-full sm:w-auto"
           >
             {isSelectionMode ? (
               <X className="h-4 w-4 mr-2" />
@@ -263,7 +264,6 @@ function ContainersPageContent() {
           <Button
             variant="outline"
             onClick={() => router.push('/inventory/containers/new')}
-            className="w-full sm:w-auto"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Container
@@ -356,7 +356,7 @@ export default function ContainersPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center min-h-[50vh]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       }

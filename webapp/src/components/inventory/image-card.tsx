@@ -1,6 +1,6 @@
 'use client';
 
-import NextImage from 'next/image';
+import { ImageWithLoader } from '@/components/image/image-with-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -151,11 +151,12 @@ export function ImageCard({
       </CardHeader>
       <CardContent>
         {imageUrl ? (
-          <div className="relative w-full h-32 rounded mb-3 overflow-hidden">
-            <NextImage
+          <div className="relative w-full h-32 rounded mb-3 overflow-hidden bg-muted">
+            <ImageWithLoader
               src={imageUrl}
               alt="Image"
               fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 33vw, 25vw"
               className="object-cover"
               unoptimized
             />

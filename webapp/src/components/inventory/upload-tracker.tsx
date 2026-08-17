@@ -38,7 +38,7 @@ export function UploadTracker() {
   const processingCount = queue.length - completedCount - failedCount;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 shadow-2xl transition-all duration-300">
+    <div className="fixed bottom-4 left-4 right-4 z-50 shadow-2xl transition-all duration-300 sm:left-auto sm:w-80">
       <Card className="border-primary/20 bg-background/95 backdrop-blur">
         <div
           className="flex items-center justify-between p-3 cursor-pointer border-b"

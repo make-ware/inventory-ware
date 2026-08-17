@@ -118,7 +118,7 @@ export function ContainerCreateForm({
           )}
         />
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           {onCancel && (
             <Button
               type="button"
