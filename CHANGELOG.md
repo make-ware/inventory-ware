@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.6.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.5.2...inventory-ware-v0.6.0) (2026-08-17)
+
+
+### Features
+
+* **webapp:** add an AI provider configuration resolver ([110a713](https://github.com/make-ware/inventory-ware/commit/110a713e0bf2fee79e1838d8bf5bf3c63ab26d77))
+* **webapp:** return a structured 503 when no AI provider is configured ([aa65ad4](https://github.com/make-ware/inventory-ware/commit/aa65ad461831f77300404cc95fa9ed19110d9ab1))
+* **webapp:** route model construction through a provider registry ([f33c084](https://github.com/make-ware/inventory-ware/commit/f33c084a66c1d8d0211dcea9020e3a9f539fb7e4))
+
+
+### Bug Fixes
+
+* **webapp:** emit well-formed base64 data URLs for image analysis ([2f6cde9](https://github.com/make-ware/inventory-ware/commit/2f6cde9a2882c347d5555386c48388536a6df957))
+* **webapp:** emit well-formed base64 data URLs for image analysis ([dd25fcf](https://github.com/make-ware/inventory-ware/commit/dd25fcf2b8823218f4427563f6cac336965aa270))
+
 ## [0.5.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.5.1...inventory-ware-v0.5.2) (2026-08-16)
 
 
