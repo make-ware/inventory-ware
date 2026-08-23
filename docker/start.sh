@@ -49,17 +49,6 @@ log() {
     return 0
 }
 
-# Runs a command with its output relabelled as [startup], so third-party output
-# (the PocketBase CLI) is formatted like everything else. The exit status is
-# carried out of the pipeline by hand - POSIX sh reports only the filter's.
-log_filtered() {
-    status_file="$(mktemp)"
-    { "$@" 2>&1; echo "$?" >"$status_file"; } | /app/docker/log-prefix.sh startup INFO
-    status="$(cat "$status_file")"
-    rm -f "$status_file"
-    return "${status:-1}"
-}
-
 # =============================================================================
 # Step 1: Environment defaults
 # =============================================================================
@@ -70,8 +59,10 @@ export PB_STORAGE_DIR="${PB_STORAGE_DIR:-/data/pb_storage}"
 export PB_PUBLIC_DIR="${PB_PUBLIC_DIR:-/app/webapp/.next}"
 # POCKETBASE_URL is for server-side code (bypasses nginx, connects directly)
 export POCKETBASE_URL="${POCKETBASE_URL:-http://localhost:8090}"
-export POCKETBASE_ADMIN_EMAIL="${POCKETBASE_ADMIN_EMAIL:-admin@example.com}"
-export POCKETBASE_ADMIN_PASSWORD="${POCKETBASE_ADMIN_PASSWORD:-your-secure-password}"
+# No defaults for POCKETBASE_ADMIN_EMAIL/PASSWORD on purpose: Step 3 has to be
+# able to tell "the operator supplied credentials" from "nobody did", and a
+# default would make every deployment look configured - which is exactly how
+# this container used to come up with no superuser at all.
 
 # Container Behavior
 export GRACEFUL_SHUTDOWN_TIMEOUT="${GRACEFUL_SHUTDOWN_TIMEOUT:-30}"
@@ -111,21 +102,21 @@ log DEBUG "Data directories: pb_data=${PB_DATA_DIR} pb_storage=${PB_STORAGE_DIR}
 # =============================================================================
 # Step 3: Create PocketBase superuser
 # =============================================================================
-if [ "$POCKETBASE_ADMIN_PASSWORD" != "your-secure-password" ]; then
-    log INFO "Upserting PocketBase superuser ${POCKETBASE_ADMIN_EMAIL}"
-    if ! log_filtered /app/pocketbase/pocketbase superuser upsert \
-        "$POCKETBASE_ADMIN_EMAIL" "$POCKETBASE_ADMIN_PASSWORD" --dir="$PB_DATA_DIR"; then
-        log WARN "Could not upsert superuser ${POCKETBASE_ADMIN_EMAIL} - continuing"
-    fi
-
-    # The upsert runs as root, so on a fresh volume it is what creates data.db -
-    # owned by root, which the PocketBase service (running as nextjs) then finds
-    # read-only and dies applying its first migration.
-    chown -R nextjs:nodejs "$PB_DATA_DIR" 2>/dev/null ||
-        log WARN "Could not reset ownership of ${PB_DATA_DIR} after superuser upsert"
-else
-    log WARN "POCKETBASE_ADMIN_PASSWORD is unset - skipping superuser creation. Set it to auto-create the admin account."
-fi
+#
+# Shared with the split PocketBase image (docker/start_pb.sh). Sourced rather
+# than executed so it runs under this script's `set -e` and logs through the
+# `log` function above, and so both images resolve credentials the same way.
+#
+# The resolved credentials are deliberately NOT exported: nothing in this image
+# reads POCKETBASE_ADMIN_EMAIL/PASSWORD at runtime, so exporting a generated
+# password would only place it in /proc/<pid>/environ for nginx and Next.js.
+PB_BIN=/app/pocketbase/pocketbase
+PB_HOOKS_DIR=/app/pocketbase/pb_hooks
+PB_MIGRATIONS_DIR=/app/pocketbase/pb_migrations
+PB_APP_USER=nextjs:nodejs
+PB_LOG_SERVICE=startup
+# shellcheck source=./pb-superuser.sh
+. /app/docker/pb-superuser.sh
 
 # AI image analysis is optional; warn once rather than failing the container.
 # No defaults are exported for AI_PROVIDER/AI_MODEL: an empty default would

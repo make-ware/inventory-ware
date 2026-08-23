@@ -16,6 +16,11 @@ services:
       - data:/data
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Optional. Leave both unset and the container generates a superuser into
+      # /data/pb_data/.pb_superuser.env on first start; set both to manage the
+      # account yourself. Setting exactly one stops the container.
+      - POCKETBASE_ADMIN_EMAIL=${POCKETBASE_ADMIN_EMAIL:-}
+      - POCKETBASE_ADMIN_PASSWORD=${POCKETBASE_ADMIN_PASSWORD:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/api/health"]
       interval: 10s

@@ -164,11 +164,15 @@ COPY --chown=root:root docker/nginx.conf /etc/nginx/nginx.conf
 COPY --chown=nextjs:nodejs docker/start.sh /app/start.sh
 COPY --chown=root:root docker/graceful-shutdown.sh /app/docker/graceful-shutdown.sh
 COPY --chown=root:root docker/log-prefix.sh docker/log-prefix.awk /app/docker/
+# Sourced by start.sh, so it needs no execute bit - just root ownership, since
+# it resolves the superuser credentials.
+COPY --chown=root:root docker/pb-superuser.sh /app/docker/pb-superuser.sh
 
 RUN chmod +x /app/start.sh && \
     chmod +x /app/docker/graceful-shutdown.sh && \
     chmod +x /app/docker/log-prefix.sh && \
     chmod 644 /app/docker/log-prefix.awk && \
+    chmod 644 /app/docker/pb-superuser.sh && \
     chmod 644 /etc/nginx/nginx.conf
 
 EXPOSE 80
@@ -240,6 +244,8 @@ COPY --chown=nextjs:nodejs pocketbase/pb_hooks ./pocketbase/pb_hooks
 COPY --chown=nextjs:nodejs pocketbase/pb_migrations ./pocketbase/pb_migrations
 COPY --chown=nextjs:nodejs docker/start_pb.sh /app/start_pb.sh
 COPY --chown=root:root docker/run-service.sh docker/log-prefix.sh docker/log-prefix.awk /app/docker/
+# Sourced by start_pb.sh, so it needs no execute bit.
+COPY --chown=root:root docker/pb-superuser.sh /app/docker/pb-superuser.sh
 
 ENV LOG_LEVEL=info
 ENV TZ=UTC
@@ -248,7 +254,7 @@ ENV TZ=UTC
 RUN mkdir -p /data/pb_data /data/pb_storage && \
     chown -R nextjs:nodejs /data && \
     chmod +x /app/start_pb.sh /app/docker/run-service.sh /app/docker/log-prefix.sh && \
-    chmod 644 /app/docker/log-prefix.awk
+    chmod 644 /app/docker/log-prefix.awk /app/docker/pb-superuser.sh
 
 USER nextjs
 EXPOSE 8090
