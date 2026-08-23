@@ -25,8 +25,6 @@ docker run -d \
   --name inventory-ware \
   -p 80:80 \
   -v data:/data \
-  -e POCKETBASE_ADMIN_EMAIL=admin@example.com \
-  -e POCKETBASE_ADMIN_PASSWORD=change-this-password \
   -e OPENAI_API_KEY=your-openai-api-key \
   ghcr.io/make-ware/inventory-ware:latest
 ```
@@ -43,7 +41,18 @@ disabled and the AI routes return `503 AI_NOT_CONFIGURED`.
 This command will:
 -   Start the container in detached mode (`-d`).
 -   Expose the application on port `80`.
--   **Auto-create** the PocketBase admin account with the provided credentials.
+-   **Auto-create** the PocketBase admin account. With no `POCKETBASE_ADMIN_*`
+    variables set, the container generates `admin@inventory-ware.local` with a
+    random password on first start and saves it to
+    `/data/pb_data/.pb_superuser.env` (mode 0600, root-owned). Read it with:
+
+    ```bash
+    docker exec inventory-ware cat /data/pb_data/.pb_superuser.env
+    ```
+
+    The file is reused on every restart, so the password does not rotate. Delete
+    it to have a new one generated, or set both `POCKETBASE_ADMIN_EMAIL` and
+    `POCKETBASE_ADMIN_PASSWORD` to manage the account yourself.
 -   Persist all data (database and uploads) in a Docker volume named `data` mapped to `/data`.
 
 ## Option 2: Docker Compose
@@ -57,7 +66,12 @@ Docker Compose runs the Web Application and PocketBase in separate containers, p
 docker compose up -d
 ```
 
-3.  **Important:** You must manually create the first admin account by visiting the PocketBase Admin UI (see below).
+3.  The PocketBase container generates its own superuser on first start, exactly
+    as the monolith does. Read the credentials with:
+
+    ```bash
+    docker compose exec pocketbase cat /data/pb_data/.pb_superuser.env
+    ```
 
 To stop the services:
 ```bash
@@ -71,8 +85,8 @@ All variables are optional unless noted. For Docker Compose these can go in a
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `POCKETBASE_ADMIN_EMAIL` | `admin@example.com` | Auto-created superuser (monolith only). |
-| `POCKETBASE_ADMIN_PASSWORD` | `your-secure-password` | Superuser password. The superuser is **not** created while this is left at the default. |
+| `POCKETBASE_ADMIN_EMAIL` | generated | Superuser address. Unset, the container generates `admin@inventory-ware.local`. Must be set together with the password; setting only one stops the container with a `FATAL` line. |
+| `POCKETBASE_ADMIN_PASSWORD` | generated | Superuser password. Unset, a random 32-character password is generated into `<PB_DATA_DIR>/.pb_superuser.env` (mode 0600) and reused on later starts. When supplied, it is **re-applied on every start**, so rotating the password in the admin UI is undone by the next restart - change it here (or in that file) instead. The documented placeholder `your-secure-password` is ignored, since it is published in this repository. |
 | `POCKETBASE_URL` | `http://localhost:8090` | Internal address the webapp uses to reach PocketBase. |
 | `NEXT_PUBLIC_POCKETBASE_URL` | `/` | Public address the browser uses. Baked in at image build time, so setting it at runtime on a prebuilt image has no effect — build the `webapp` target yourself to change it (see the comment in `docker-compose.yml`). |
 | `LOG_LEVEL` | `info` | `error`, `warn`, `info`, `debug`, or `verbose`. Applies to every service in the container - see [Logs](#logs). |

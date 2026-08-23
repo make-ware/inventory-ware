@@ -3,9 +3,23 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { execSync } = require('child_process');
+const crypto = require('crypto');
+const { execSync, execFileSync } = require('child_process');
 
 const POCKETBASE_VERSION = '0.35.0'; // Latest stable version as of 2024
+
+// Where a generated superuser credential is kept. Inside pb_data on purpose:
+// it only describes that database, so `rm -rf pocketbase/pb_data` takes the
+// credential with the account it belongs to, and pb_data is already gitignored.
+const SUPERUSER_ENV_FILENAME = '.pb_superuser.env';
+// NOT admin@localhost: PocketBase's email validator rejects a single-label
+// domain, and `superuser upsert` reports that failure while still exiting 0.
+const GENERATED_ADMIN_EMAIL = 'admin@inventory-ware.local';
+// The placeholder pair shipped in .env.example and docker/README.md. Honouring
+// it would create a superuser whose password is published in this repository.
+const PLACEHOLDER_ADMIN_EMAIL = 'admin@example.com';
+const PLACEHOLDER_ADMIN_PASSWORD = 'your-secure-password';
+const UPSERT_SUCCESS = 'Successfully saved superuser';
 const PLATFORM_MAP = {
   'darwin': 'darwin',
   'linux': 'linux',
@@ -161,42 +175,143 @@ onRecordAfterDeleteRequest((e) => {
   }
 }
 
-// Create superuser using environment variables
+// 32 alphanumeric characters. Alphanumeric on purpose: the value gets pasted
+// into shells, .env files and URLs by whoever reads it back out of the
+// credentials file, and a quoting mistake in a generated password is a silent
+// lockout. randomInt rather than randomBytes[i] % 62 - 256 is not a multiple of
+// 62, so the modulo would bias the first eight letters of the alphabet.
+function randomSecret() {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let out = '';
+  for (let i = 0; i < 32; i++) {
+    out += alphabet[crypto.randomInt(alphabet.length)];
+  }
+  return out;
+}
+
+// Reads one KEY=value pair out of the credentials file. Parsed, never
+// evaluated, and symmetric with read_env_value() in docker/pb-superuser.sh.
+function readEnvValue(contents, key) {
+  for (const line of contents.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith(`${key}=`)) continue;
+    const value = trimmed.slice(key.length + 1).trim();
+    const quoted = /^'(.*)'$/.exec(value) || /^"(.*)"$/.exec(value);
+    return quoted ? quoted[1] : value;
+  }
+  return '';
+}
+
+// Ensure a PocketBase superuser exists, generating one when none was supplied.
+// Without it a clean checkout leaves PocketBase printing its first-run
+// installer link and the admin UI unreachable until someone runs
+// `pocketbase superuser upsert` by hand. Mirrors docker/pb-superuser.sh.
 function createSuperUser() {
   const pbDir = path.join(__dirname, '..', 'pocketbase');
   const isWindows = process.platform === 'win32';
   const executableName = isWindows ? 'pocketbase.exe' : 'pocketbase';
   const executablePath = path.join(pbDir, executableName);
-
-  const email = process.env.POCKETBASE_ADMIN_EMAIL;
-  const password = process.env.POCKETBASE_ADMIN_PASSWORD;
-
-  if (!email || !password) {
-    console.log('⚠️  Skipping superuser creation: POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD environment variables are required');
-    return;
-  }
+  const pbDataDir = path.join(pbDir, 'pb_data');
+  const superuserEnvPath = path.join(pbDataDir, SUPERUSER_ENV_FILENAME);
 
   if (!fs.existsSync(executablePath)) {
     console.log('⚠️  Skipping superuser creation: PocketBase binary not found');
     return;
   }
 
-  console.log(`👤 Creating superuser with email: ${email}...`);
+  let email = process.env.POCKETBASE_ADMIN_EMAIL;
+  let password = process.env.POCKETBASE_ADMIN_PASSWORD;
 
-  try {
-    execSync(`"${executablePath}" superuser upsert "${email}" "${password}"`, {
-      cwd: pbDir,
-      stdio: 'inherit'
-    });
-    console.log('✅ Superuser created successfully!');
-  } catch (error) {
-    // The command may fail if the superuser already exists, which is fine
-    if (error.message && error.message.includes('already exists')) {
-      console.log('ℹ️  Superuser already exists');
-    } else {
-      console.log('⚠️  Superuser creation failed (may already exist):', error.message);
-    }
+  // Both are cleared together: clearing only the password would send a setup
+  // that used the documented pair into the "exactly one set" error below.
+  if (password === PLACEHOLDER_ADMIN_PASSWORD) {
+    console.log(`⚠️  Ignoring the placeholder POCKETBASE_ADMIN_EMAIL/PASSWORD pair (${PLACEHOLDER_ADMIN_EMAIL} / ${PLACEHOLDER_ADMIN_PASSWORD}) - a credential will be generated instead. Set both to real values in .env to manage the account yourself.`);
+    email = '';
+    password = '';
   }
+
+  let generated = false;
+
+  if (email && password) {
+    console.log(`👤 Using the superuser credentials from the environment: ${email}`);
+  } else if (email || password) {
+    // Exactly one set is a typo, not an intention. Guessing the other half
+    // would either invent a credential or ignore the one that was given.
+    console.error('❌ Set both POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD, or neither - leaving both unset generates a superuser.');
+    process.exitCode = 1;
+    return;
+  } else if (fs.existsSync(superuserEnvPath)) {
+    // Reuse what an earlier run generated, so `yarn setup` does not rotate the
+    // password out from under someone who wrote it down.
+    const contents = fs.readFileSync(superuserEnvPath, 'utf8');
+    email = readEnvValue(contents, 'POCKETBASE_ADMIN_EMAIL');
+    password = readEnvValue(contents, 'POCKETBASE_ADMIN_PASSWORD');
+    if (!email || !password) {
+      console.error(`❌ ${superuserEnvPath} does not contain both POCKETBASE_ADMIN_EMAIL and POCKETBASE_ADMIN_PASSWORD. Delete it to regenerate, or set both in .env.`);
+      process.exitCode = 1;
+      return;
+    }
+    console.log(`👤 Reusing the generated superuser credentials in ${superuserEnvPath}`);
+  } else {
+    email = GENERATED_ADMIN_EMAIL;
+    password = randomSecret();
+    generated = true;
+    // PocketBase creates pb_data itself on first run, so it may not exist yet.
+    fs.mkdirSync(pbDataDir, { recursive: true });
+    fs.writeFileSync(
+      superuserEnvPath,
+      `# Generated by scripts/setup-pocketbase.js because neither\n` +
+      `# POCKETBASE_ADMIN_EMAIL nor POCKETBASE_ADMIN_PASSWORD was set. Delete this\n` +
+      `# file to have a new credential pair generated, or set both in .env to\n` +
+      `# manage the account yourself - this file is then ignored.\n` +
+      `POCKETBASE_ADMIN_EMAIL='${email}'\n` +
+      `POCKETBASE_ADMIN_PASSWORD='${password}'\n`,
+      // Largely a no-op on Windows/NTFS, hence no "0600" claim in the log there.
+      { mode: 0o600 }
+    );
+  }
+
+  // execFileSync, not execSync: an operator-supplied password containing a
+  // quote, $ or ; would otherwise break or inject into the shell string. The
+  // output is captured because the exit status alone does not prove anything -
+  // `superuser upsert` exits 0 even when PocketBase's validator refuses the
+  // account. --hooksDir matters too: a migration that `require`s a module
+  // resolves it against the hooks directory, and a failure there defers the app
+  // schema to `serve`, whose snapshot can wipe the superuser just created.
+  let output = '';
+  let failed = false;
+  try {
+    output = execFileSync(
+      executablePath,
+      [
+        'superuser', 'upsert', email, password,
+        `--dir=${pbDataDir}`,
+        `--hooksDir=${path.join(pbDir, 'pb_hooks')}`,
+        `--migrationsDir=${path.join(pbDir, 'pb_migrations')}`,
+      ],
+      { cwd: pbDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+  } catch (error) {
+    failed = true;
+    output = `${error.stdout || ''}${error.stderr || ''}` || error.message;
+  }
+
+  if (!failed && output.includes(UPSERT_SUCCESS)) {
+    if (generated) {
+      console.log(`✅ Generated a PocketBase superuser: ${email}`);
+      console.log(`   password: ${password}`);
+      console.log(`   saved to ${superuserEnvPath}${isWindows ? '' : ' (mode 0600)'}`);
+    } else {
+      console.log(`✅ PocketBase superuser ${email} is ready`);
+    }
+    return;
+  }
+
+  console.error(`❌ Could not create the PocketBase superuser ${email} - PocketBase will fall back to printing a first-run installer link.`);
+  if (output.trim()) {
+    console.error(output.trim());
+  }
+  process.exitCode = 1;
 }
 
 if (require.main === module) {

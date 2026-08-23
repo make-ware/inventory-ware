@@ -103,9 +103,13 @@ jobs:
               --name inventory-ware \\
               -p 80:80 \\
               -v data:/data \\
-              -e POCKETBASE_ADMIN_EMAIL=admin@example.com \\
-              -e POCKETBASE_ADMIN_PASSWORD=your-secure-password \\
               ghcr.io/${owner}/${repo}:${version}
+            \`\`\`
+            
+            The container generates a PocketBase superuser on first start. Read it with:
+            
+            \`\`\`bash
+            docker exec inventory-ware cat /data/pb_data/.pb_superuser.env
             \`\`\`
             
             ### Supported Architectures
@@ -121,8 +125,8 @@ jobs:
             #### PocketBase Configuration
             | Variable | Default | Description |
             |----------|---------|-------------|
-            | \`POCKETBASE_ADMIN_EMAIL\` | \`admin@example.com\` | Admin email |
-            | \`POCKETBASE_ADMIN_PASSWORD\` | \`your-secure-password\` | Admin password |
+            | \`POCKETBASE_ADMIN_EMAIL\` | generated | Admin email. Unset, \`admin@inventory-ware.local\` is generated. |
+            | \`POCKETBASE_ADMIN_PASSWORD\` | generated | Admin password. Unset, a random password is written to \`/data/pb_data/.pb_superuser.env\` (mode 0600) and reused on restarts. Set both or neither. |
             
             </details>
             
