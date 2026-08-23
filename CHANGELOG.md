@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.6.2...inventory-ware-v0.7.0) (2026-08-23)
+
+
+### Features
+
+* auto-generate a PocketBase superuser on clean-slate first run ([088170f](https://github.com/make-ware/inventory-ware/commit/088170f7d1086ad3c9178956a1f90d3d5618c084))
+
+
+### Bug Fixes
+
+* auto-generate PocketBase superuser on clean slate ([f9df160](https://github.com/make-ware/inventory-ware/commit/f9df160a8a00667333709753277debfc1ca609e6))
+
 ## [0.6.2](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.6.1...inventory-ware-v0.6.2) (2026-08-17)
 
 
