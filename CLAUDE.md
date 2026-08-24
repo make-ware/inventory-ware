@@ -16,7 +16,7 @@ Workspaces:
 
 Run from repo root unless noted:
 
-- `yarn setup` — downloads the PocketBase binary for this platform (one-time per checkout; required before `yarn dev`)
+- `yarn setup` — downloads the PocketBase binary for this platform and ensures a superuser exists, generating `admin@inventory-ware.local` into `pocketbase/pb_data/.pb_superuser.env` (mode 0600) when `POCKETBASE_ADMIN_EMAIL`/`POCKETBASE_ADMIN_PASSWORD` are unset (required before `yarn dev`)
 - `yarn dev` — runs webapp (3000), PocketBase (8090), and the shared-package `tsup` watcher concurrently
 - `yarn build` — builds all workspaces (shared first, then webapp)
 - `yarn test` — `shared` tests then `webapp` tests (both vitest)
@@ -96,7 +96,7 @@ version.
 
 ## Environment
 
-Copy `.env.example` to `.env` at repo root. Keys in use: `POCKETBASE_URL`, `POCKETBASE_ADMIN_EMAIL`, `POCKETBASE_ADMIN_PASSWORD` (used by setup/migrations), `NEXT_PUBLIC_POCKETBASE_URL` (embedded at webapp build time), `LOG_LEVEL`, and the AI block — `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `AI_EXPERIMENTAL_MODE`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. At least one provider key is required for the AI analysis routes.
+Copy `.env.example` to `.env` at repo root. Keys in use: `POCKETBASE_URL`, `POCKETBASE_ADMIN_EMAIL`, `POCKETBASE_ADMIN_PASSWORD` (used by setup/migrations; both optional — leave both unset and a superuser is generated, set both to manage it yourself, and setting exactly one is an error), `NEXT_PUBLIC_POCKETBASE_URL` (embedded at webapp build time), `LOG_LEVEL`, and the AI block — `AI_PROVIDER`, `AI_MODEL`, `AI_BASE_URL`, `AI_EXPERIMENTAL_MODE`, `OPENAI_API_KEY`, `GEMINI_API_KEY`. At least one provider key is required for the AI analysis routes.
 
 ## Releases & CI
 
