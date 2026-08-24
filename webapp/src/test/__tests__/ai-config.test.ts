@@ -216,6 +216,64 @@ describe('resolveAIConfig', () => {
       expect(config.configured).toBe(false);
     });
   });
+
+  describe('experimental mode', () => {
+    it.each(['true', '1', 'yes', 'on'])(
+      'enables the tool loop for %s',
+      (value) => {
+        const config = resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_EXPERIMENTAL_MODE: value })
+        );
+
+        expect(config.experimentalMode).toBe(true);
+      }
+    );
+
+    it('tolerates surrounding whitespace and casing', () => {
+      expect(
+        resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_EXPERIMENTAL_MODE: '  TRUE  ' })
+        ).experimentalMode
+      ).toBe(true);
+      expect(
+        resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_EXPERIMENTAL_MODE: 'True' })
+        ).experimentalMode
+      ).toBe(true);
+    });
+
+    it('defaults to off when unset or blank', () => {
+      expect(
+        resolveAIConfig(env({ OPENAI_API_KEY: 'sk-test' })).experimentalMode
+      ).toBe(false);
+      // Docker compose expands an unset `${AI_EXPERIMENTAL_MODE}` to a blank.
+      expect(
+        resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_EXPERIMENTAL_MODE: '   ' })
+        ).experimentalMode
+      ).toBe(false);
+    });
+
+    it.each(['false', '0', 'maybe'])(
+      'stays off for %s, without warning',
+      (value) => {
+        const config = resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_EXPERIMENTAL_MODE: value })
+        );
+
+        expect(config.experimentalMode).toBe(false);
+        // An unrecognised value is not worth a log line on every boot.
+        expect(config.warnings).toEqual([]);
+      }
+    );
+
+    it('is readable without a credential, so callers need not narrow first', () => {
+      const config = resolveAIConfig(env({ AI_EXPERIMENTAL_MODE: 'true' }));
+
+      expect(config.configured).toBe(false);
+      expect(config.experimentalMode).toBe(true);
+    });
+  });
 });
 
 describe('AIConfigError', () => {

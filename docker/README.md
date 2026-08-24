@@ -83,6 +83,7 @@ All variables are optional unless noted. For Docker Compose these can go in a
 | `AI_PROVIDER` | auto-detected | `openai` or `google` (`gemini` is accepted). Only needed when both keys are set. |
 | `AI_MODEL` | `gpt-5.4-2026-03-05` / `gemini-3.5-flash` | Model id for the active provider. An unusable value falls back to the default with a warning in the log. |
 | `AI_BASE_URL` | — | Point at a compatible endpoint (proxy, Azure, local inference server). |
+| `AI_EXPERIMENTAL_MODE` | `false` | `true`, `1`, `yes` or `on` enables the experimental `searchCategories` tool-calling loop during image analysis. Costs extra tokens and latency per image. |
 
 If exactly one AI provider key is present, that provider is selected
 automatically. If both are present, OpenAI wins unless `AI_PROVIDER` says
