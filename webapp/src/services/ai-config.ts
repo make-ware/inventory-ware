@@ -48,6 +48,12 @@ const PROVIDER_ALIASES: Record<string, AIProvider> = {
 interface BaseConfig {
   provider: AIProvider;
   model: string;
+  /**
+   * Opt-in tool-calling loop for image analysis — see AI_EXPERIMENTAL_MODE.
+   * Lives on the base so it is readable even when the provider is
+   * unconfigured, which keeps callers from having to narrow the union first.
+   */
+  experimentalMode: boolean;
   /** Non-fatal misconfiguration notes, logged once per process by getAIConfig. */
   warnings: string[];
 }
@@ -198,6 +204,19 @@ function resolveBaseURL(
   );
 }
 
+/** Spellings of "on" accepted for AI_EXPERIMENTAL_MODE. */
+const TRUTHY_FLAG_VALUES = new Set(['true', '1', 'yes', 'on']);
+
+/**
+ * Read the experimental-mode flag. Anything unrecognised is off — a typo here
+ * should leave the deployment on the well-trodden single-shot path, and warning
+ * about it would fire on every `${AI_EXPERIMENTAL_MODE}` compose passthrough.
+ */
+function resolveExperimentalMode(env: NodeJS.ProcessEnv): boolean {
+  const raw = read(env, 'AI_EXPERIMENTAL_MODE');
+  return raw !== undefined && TRUTHY_FLAG_VALUES.has(raw.toLowerCase());
+}
+
 /**
  * Resolve the effective AI configuration from an env record.
  *
@@ -212,12 +231,14 @@ export function resolveAIConfig(env: NodeJS.ProcessEnv): ResolvedAIConfig {
   const baseURL = resolveBaseURL(env, provider);
   const model = resolveModel(env, provider, !!baseURL, warnings);
   const apiKey = resolveApiKey(env, provider);
+  const experimentalMode = resolveExperimentalMode(env);
 
   if (!apiKey) {
     return {
       configured: false,
       provider,
       model,
+      experimentalMode,
       reason: 'missing_api_key',
       warnings,
     };
@@ -227,6 +248,7 @@ export function resolveAIConfig(env: NodeJS.ProcessEnv): ResolvedAIConfig {
     configured: true,
     provider,
     model,
+    experimentalMode,
     apiKey,
     warnings,
     ...(baseURL ? { baseURL } : {}),

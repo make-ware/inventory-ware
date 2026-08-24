@@ -10,6 +10,7 @@ import {
   type ItemMetadata,
 } from '@project/shared';
 import { createAIAnalysisService, type CategoryLibrary } from './ai-analysis';
+import { CURATED_CATEGORIES, MAX_CATEGORY_EXAMPLES } from './category-defaults';
 import type {
   Item,
   Container,
@@ -689,7 +690,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
         const aiResult = await getAIService().analyzeContainerImageWithContext(
           imageData,
           existingItems,
-          categories
+          categories,
+          this.searchCategories.bind(this)
         );
 
         // 8. Convert AI result to ItemMetadata array (handle snake_case to camelCase)
@@ -905,59 +907,22 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
     async getCategoryLibrary(): Promise<CategoryLibrary> {
       const all = await itemMutator.getDistinctCategories();
 
-      // Default values to provide context if the database is empty
-      const defaults: CategoryLibrary = {
-        functional: [
-          'Tools',
-          'Electronics',
-          'Materials',
-          'Technology',
-          'Office',
-          'Furniture',
-          'Kitchen',
-          'Outdoor',
-          'Automotive',
-          'Hardware',
-        ],
-        specific: [
-          'Power Tools',
-          'Hand Tools',
-          'Computer Components',
-          'Fasteners',
-          'Sensors',
-          'Lab Equipment',
-          'Stationary',
-          'Kitchenware',
-          'Gardening',
-          'Safety Gear',
-        ],
-        itemType: [
-          'Drill',
-          'Screwdriver',
-          'CPU Heatsink',
-          'Screws',
-          'Proximity Sensor',
-          'Oscilloscope',
-          'Pen',
-          'Plate',
-          'Shovel',
-          'Safety Glasses',
-        ],
-      };
-
+      // A tier with nothing in it yet falls back to the full curated list, so a
+      // fresh install still hands the model a real vocabulary to reuse from
+      // rather than "None yet". Order is alphabetical, from the mutator.
       return {
         functional:
           all.functional.length > 0
-            ? all.functional.slice(0, 10)
-            : defaults.functional,
+            ? all.functional.slice(0, MAX_CATEGORY_EXAMPLES)
+            : CURATED_CATEGORIES.functional,
         specific:
           all.specific.length > 0
-            ? all.specific.slice(0, 10)
-            : defaults.specific,
+            ? all.specific.slice(0, MAX_CATEGORY_EXAMPLES)
+            : CURATED_CATEGORIES.specific,
         itemType:
           all.itemType.length > 0
-            ? all.itemType.slice(0, 10)
-            : defaults.itemType,
+            ? all.itemType.slice(0, MAX_CATEGORY_EXAMPLES)
+            : CURATED_CATEGORIES.itemType,
       };
     },
 

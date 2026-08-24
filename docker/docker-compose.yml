@@ -53,6 +53,7 @@ services:
       - AI_PROVIDER=${AI_PROVIDER:-}
       - AI_MODEL=${AI_MODEL:-}
       - AI_BASE_URL=${AI_BASE_URL:-}
+      - AI_EXPERIMENTAL_MODE=${AI_EXPERIMENTAL_MODE:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
     depends_on:
