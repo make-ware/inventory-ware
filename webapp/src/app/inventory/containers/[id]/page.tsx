@@ -17,13 +17,9 @@ import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dia
 import { ContainerImageUpload } from '@/components/inventory/container-image-upload';
 import { CleanupPromptDialog } from '@/components/inventory/cleanup-prompt-dialog';
 import { createInventoryService, type CleanupActionRequest } from '@/services';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { AsyncCombobox } from '@/components/ui/async-combobox';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   Loader2,
@@ -43,17 +39,21 @@ export default function ContainerDetailPage() {
 
   const [container, setContainer] = useState<Container | null>(null);
   const [containerItems, setContainerItems] = useState<Item[]>([]);
-  const [allItems, setAllItems] = useState<Item[]>([]);
+  const [containerItemCount, setContainerItemCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState<string>('');
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  /** When true the picker also offers items that live in another container. */
+  const [showAssigned, setShowAssigned] = useState(false);
+  /** Bumped after every add, to reset the picker's paging. */
+  const [addNonce, setAddNonce] = useState(0);
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
   const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
   const [unmatchedItems, setUnmatchedItems] = useState<Item[]>([]);
   const { confirm } = useConfirm();
 
-  const containerMutator = new ContainerMutator(pb);
-  const itemMutator = new ItemMutator(pb);
+  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const inventoryService = useMemo(() => createInventoryService(pb), []);
 
   const loadContainerDetails = useCallback(async () => {
@@ -71,18 +71,12 @@ export default function ContainerDetailPage() {
       setContainer(containerData);
 
       // Load items in this container with expanded ImageRef
-      const items = (
-        await itemMutator.getByContainer(containerId, { expand: 'ImageRef' })
-      ).items;
-      setContainerItems(items);
-
-      // Load all items (for add item dropdown)
-      const allItemsResult = await itemMutator.search('');
-      // Filter out items already in this container
-      const availableItems = allItemsResult.items.filter(
-        (item) => item.ContainerRef !== containerId
-      );
-      setAllItems(availableItems);
+      const contents = await itemMutator.getByContainer(containerId, {
+        expand: 'ImageRef',
+      });
+      setContainerItems(contents.items);
+      // The page total is what PocketBase counted, not what this page returned.
+      setContainerItemCount(contents.totalItems);
     } catch (error) {
       console.error('Failed to load container details:', error);
       toast.error('Failed to load container details');
@@ -90,8 +84,7 @@ export default function ContainerDetailPage() {
     } finally {
       setIsLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerId, router]);
+  }, [containerId, router, containerMutator, itemMutator]);
 
   useEffect(() => {
     loadContainerDetails();
@@ -115,17 +108,60 @@ export default function ContainerDetailPage() {
     return 'Are you sure you want to delete this container?';
   };
 
+  /**
+   * One page of candidate items for the picker.
+   *
+   * `sort` is not optional: `ItemMutator` sets no default sort, so without it
+   * PocketBase returns rows in an unspecified order and paging would skip and
+   * repeat records as the offset moves.
+   */
+  const fetchItemPage = useCallback(
+    (query: string, page: number) =>
+      itemMutator.search(query, {
+        page,
+        perPage: 25,
+        sort: 'itemLabel',
+        // Only needed to show where an already-assigned item currently lives.
+        expand: showAssigned ? 'ContainerRef' : undefined,
+        filters: showAssigned
+          ? { excludeContainer: containerId }
+          : { hasContainer: false },
+      }),
+    [itemMutator, containerId, showAssigned]
+  );
+
+  const getItemContainerLabel = (item: Item): string | undefined => {
+    const expanded = item.expand?.ContainerRef as Container | undefined;
+    return expanded?.containerLabel;
+  };
+
   const handleAddItem = async () => {
-    if (!selectedItemId) {
+    if (!selectedItem) {
       toast.error('Please select an item to add');
       return;
     }
 
+    // In "show all" mode the add is really a move, so make that explicit.
+    if (selectedItem.ContainerRef) {
+      const currentLabel = getItemContainerLabel(selectedItem);
+      const from = currentLabel ? `"${currentLabel}"` : 'another container';
+      if (
+        !(await confirm(
+          `"${selectedItem.itemLabel}" is currently in ${from}. Move it here?`
+        ))
+      ) {
+        return;
+      }
+    }
+
     try {
       setIsAddingItem(true);
-      await itemMutator.update(selectedItemId, { ContainerRef: containerId });
+      await itemMutator.update(selectedItem.id, { ContainerRef: containerId });
       toast.success('Item added to container');
-      setSelectedItemId('');
+      setSelectedItem(null);
+      // Every add shifts the offsets of the remaining pages, so reload the
+      // picker from the top rather than trying to patch the loaded pages.
+      setAddNonce((nonce) => nonce + 1);
       await loadContainerDetails();
     } catch (error) {
       console.error('Failed to add item to container:', error);
@@ -289,7 +325,7 @@ export default function ContainerDetailPage() {
 
               <div>
                 <h3 className="text-sm font-medium mb-2">
-                  Items ({containerItems.length})
+                  Items ({containerItemCount})
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   Items stored in this container
@@ -303,27 +339,36 @@ export default function ContainerDetailPage() {
             <CardHeader>
               <CardTitle className="text-lg">Add Item to Container</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <div className="flex gap-2">
-                <Select
-                  value={selectedItemId}
-                  onValueChange={setSelectedItemId}
-                  disabled={isAddingItem || allItems.length === 0}
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select an item..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.itemLabel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex-1">
+                  <AsyncCombobox<Item>
+                    value={selectedItem?.id}
+                    selectedLabel={selectedItem?.itemLabel}
+                    onChange={(_value, item) => setSelectedItem(item)}
+                    fetchPage={fetchItemPage}
+                    queryKey={showAssigned ? 'all' : 'unassigned'}
+                    resetToken={addNonce}
+                    getOptionValue={(item) => item.id}
+                    getOptionLabel={(item) => item.itemLabel}
+                    getOptionDescription={(item) =>
+                      showAssigned
+                        ? getItemContainerLabel(item)
+                        : item.itemManufacturer || item.itemType
+                    }
+                    placeholder="Select an item..."
+                    searchPlaceholder="Search items..."
+                    emptyMessage={
+                      showAssigned
+                        ? 'No matching items outside this container'
+                        : 'No unassigned items match'
+                    }
+                    disabled={isAddingItem}
+                  />
+                </div>
                 <Button
                   onClick={handleAddItem}
-                  disabled={isAddingItem || !selectedItemId}
+                  disabled={isAddingItem || !selectedItem}
                 >
                   {isAddingItem ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -335,12 +380,23 @@ export default function ContainerDetailPage() {
                   )}
                 </Button>
               </div>
-              {allItems.length === 0 && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  No available items to add. All items are either in this
-                  container or other containers.
-                </p>
-              )}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="show-assigned-items"
+                  checked={showAssigned}
+                  onCheckedChange={(checked) => {
+                    setShowAssigned(checked === true);
+                    setSelectedItem(null);
+                  }}
+                  disabled={isAddingItem}
+                />
+                <Label
+                  htmlFor="show-assigned-items"
+                  className="text-sm font-normal text-muted-foreground"
+                >
+                  Show items already in another container
+                </Label>
+              </div>
             </CardContent>
           </Card>
 

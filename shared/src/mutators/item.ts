@@ -1,7 +1,7 @@
 import type { ListResult } from 'pocketbase';
 import { type Item, type ItemInput, ItemInputSchema } from '../index';
 import type { TypedPocketBase } from '../types';
-import { allOf, anyOf, eq } from '../utils/filter';
+import { allOf, anyOf, eq, neq } from '../utils/filter';
 import { BaseMutator, type ListQuery, TypedRecordService } from './base';
 
 export interface ItemSearchFilters {
@@ -10,6 +10,19 @@ export interface ItemSearchFilters {
   itemType?: string;
   container?: string;
   image?: string;
+  /**
+   * `true` -> only items that are in some container; `false` -> only
+   * unassigned items. Omit for "either".
+   *
+   * Gated on `!== undefined`, unlike `container`, so `false` is a real filter
+   * rather than "no filter".
+   */
+  hasContainer?: boolean;
+  /**
+   * Exclude items already in this container, for "move an item here" pickers
+   * where offering the container's own items would be a no-op.
+   */
+  excludeContainer?: string;
 }
 
 /** A paged query plus the item-specific filters. */
@@ -69,6 +82,14 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
   /**
    * Build the filter expression `search()` uses.
    *
+   * Every clause is ANDed, so contradictory combinations (say `container` plus
+   * `hasContainer: false`) legitimately match nothing rather than being
+   * reconciled here. `container`, `image` and the category filters stay
+   * truthiness-gated for backwards compatibility; `hasContainer` is gated on
+   * `!== undefined` so `false` means "unassigned only". PocketBase stores a
+   * cleared single relation as the empty string, which is why the unassigned
+   * clause is `ContainerRef=""` rather than a null check.
+   *
    * Exported separately so callers can echo the filter when debugging.
    */
   buildSearchFilter(
@@ -91,6 +112,14 @@ export class ItemMutator extends BaseMutator<Item, ItemInput> {
     }
     if (filters?.container) {
       parts.push(eq('ContainerRef', filters.container));
+    }
+    if (filters?.hasContainer !== undefined) {
+      parts.push(
+        filters.hasContainer ? neq('ContainerRef', '') : eq('ContainerRef', '')
+      );
+    }
+    if (filters?.excludeContainer) {
+      parts.push(neq('ContainerRef', filters.excludeContainer));
     }
     if (filters?.image) {
       parts.push(eq('ImageRef', filters.image));

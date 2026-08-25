@@ -93,6 +93,53 @@ describe('ItemMutator', () => {
       );
     });
 
+    it('filters to unassigned items when hasContainer is false', async () => {
+      await mutator.search('', { filters: { hasContainer: false } });
+
+      // PocketBase stores a cleared single relation as the empty string.
+      expect(mockGetList.mock.calls[0][2].filter).toBe('ContainerRef=""');
+    });
+
+    it('filters to assigned items when hasContainer is true', async () => {
+      await mutator.search('', { filters: { hasContainer: true } });
+
+      expect(mockGetList.mock.calls[0][2].filter).toBe('ContainerRef!=""');
+    });
+
+    it('does not drop hasContainer: false as if it were absent', async () => {
+      // Regression guard: the clause is gated on `!== undefined`, so a
+      // truthiness check here would silently return every item.
+      await mutator.search('drill', { filters: { hasContainer: false } });
+
+      expect(mockGetList.mock.calls[0][2].filter).toContain('ContainerRef=""');
+    });
+
+    it('excludes a single container with excludeContainer', async () => {
+      await mutator.search('', { filters: { excludeContainer: 'c1' } });
+
+      expect(mockGetList.mock.calls[0][2].filter).toBe('ContainerRef!="c1"');
+    });
+
+    it('combines the LIKE clause with the unassigned filter', async () => {
+      await mutator.search('drill', { filters: { hasContainer: false } });
+
+      expect(mockGetList.mock.calls[0][2].filter).toBe(
+        '(itemLabel~"drill" || itemName~"drill" || itemNotes~"drill" || itemManufacturer~"drill") && (ContainerRef="")'
+      );
+    });
+
+    it('ANDs a contradictory container/hasContainer pair rather than reconciling it', async () => {
+      // Chosen behaviour, not an accident: the caller asked for both, and both
+      // clauses are emitted, so the query matches nothing.
+      await mutator.search('', {
+        filters: { container: 'c1', hasContainer: false },
+      });
+
+      expect(mockGetList.mock.calls[0][2].filter).toBe(
+        '(ContainerRef="c1") && (ContainerRef="")'
+      );
+    });
+
     it('threads page, perPage, sort and expand through', async () => {
       await mutator.search('', {
         page: 3,
@@ -123,6 +170,14 @@ describe('ItemMutator', () => {
       await mutator.getByContainer('container9', { page: 2, perPage: 5 });
 
       expect(mockGetList).toHaveBeenCalledWith(2, 5, {
+        filter: 'ContainerRef="container9"',
+      });
+    });
+
+    it('still emits only the container clause now that hasContainer exists', async () => {
+      await mutator.getByContainer('container9');
+
+      expect(mockGetList).toHaveBeenCalledWith(1, 100, {
         filter: 'ContainerRef="container9"',
       });
     });

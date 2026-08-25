@@ -6,6 +6,7 @@ import {
   escapeFilterValue,
   isUnrepresentableFilterValue,
   like,
+  neq,
 } from './filter';
 
 describe('escapeFilterValue', () => {
@@ -39,6 +40,29 @@ describe('eq / like', () => {
   it('builds equality and contains clauses', () => {
     expect(eq('itemType', 'hammer')).toBe('itemType="hammer"');
     expect(like('itemLabel', 'drill')).toBe('itemLabel~"drill"');
+  });
+});
+
+describe('neq', () => {
+  it('builds an inequality clause', () => {
+    expect(neq('ContainerRef', 'abc123')).toBe('ContainerRef!="abc123"');
+  });
+
+  it('represents "no container" as the empty string', () => {
+    // PocketBase stores a cleared single relation as "", not null.
+    expect(neq('ContainerRef', '')).toBe('ContainerRef!=""');
+  });
+
+  it('escapes a value that would break out of the filter string', () => {
+    expect(neq('itemLabel', 'a" || id!="')).toBe(
+      'itemLabel!="a\\" || id!=\\""'
+    );
+  });
+
+  it('is parenthesised like any other atom when ANDed', () => {
+    expect(
+      allOf([anyOf(['itemLabel'], 'drill'), neq('ContainerRef', '')])
+    ).toBe('(itemLabel~"drill") && (ContainerRef!="")');
   });
 });
 
