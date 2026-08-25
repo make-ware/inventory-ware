@@ -340,8 +340,25 @@ export default function ContainerDetailPage() {
               <CardTitle className="text-lg">Add Item to Container</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="show-assigned-items"
+                  checked={showAssigned}
+                  onCheckedChange={(checked) => {
+                    setShowAssigned(checked === true);
+                    setSelectedItem(null);
+                  }}
+                  disabled={isAddingItem}
+                />
+                <Label
+                  htmlFor="show-assigned-items"
+                  className="text-sm font-normal text-muted-foreground"
+                >
+                  Show items already in another container
+                </Label>
+              </div>
+              <div className="flex min-w-0 flex-1 basis-80 gap-2">
+                <div className="min-w-0 flex-1">
                   <AsyncCombobox<Item>
                     value={selectedItem?.id}
                     selectedLabel={selectedItem?.itemLabel}
@@ -379,23 +396,6 @@ export default function ContainerDetailPage() {
                     </>
                   )}
                 </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="show-assigned-items"
-                  checked={showAssigned}
-                  onCheckedChange={(checked) => {
-                    setShowAssigned(checked === true);
-                    setSelectedItem(null);
-                  }}
-                  disabled={isAddingItem}
-                />
-                <Label
-                  htmlFor="show-assigned-items"
-                  className="text-sm font-normal text-muted-foreground"
-                >
-                  Show items already in another container
-                </Label>
               </div>
             </CardContent>
           </Card>

@@ -50,13 +50,16 @@ function ContainersPageContent() {
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
   const { confirm } = useConfirm();
 
+  // Fetched once (and after mutations); search/sort/pagination are all
+  // in-memory below, so the filter controls never wait on the network.
   const loadContainers = useCallback(async () => {
     try {
-      // Pass sortValue to search
       const results = (
-        await containerMutator.search(searchQuery, {
+        await containerMutator.getList({
+          page: 1,
+          perPage: 1000,
+          sort: '-created',
           expand: 'ImageRef',
-          sort: sortValue,
         })
       ).items;
       setContainers(results);
@@ -77,7 +80,7 @@ function ContainersPageContent() {
       console.error('Failed to load containers:', error);
       toast.error('Failed to load containers');
     }
-  }, [containerMutator, searchQuery, sortValue]);
+  }, [containerMutator]);
 
   const loadData = useCallback(async () => {
     try {
@@ -108,7 +111,9 @@ function ContainersPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Sync state TO URL
+  // Sync state TO URL. `history.replaceState` rather than `router.push`:
+  // Next keeps `useSearchParams` in sync with it, but skips the router
+  // navigation (and history spam) a push would cost on every filter change.
   useEffect(() => {
     const timer = setTimeout(() => {
       const params = new URLSearchParams();
@@ -117,21 +122,14 @@ function ContainersPageContent() {
       if (sortValue !== '-created') params.set('sort', sortValue);
 
       const query = params.toString();
-      const url = query ? `?${query}` : pathname;
-
       const currentParams = new URLSearchParams(searchParams.toString());
       if (query !== currentParams.toString()) {
-        router.push(url, { scroll: false });
+        window.history.replaceState(null, '', query ? `?${query}` : pathname);
       }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, sortValue, currentPage, router, pathname, searchParams]);
-
-  // Reload containers when search/sort change
-  useEffect(() => {
-    loadContainers();
-  }, [searchQuery, sortValue, loadContainers]);
+  }, [searchQuery, sortValue, currentPage, pathname, searchParams]);
 
   const handleDeleteContainer = async (containerId: string) => {
     if (!(await confirm('Are you sure you want to delete this container?')))
@@ -202,11 +200,50 @@ function ContainersPageContent() {
     setCurrentPage(newPage);
   }, []);
 
-  const paginatedContainers = containers.slice(
+  // In-memory search and sort. Matches the same fields the server-side
+  // `ContainerMutator.search` filter does (label and notes, case-insensitive).
+  const visibleContainers = useMemo(() => {
+    let list = containers;
+
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      list = list.filter(
+        (container) =>
+          container.containerLabel.toLowerCase().includes(query) ||
+          (container.containerNotes ?? '').toLowerCase().includes(query)
+      );
+    }
+
+    const byLabel = (a: Container, b: Container) =>
+      a.containerLabel.localeCompare(b.containerLabel, undefined, {
+        sensitivity: 'base',
+      });
+    // `created` is an ISO timestamp, so string order is chronological order.
+    const byCreated = (a: Container, b: Container) =>
+      a.created < b.created ? -1 : a.created > b.created ? 1 : 0;
+
+    const sorted = [...list];
+    switch (sortValue) {
+      case '+created':
+        sorted.sort(byCreated);
+        break;
+      case '+containerLabel':
+        sorted.sort(byLabel);
+        break;
+      case '-containerLabel':
+        sorted.sort((a, b) => byLabel(b, a));
+        break;
+      default:
+        sorted.sort((a, b) => byCreated(b, a));
+    }
+    return sorted;
+  }, [containers, searchQuery, sortValue]);
+
+  const paginatedContainers = visibleContainers.slice(
     (currentPage - 1) * CONTAINERS_PER_PAGE,
     currentPage * CONTAINERS_PER_PAGE
   );
-  const totalPages = Math.ceil(containers.length / CONTAINERS_PER_PAGE);
+  const totalPages = Math.ceil(visibleContainers.length / CONTAINERS_PER_PAGE);
 
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {

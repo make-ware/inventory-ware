@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator } from '@project/shared';
@@ -33,7 +33,6 @@ function ImagesPageContent() {
   }));
 
   const [images, setImages] = useState<Image[]>([]);
-  const [filteredImages, setFilteredImages] = useState<Image[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(initialState.page);
@@ -64,8 +63,8 @@ function ImagesPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filterImages = useCallback(() => {
-    let filtered = [...images];
+  const filteredImages = useMemo(() => {
+    let filtered = images;
 
     if (imageTypeFilter !== 'all') {
       filtered = filtered.filter((img) => img.imageType === imageTypeFilter);
@@ -84,7 +83,7 @@ function ImagesPageContent() {
       );
     }
 
-    setFilteredImages(filtered);
+    return filtered;
   }, [images, imageTypeFilter, statusFilter, searchQuery]);
 
   // Sync state FROM URL
@@ -103,7 +102,9 @@ function ImagesPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Sync state TO URL
+  // Sync state TO URL. `history.replaceState` rather than `router.push`:
+  // Next keeps `useSearchParams` in sync with it, but skips the router
+  // navigation (and history spam) a push would cost on every filter change.
   useEffect(() => {
     const timer = setTimeout(() => {
       const params = new URLSearchParams();
@@ -113,32 +114,22 @@ function ImagesPageContent() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
 
       const query = params.toString();
-      const url = query ? `?${query}` : '/inventory/images';
-
       const currentParams = new URLSearchParams(searchParams.toString());
       if (query !== currentParams.toString()) {
-        router.push(url, { scroll: false });
+        window.history.replaceState(
+          null,
+          '',
+          query ? `?${query}` : '/inventory/images'
+        );
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [
-    searchQuery,
-    imageTypeFilter,
-    statusFilter,
-    currentPage,
-    router,
-    searchParams,
-  ]);
+  }, [searchQuery, imageTypeFilter, statusFilter, currentPage, searchParams]);
 
   // Load initial data
   useEffect(() => {
     loadImages();
   }, [loadImages]);
-
-  // Filter images when filters change
-  useEffect(() => {
-    filterImages();
-  }, [filterImages]);
 
   // Poll for status updates on processing images
   useEffect(() => {
