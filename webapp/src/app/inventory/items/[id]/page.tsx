@@ -1,20 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
-import {
-  ItemMutator,
-  ContainerMutator,
-  formatCategoryLabel,
-} from '@project/shared';
-import type { Item, Container } from '@project/shared';
+import { ItemMutator, formatCategoryLabel } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
 import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
 import { ItemImageUpload } from '@/components/inventory/item-image-upload';
+import { useItem } from '@/hooks/use-items';
+import { useContainer } from '@/hooks/use-containers';
+import { qk } from '@/lib/query';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,52 +36,46 @@ export default function ItemDetailPage() {
   const params = useParams();
   const itemId = params.id as string;
 
-  const [item, setItem] = useState<Item | null>(null);
-  const [container, setContainer] = useState<Container | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
 
-  const itemMutator = new ItemMutator(pb);
-  const containerMutator = new ContainerMutator(pb);
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
-  const loadItemDetails = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const { item, isPending, isError, isMissing } = useItem(itemId);
+  // The container is a secondary read: it only names the button below, so its
+  // own failure hides that button rather than taking the page down.
+  const { container } = useContainer(item?.ContainerRef);
 
-      // Load item with expanded ImageRef
-      const itemData = await itemMutator.getById(itemId, 'ImageRef');
-      if (!itemData) {
-        throw new Error('Item not found');
-      }
-      setItem(itemData);
-
-      // Load container if item is in one
-      if (itemData.ContainerRef) {
-        const containerData = await containerMutator.getById(
-          itemData.ContainerRef
-        );
-        if (containerData) {
-          setContainer(containerData);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load item details:', error);
-      toast.error('Failed to load item details');
-      router.push('/inventory');
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId, router]);
-
+  // A missing item and a failed request are the same dead end here: there is
+  // no page to render, so say so once and go back to the inventory.
+  const isUnavailable = isError || isMissing;
   useEffect(() => {
-    loadItemDetails();
-  }, [loadItemDetails]);
+    if (!isUnavailable) return;
+    toast.error('Failed to load item details');
+    router.push('/inventory');
+  }, [isUnavailable, router]);
+
+  /** Re-read this item and every list it appears in. */
+  const invalidateItem = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.itemById(itemId) }),
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+      ]),
+    [queryClient, itemId]
+  );
 
   const handleDelete = async () => {
     try {
       await itemMutator.delete(itemId);
       toast.success('Item deleted successfully');
+      // Evict rather than invalidate: the record is gone, so refetching its
+      // detail key would only produce a 404 for a page nobody is on any more.
+      queryClient.removeQueries({ queryKey: qk.itemById(itemId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
+      ]);
       router.push('/inventory');
     } catch (error) {
       console.error('Failed to delete item:', error);
@@ -90,7 +83,7 @@ export default function ItemDetailPage() {
     }
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -302,7 +295,7 @@ export default function ItemDetailPage() {
                 itemId={itemId}
                 onSuccess={() => {
                   toast.success('Item image updated successfully');
-                  loadItemDetails();
+                  invalidateItem();
                 }}
                 onError={(error) => toast.error(error.message)}
               />

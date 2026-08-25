@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
 import { ContainerMutator, ItemMutator } from '@project/shared';
-import type { Container, Item } from '@project/shared';
+import type { Item } from '@project/shared';
 import { getImageFileUrl, getExpandedImageUrl } from '@/lib/image-utils';
 
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,10 @@ import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dia
 import { ContainerImageUpload } from '@/components/inventory/container-image-upload';
 import { CleanupPromptDialog } from '@/components/inventory/cleanup-prompt-dialog';
 import { createInventoryService, type CleanupActionRequest } from '@/services';
+import { useAuth } from '@/hooks/use-auth';
+import { useContainer, useItemsByContainer } from '@/hooks/use-containers';
+import { useAllItems } from '@/hooks/use-items';
+import { qk } from '@/lib/query';
 import {
   Select,
   SelectContent,
@@ -40,11 +45,9 @@ export default function ContainerDetailPage() {
   const router = useRouter();
   const params = useParams();
   const containerId = params.id as string;
+  const queryClient = useQueryClient();
+  const { userId } = useAuth();
 
-  const [container, setContainer] = useState<Container | null>(null);
-  const [containerItems, setContainerItems] = useState<Item[]>([]);
-  const [allItems, setAllItems] = useState<Item[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
@@ -52,55 +55,81 @@ export default function ContainerDetailPage() {
   const [unmatchedItems, setUnmatchedItems] = useState<Item[]>([]);
   const { confirm } = useConfirm();
 
-  const containerMutator = new ContainerMutator(pb);
-  const itemMutator = new ItemMutator(pb);
+  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const inventoryService = useMemo(() => createInventoryService(pb), []);
 
-  const loadContainerDetails = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const {
+    container,
+    isPending: isContainerPending,
+    isError: isContainerError,
+    isMissing: isContainerMissing,
+  } = useContainer(containerId);
+  const {
+    items: containerItems,
+    totalItems: containerItemCount,
+    isError: isItemsError,
+  } = useItemsByContainer(containerId);
+  const { items: allItems, isError: isAllItemsError } = useAllItems(userId);
 
-      // Load container with expanded ImageRef
-      const containerData = await containerMutator.getById(
-        containerId,
-        'ImageRef'
-      );
-      if (!containerData) {
-        throw new Error('Container not found');
-      }
-      setContainer(containerData);
+  // The picker offers everything that is not already filed here.
+  const availableItems = useMemo(
+    () => allItems.filter((item) => item.ContainerRef !== containerId),
+    [allItems, containerId]
+  );
 
-      // Load items in this container with expanded ImageRef
-      const items = (
-        await itemMutator.getByContainer(containerId, { expand: 'ImageRef' })
-      ).items;
-      setContainerItems(items);
+  /**
+   * Re-read everything this page shows.
+   *
+   * Moving an item in or out changes both the container's item list and the
+   * paged items lists elsewhere, so the whole `items` prefix goes — and a
+   * re-analysed container image can rewrite the container record itself.
+   */
+  const refreshContainer = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({
+          queryKey: qk.containerById(containerId),
+        }),
+        queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+      ]),
+    [queryClient, containerId]
+  );
 
-      // Load all items (for add item dropdown)
-      const allItemsResult = await itemMutator.search('');
-      // Filter out items already in this container
-      const availableItems = allItemsResult.items.filter(
-        (item) => item.ContainerRef !== containerId
-      );
-      setAllItems(availableItems);
-    } catch (error) {
-      console.error('Failed to load container details:', error);
-      toast.error('Failed to load container details');
-      router.push('/inventory');
-    } finally {
-      setIsLoading(false);
+  // A missing container and a failed request are the same dead end here: there
+  // is no page to render, so say so once and go back to the inventory.
+  const isContainerUnavailable = isContainerError || isContainerMissing;
+  useEffect(() => {
+    if (!isContainerUnavailable) return;
+    toast.error('Failed to load container details');
+    router.push('/inventory');
+  }, [isContainerUnavailable, router]);
+
+  // The container itself still renders when its items (or the picker's pool)
+  // fail to load, so those only warrant a toast.
+  useEffect(() => {
+    if (isItemsError) {
+      toast.error('Failed to load items in this container');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerId, router]);
+  }, [isItemsError]);
 
   useEffect(() => {
-    loadContainerDetails();
-  }, [loadContainerDetails]);
+    if (isAllItemsError) {
+      toast.error('Failed to load the list of items to add');
+    }
+  }, [isAllItemsError]);
 
   const handleDelete = async () => {
     try {
       await containerMutator.delete(containerId);
       toast.success('Container deleted successfully');
+      // Evict rather than invalidate: the record is gone, so refetching its
+      // detail key would only produce a 404 for a page nobody is on any more.
+      queryClient.removeQueries({ queryKey: qk.containerById(containerId) });
+      await queryClient.invalidateQueries({
+        queryKey: qk.containersPrefix(),
+      });
       router.push('/inventory');
     } catch (error) {
       console.error('Failed to delete container:', error);
@@ -109,8 +138,8 @@ export default function ContainerDetailPage() {
   };
 
   const getDeleteMessage = () => {
-    if (containerItems.length > 0) {
-      return `This container has ${containerItems.length} items. Delete anyway?`;
+    if (containerItemCount > 0) {
+      return `This container has ${containerItemCount} items. Delete anyway?`;
     }
     return 'Are you sure you want to delete this container?';
   };
@@ -126,7 +155,7 @@ export default function ContainerDetailPage() {
       await itemMutator.update(selectedItemId, { ContainerRef: containerId });
       toast.success('Item added to container');
       setSelectedItemId('');
-      await loadContainerDetails();
+      await refreshContainer();
     } catch (error) {
       console.error('Failed to add item to container:', error);
       toast.error('Failed to add item to container');
@@ -141,7 +170,7 @@ export default function ContainerDetailPage() {
     try {
       await itemMutator.update(itemId, { ContainerRef: undefined });
       toast.success('Item removed from container');
-      await loadContainerDetails();
+      await refreshContainer();
     } catch (error) {
       console.error('Failed to remove item from container:', error);
       toast.error('Failed to remove item from container');
@@ -165,7 +194,7 @@ export default function ContainerDetailPage() {
   const handleContainerUpsertSuccess = useCallback(
     (result: { unmatchedExisting: Item[] }) => {
       // Refresh the container details to show updated/new items
-      loadContainerDetails();
+      refreshContainer();
 
       // If there are unmatched items, show the cleanup prompt dialog
       if (result.unmatchedExisting.length > 0) {
@@ -175,7 +204,7 @@ export default function ContainerDetailPage() {
         toast.success('Container image updated successfully');
       }
     },
-    [loadContainerDetails]
+    [refreshContainer]
   );
 
   // Handle cleanup actions from the cleanup prompt dialog
@@ -184,9 +213,9 @@ export default function ContainerDetailPage() {
       await inventoryService.executeCleanupActions(actions);
       toast.success('Cleanup actions applied successfully');
       // Refresh container details after cleanup
-      await loadContainerDetails();
+      await refreshContainer();
     },
-    [inventoryService, loadContainerDetails]
+    [inventoryService, refreshContainer]
   );
 
   // Get image URL for unmatched items in cleanup dialog
@@ -197,7 +226,7 @@ export default function ContainerDetailPage() {
     []
   );
 
-  if (isLoading) {
+  if (isContainerPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -286,7 +315,7 @@ export default function ContainerDetailPage() {
 
               <div>
                 <h3 className="text-sm font-medium mb-2">
-                  Items ({containerItems.length})
+                  Items ({containerItemCount})
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   Items stored in this container
@@ -305,13 +334,13 @@ export default function ContainerDetailPage() {
                 <Select
                   value={selectedItemId}
                   onValueChange={setSelectedItemId}
-                  disabled={isAddingItem || allItems.length === 0}
+                  disabled={isAddingItem || availableItems.length === 0}
                 >
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Select an item..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {allItems.map((item) => (
+                    {availableItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.itemLabel}
                       </SelectItem>
@@ -332,7 +361,7 @@ export default function ContainerDetailPage() {
                   )}
                 </Button>
               </div>
-              {allItems.length === 0 && (
+              {availableItems.length === 0 && (
                 <p className="text-sm text-muted-foreground mt-2">
                   No available items to add. All items are either in this
                   container or other containers.

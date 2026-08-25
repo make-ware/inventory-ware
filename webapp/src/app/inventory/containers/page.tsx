@@ -1,10 +1,18 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  Suspense,
+} from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator, ImageMutator } from '@project/shared';
-import type { Container, Image } from '@project/shared';
+import type { Container } from '@project/shared';
 import {
   ContainerCard,
   PaginationControls,
@@ -14,14 +22,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2, Plus, ArrowLeft, CheckSquare, X } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useContainersInfinite } from '@/hooks/use-containers';
+import { qk } from '@/lib/query';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-
-const CONTAINERS_PER_PAGE = 12;
 
 function ContainersPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { userId, isLoading: isAuthLoading } = useAuth();
+  const queryClient = useQueryClient();
 
   // Initialize state from query string
   const [initialState] = useState(() => ({
@@ -30,14 +42,10 @@ function ContainersPageContent() {
     query: searchParams.get('q') || '',
   }));
 
-  const [containers, setContainers] = useState<Container[]>([]);
-  const [images, setImages] = useState<Map<string, Image>>(new Map());
-
   // Search/Sort State
   const [searchQuery, setSearchQuery] = useState(initialState.query);
   const [sortValue, setSortValue] = useState(initialState.sort);
 
-  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(initialState.page);
 
   // Bulk Selection State
@@ -50,50 +58,70 @@ function ContainersPageContent() {
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
   const { confirm } = useConfirm();
 
-  const loadContainers = useCallback(async () => {
-    try {
-      // Pass sortValue to search
-      const results = (
-        await containerMutator.search(searchQuery, {
-          expand: 'ImageRef',
-          sort: sortValue,
-        })
-      ).items;
-      setContainers(results);
+  // Only the free-text box needs debouncing; the sort select changes one
+  // discrete step at a time.
+  const debouncedQuery = useDebouncedValue(searchQuery);
 
-      setImages((prev) => {
-        const newImages = new Map(prev);
-        for (const container of results) {
-          if (container.expand?.ImageRef) {
-            newImages.set(
-              container.expand.ImageRef.id,
-              container.expand.ImageRef
-            );
-          }
-        }
-        return newImages;
-      });
-    } catch (error) {
-      console.error('Failed to load containers:', error);
-      toast.error('Failed to load containers');
-    }
-  }, [containerMutator, searchQuery, sortValue]);
+  const {
+    pages,
+    totalPages,
+    containersForPage,
+    isRejectedQuery,
+    isLoading,
+    isError,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useContainersInfinite({
+    userId,
+    q: debouncedQuery,
+    sort: sortValue,
+  });
 
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      await loadContainers();
-    } catch (error) {
-      console.error('Failed to load containers:', error);
-      toast.error('Failed to load containers');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [loadContainers]);
+  const visibleContainers = containersForPage(currentPage);
+  // Landing on ?page=3 means pages 2 and 3 are still being walked to; that is a
+  // load, not an empty result.
+  const isAwaitingPage =
+    pages.length > 0 &&
+    pages.length < currentPage &&
+    (hasNextPage || isFetchingNextPage);
+
+  /** Drop every cached containers page so the next render refetches. */
+  const invalidateContainers = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+    [queryClient]
+  );
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (isError) {
+      toast.error('Failed to load containers');
+    }
+  }, [isError]);
+
+  // An infinite query only ever holds a contiguous run of pages from the first,
+  // so deep-linking to ?page=3 has to walk forward to it.
+  useEffect(() => {
+    if (pages.length === 0) return;
+    if (pages.length >= currentPage) return;
+    if (!hasNextPage || isFetchingNextPage) return;
+    fetchNextPage();
+  }, [
+    pages.length,
+    currentPage,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ]);
+
+  // A new query/sort restarts paging at page 1, so keep the visible page in
+  // step instead of walking forward through pages nobody asked for.
+  const queryInputs = JSON.stringify([debouncedQuery, sortValue]);
+  const previousQueryInputs = useRef(queryInputs);
+  useEffect(() => {
+    if (previousQueryInputs.current === queryInputs) return;
+    previousQueryInputs.current = queryInputs;
+    setCurrentPage(1);
+  }, [queryInputs]);
 
   // Sync state FROM URL
   useEffect(() => {
@@ -128,11 +156,6 @@ function ContainersPageContent() {
     return () => clearTimeout(timer);
   }, [searchQuery, sortValue, currentPage, router, pathname, searchParams]);
 
-  // Reload containers when search/sort change
-  useEffect(() => {
-    loadContainers();
-  }, [searchQuery, sortValue, loadContainers]);
-
   const handleDeleteContainer = async (containerId: string) => {
     if (!(await confirm('Are you sure you want to delete this container?')))
       return;
@@ -140,7 +163,7 @@ function ContainersPageContent() {
     try {
       await containerMutator.delete(containerId);
       toast.success('Container deleted successfully');
-      await loadContainers();
+      await invalidateContainers();
     } catch (error) {
       console.error('Failed to delete container:', error);
       toast.error('Failed to delete container');
@@ -184,29 +207,23 @@ function ContainersPageContent() {
       toast.success(`Deleted ${selectedContainers.size} containers`);
       setSelectedContainers(new Set());
       setIsSelectionMode(false);
-      await loadContainers();
+      await invalidateContainers();
     } catch (error) {
       console.error('Failed to bulk delete:', error);
       toast.error('Failed to bulk delete containers');
     }
   };
 
-  const getImageUrl = (imageId?: string): string | undefined => {
-    if (!imageId) return undefined;
-    const image = images.get(imageId);
-    if (!image) return undefined;
-    return imageMutator.getFileUrl(image);
+  const getContainerImageUrl = (container: Container): string | undefined => {
+    // `expand: 'ImageRef'` on the list query means the image record travels
+    // with the container; there is no separate lookup table to keep in sync.
+    const image = container.expand?.ImageRef;
+    return image ? imageMutator.getFileUrl(image) : undefined;
   };
 
   const handlePageChange = useCallback((newPage: number) => {
     setCurrentPage(newPage);
   }, []);
-
-  const paginatedContainers = containers.slice(
-    (currentPage - 1) * CONTAINERS_PER_PAGE,
-    currentPage * CONTAINERS_PER_PAGE
-  );
-  const totalPages = Math.ceil(containers.length / CONTAINERS_PER_PAGE);
 
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
@@ -221,7 +238,7 @@ function ContainersPageContent() {
     { label: 'Name (Z-A)', value: '-containerLabel' },
   ];
 
-  if (isLoading && containers.length === 0) {
+  if (isAuthLoading || (isLoading && pages.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -291,22 +308,28 @@ function ContainersPageContent() {
           </div>
         </div>
 
-        {paginatedContainers.length === 0 ? (
+        {isAwaitingPage ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : visibleContainers.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {searchQuery
-                ? 'No containers match your search criteria'
-                : 'No containers yet. Create a container to organize items.'}
+              {isRejectedQuery
+                ? 'A search cannot end with a backslash'
+                : searchQuery
+                  ? 'No containers match your search criteria'
+                  : 'No containers yet. Create a container to organize items.'}
             </p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {paginatedContainers.map((container) => (
+              {visibleContainers.map((container) => (
                 <ContainerCard
                   key={container.id}
                   container={container}
-                  imageUrl={getImageUrl(container.ImageRef)}
+                  imageUrl={getContainerImageUrl(container)}
                   boundingBox={container.boundingBox}
                   itemCount={0}
                   onClick={() =>

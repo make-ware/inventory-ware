@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator, formatPocketBaseError } from '@project/shared';
-import type { Container, ContainerInput } from '@project/shared';
+import type { ContainerInput } from '@project/shared';
 import { useInventory } from '@/hooks/use-inventory';
+import { useContainer } from '@/hooks/use-containers';
+import { qk } from '@/lib/query';
 import { ContainerUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,43 +32,29 @@ export default function EditContainerPage() {
   const router = useRouter();
   const params = useParams();
   const containerId = params.id as string;
+  const queryClient = useQueryClient();
 
-  const [container, setContainer] = useState<Container | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { cacheImage } = useInventory();
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
 
-  const loadContainer = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const containerData = await containerMutator.getById(
-        containerId,
-        'ImageRef'
-      );
-      if (!containerData) {
-        throw new Error('Container not found');
-      }
+  const { container, isPending, isError, isMissing, error } =
+    useContainer(containerId);
 
-      // Cache the primary image if it exists so the form can display it
-      if (containerData.expand?.ImageRef) {
-        cacheImage(containerData.expand.ImageRef);
-      }
-
-      setContainer(containerData);
-    } catch (error) {
-      console.error('Failed to load container:', error);
-      toast.error(describeError(error, 'Failed to load container'));
-      router.push('/inventory');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [containerId, router, containerMutator, cacheImage]);
-
+  // Cache the primary image if it exists so the form can display it
   useEffect(() => {
-    loadContainer();
-  }, [loadContainer]);
+    const image = container?.expand?.ImageRef;
+    if (image) cacheImage(image);
+  }, [container, cacheImage]);
+
+  // A missing container and a failed request both leave nothing to edit.
+  const isUnavailable = isError || isMissing;
+  useEffect(() => {
+    if (!isUnavailable) return;
+    toast.error(describeError(error, 'Failed to load container'));
+    router.push('/inventory');
+  }, [isUnavailable, error, router]);
 
   const handleSubmit = async (
     data: Partial<Omit<ContainerInput, 'UserRef'>>
@@ -74,6 +63,14 @@ export default function EditContainerPage() {
       setIsSubmitting(true);
       await containerMutator.update(containerId, data);
       toast.success('Container updated successfully');
+      // Drop the pre-edit copies before navigating, so the detail page this
+      // returns to reads the record back rather than repainting the old one.
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: qk.containerById(containerId),
+        }),
+        queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+      ]);
       router.push(`/inventory/containers/${containerId}`);
     } catch (error) {
       console.error('Failed to update container:', error);
@@ -89,7 +86,7 @@ export default function EditContainerPage() {
     router.push(`/inventory/containers/${containerId}`);
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

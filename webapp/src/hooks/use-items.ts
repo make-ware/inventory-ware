@@ -13,11 +13,16 @@
  * `ItemMutator.search()` and never assembles a filter string itself.
  */
 import { useMemo } from 'react';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { ItemMutator, isUnrepresentableFilterValue } from '@project/shared';
+import type { Item } from '@project/shared';
 import type { CategoryLibrary, SearchFilters } from '@/components/inventory';
 import pb from '@/lib/pocketbase-client';
-import { qk } from '@/lib/query';
+import { qk, seedFromListCache } from '@/lib/query';
 
 /** Page size for the items grid; also the PocketBase `perPage`. */
 export const ITEMS_PER_PAGE = 12;
@@ -149,5 +154,68 @@ export function useItemCategories(userId: string | null) {
     isLoading: query.isLoading,
     isSuccess: query.isSuccess,
     isError: query.isError,
+  };
+}
+
+/**
+ * One item, expanded the same way the list expands it.
+ *
+ * `getById` resolves to `null` for an id PocketBase has no record for rather
+ * than throwing, so `isMissing` is reported separately from `isError`: callers
+ * generally treat both as a dead end but only one of them is a failed request.
+ */
+export function useItem(itemId: string | null | undefined) {
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
+  const queryClient = useQueryClient();
+
+  // Looked up on every render rather than memoised: `initialData` is consulted
+  // only while the key holds nothing, and the row it returns is the cache's own
+  // object, so a repeat lookup cannot churn the query's identity.
+  const seed = itemId
+    ? seedFromListCache<Item>(queryClient, qk.itemsPrefix(), itemId)
+    : undefined;
+
+  const query = useQuery({
+    queryKey: qk.itemById(itemId ?? ''),
+    queryFn: () => itemMutator.getById(itemId as string, 'ImageRef'),
+    enabled: !!itemId,
+    initialData: seed?.data,
+    initialDataUpdatedAt: seed?.updatedAt,
+  });
+
+  return {
+    item: query.data ?? null,
+    isPending: query.isPending,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    /** The request succeeded and PocketBase has no such item. */
+    isMissing: query.isSuccess && query.data === null,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+/**
+ * Every item in one unpaged request.
+ *
+ * This backs the container detail page's "add item" picker, which is a single
+ * `<Select>` and so cannot page. It is deliberately separate from
+ * `useItemsInfinite`: that query's pages are 12 rows of whatever the current
+ * search says, which is not the pool the picker needs to offer.
+ */
+export function useAllItems(userId: string | null) {
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
+
+  const query = useQuery({
+    queryKey: qk.itemsAll(userId ?? ''),
+    queryFn: () => itemMutator.search(''),
+    enabled: !!userId,
+  });
+
+  return {
+    items: query.data?.items ?? [],
+    isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
   };
 }

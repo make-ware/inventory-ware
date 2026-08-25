@@ -4,15 +4,22 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const getList = vi.fn();
+const getOne = vi.fn();
 
 vi.mock('@/lib/pocketbase-client', () => ({
   default: {
-    collection: () => ({ getList }),
+    collection: () => ({ getList, getOne }),
     files: { getURL: () => 'http://localhost:8090/file.png' },
   },
 }));
 
-import { useItemsInfinite, useItemCategories } from './use-items';
+import {
+  useItemsInfinite,
+  useItemCategories,
+  useItem,
+  useAllItems,
+} from './use-items';
+import { qk } from '@/lib/query';
 
 function makePage(page: number, totalPages: number, ids: string[]) {
   return {
@@ -173,5 +180,98 @@ describe('useItemCategories', () => {
       specific: [],
       itemType: [],
     });
+  });
+});
+
+describe('useItem', () => {
+  // One client for the whole test, unlike `wrapper` above: these cases are
+  // about what the cache already holds, so it has to survive re-renders.
+  let client: QueryClient;
+
+  function cachingWrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  }
+
+  beforeEach(() => {
+    client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    getList.mockReset();
+    getOne.mockReset();
+  });
+
+  it('fetches the item with its image expanded', async () => {
+    getOne.mockResolvedValue({ id: 'i1', itemLabel: 'Drill' });
+
+    const { result } = renderHook(() => useItem('i1'), {
+      wrapper: cachingWrapper,
+    });
+
+    await waitFor(() => expect(result.current.item?.id).toBe('i1'));
+    expect(getOne.mock.calls[0][0]).toBe('i1');
+    expect(getOne.mock.calls[0][1]).toMatchObject({ expand: 'ImageRef' });
+  });
+
+  it('paints from a cached list page instead of refetching', () => {
+    client.setQueryData(
+      qk.itemsInfinite('u1', {
+        q: '',
+        filters: {
+          functional: undefined,
+          specific: undefined,
+          itemType: undefined,
+        },
+        sort: '-created',
+      }),
+      { pages: [makePage(1, 1, ['i1'])], pageParams: [1] }
+    );
+
+    const { result } = renderHook(() => useItem('i1'), {
+      wrapper: cachingWrapper,
+    });
+
+    // Seeded synchronously — no pending state, no request in flight.
+    expect(result.current.item?.id).toBe('i1');
+    expect(result.current.isPending).toBe(false);
+  });
+
+  it('reports an id PocketBase has no record for as missing, not as an error', async () => {
+    getOne.mockRejectedValue(
+      Object.assign(new Error('Not found'), { status: 404 })
+    );
+
+    const { result } = renderHook(() => useItem('gone'), {
+      wrapper: cachingWrapper,
+    });
+
+    await waitFor(() => expect(result.current.isMissing).toBe(true));
+    expect(result.current.isError).toBe(false);
+    expect(result.current.item).toBeNull();
+  });
+});
+
+describe('useAllItems', () => {
+  beforeEach(() => {
+    getList.mockReset();
+  });
+
+  it('asks for the unfiltered pool the container picker offers', async () => {
+    getList.mockResolvedValue(makePage(1, 1, ['a', 'b']));
+
+    const { result } = renderHook(() => useAllItems('u1'), { wrapper });
+
+    await waitFor(() => expect(result.current.items).toHaveLength(2));
+    // An empty query must not become `itemLabel~""`, which would match nothing
+    // useful; the mutator omits the text clause entirely.
+    expect(getList.mock.calls[0][2]?.filter).toBeUndefined();
+  });
+
+  it('stays idle until there is an authenticated user', async () => {
+    const { result } = renderHook(() => useAllItems(null), { wrapper });
+
+    await waitFor(() => expect(result.current.items).toEqual([]));
+    expect(getList).not.toHaveBeenCalled();
   });
 });

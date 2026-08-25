@@ -31,10 +31,14 @@ export const qk = {
     ['items', userId, options] as const,
   itemsInfinite: (userId: string, options: ItemsListOptions) =>
     ['items', 'infinite', userId, options] as const,
+  /** Every item, unpaged — the pool the container "add item" picker draws on. */
+  itemsAll: (userId: string) => ['items', 'all', userId] as const,
   itemById: (id: string) => ['item', id] as const,
   itemsByContainer: (containerId: string) =>
     ['items', 'byContainer', containerId] as const,
 
+  /** Prefix covering every containers list key; invalidate this after a write. */
+  containersPrefix: () => ['containers'] as const,
   containers: (userId: string, options: ContainersListOptions) =>
     ['containers', userId, options] as const,
   containersInfinite: (userId: string, options: ContainersListOptions) =>
