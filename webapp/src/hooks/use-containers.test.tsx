@@ -6,9 +6,28 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const getList = vi.fn();
 const getOne = vi.fn();
 
+/**
+ * PocketBase realtime, mocked at the SDK boundary. `subscribe` resolves to the
+ * unsubscribe function the hooks hold onto, and `emit` plays an event back
+ * through every registered handler, which is how a "another tab wrote this"
+ * case is expressed in a unit test.
+ */
+const unsubscribe = vi.fn();
+const handlers: ((event: {
+  action: string;
+  record: Record<string, unknown>;
+}) => void)[] = [];
+const subscribe = vi.fn(async (_topic, handler, _options?: unknown) => {
+  handlers.push(handler);
+  return unsubscribe;
+});
+const emit = (action: string, record: Record<string, unknown>) => {
+  for (const handler of handlers) handler({ action, record });
+};
+
 vi.mock('@/lib/pocketbase-client', () => ({
   default: {
-    collection: () => ({ getList, getOne }),
+    collection: () => ({ getList, getOne, subscribe }),
     files: { getURL: () => 'http://localhost:8090/file.png' },
   },
 }));
@@ -18,6 +37,12 @@ import {
   useContainer,
   useItemsByContainer,
 } from './use-containers';
+
+beforeEach(() => {
+  handlers.length = 0;
+  subscribe.mockClear();
+  unsubscribe.mockClear();
+});
 import { qk } from '@/lib/query';
 
 function makePage(page: number, totalPages: number, ids: string[]) {
@@ -206,5 +231,89 @@ describe('useItemsByContainer', () => {
 
     await waitFor(() => expect(result.current.items).toEqual([]));
     expect(getList).not.toHaveBeenCalled();
+  });
+});
+
+describe('useContainersInfinite — realtime', () => {
+  let client: QueryClient;
+
+  function liveWrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  }
+
+  const container = (id: string, created: string, extra = {}) => ({
+    id,
+    created,
+    updated: created,
+    UserRef: 'u1',
+    containerLabel: id,
+    containerNotes: '',
+    ...extra,
+  });
+
+  const A = container('a', '2026-08-01 00:00:00.000Z');
+
+  beforeEach(() => {
+    client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    getList.mockReset();
+    getList.mockResolvedValue({
+      page: 1,
+      perPage: 12,
+      totalItems: 1,
+      totalPages: 1,
+      items: [A],
+    });
+  });
+
+  async function renderSettled() {
+    const view = renderHook(() => useContainersInfinite({ userId: 'u1' }), {
+      wrapper: liveWrapper,
+    });
+    await waitFor(() => {
+      expect(view.result.current.pages).toHaveLength(1);
+      expect(view.result.current.isFetching).toBe(false);
+    });
+    return view;
+  }
+
+  it('subscribes to the Containers collection scoped to the signed-in user', async () => {
+    await renderSettled();
+
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    expect(subscribe.mock.calls[0][2]).toMatchObject({
+      filter: 'UserRef="u1"',
+      expand: 'ImageRef',
+    });
+  });
+
+  it("folds another client's write into the cached page instead of refetching", async () => {
+    const { result } = await renderSettled();
+    const settled = getList.mock.calls.length;
+
+    act(() => emit('create', container('b', '2026-08-02 00:00:00.000Z')));
+
+    await waitFor(() =>
+      expect(result.current.containersForPage(1).map((c) => c.id)).toEqual([
+        'b',
+        'a',
+      ])
+    );
+    expect(result.current.totalItems).toBe(2);
+    expect(getList).toHaveBeenCalledTimes(settled);
+  });
+
+  it('removes a container another client deleted and keeps the total honest', async () => {
+    const { result } = await renderSettled();
+
+    act(() => emit('delete', A));
+
+    await waitFor(() =>
+      expect(result.current.containersForPage(1)).toEqual([])
+    );
+    expect(result.current.totalItems).toBe(0);
   });
 });

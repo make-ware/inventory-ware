@@ -6,15 +6,40 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const getList = vi.fn();
 const getOne = vi.fn();
 
+/**
+ * PocketBase realtime, mocked at the SDK boundary. `subscribe` resolves to the
+ * unsubscribe function the hooks hold onto, and `emit` plays an event back
+ * through every registered handler, which is how a "another tab wrote this"
+ * case is expressed in a unit test.
+ */
+const unsubscribe = vi.fn();
+const handlers: ((event: {
+  action: string;
+  record: Record<string, unknown>;
+}) => void)[] = [];
+const subscribe = vi.fn(async (_topic, handler, _options?: unknown) => {
+  handlers.push(handler);
+  return unsubscribe;
+});
+const emit = (action: string, record: Record<string, unknown>) => {
+  for (const handler of handlers) handler({ action, record });
+};
+
 vi.mock('@/lib/pocketbase-client', () => ({
   default: {
-    collection: () => ({ getList, getOne }),
+    collection: () => ({ getList, getOne, subscribe }),
     files: { getURL: () => 'http://localhost:8090/file.png' },
   },
 }));
 
 import { useItemsInfinite, useItem, useAllItems } from './use-items';
 import { qk } from '@/lib/query';
+
+beforeEach(() => {
+  handlers.length = 0;
+  subscribe.mockClear();
+  unsubscribe.mockClear();
+});
 
 function makePage(page: number, totalPages: number, ids: string[]) {
   return {
@@ -219,5 +244,158 @@ describe('useAllItems', () => {
 
     await waitFor(() => expect(result.current.items).toEqual([]));
     expect(getList).not.toHaveBeenCalled();
+  });
+});
+
+describe('useItemsInfinite — realtime', () => {
+  // One client for the whole test, unlike `wrapper` above: these cases are
+  // about what the cache holds across renders.
+  let client: QueryClient;
+
+  function liveWrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+  }
+
+  const item = (id: string, created: string, extra = {}) => ({
+    id,
+    created,
+    updated: created,
+    UserRef: 'u1',
+    itemLabel: id,
+    itemName: '',
+    itemNotes: '',
+    itemManufacturer: '',
+    ...extra,
+  });
+
+  const page = (items: ReturnType<typeof item>[]) => ({
+    page: 1,
+    perPage: 12,
+    totalItems: items.length,
+    totalPages: 1,
+    items,
+  });
+
+  const A = item('a', '2026-08-01 00:00:00.000Z');
+
+  beforeEach(() => {
+    client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    getList.mockReset();
+    getList.mockResolvedValue(page([A]));
+  });
+
+  /** Render, then wait until the initial fetch and the gap heal have settled. */
+  async function renderSettled(props: { userId: string | null; q?: string }) {
+    const view = renderHook((p: typeof props) => useItemsInfinite(p), {
+      wrapper: liveWrapper,
+      initialProps: props,
+    });
+    await waitFor(() => {
+      expect(view.result.current.pages).toHaveLength(1);
+      expect(view.result.current.isFetching).toBe(false);
+    });
+    return view;
+  }
+
+  it('subscribes to the Items collection scoped to the signed-in user', async () => {
+    await renderSettled({ userId: 'u1' });
+
+    expect(subscribe).toHaveBeenCalledTimes(1);
+    expect(subscribe.mock.calls[0][0]).toBe('*');
+    expect(subscribe.mock.calls[0][2]).toMatchObject({
+      filter: 'UserRef="u1"',
+      expand: 'ImageRef',
+    });
+  });
+
+  it('heals the gap between the first read and the first event exactly once', async () => {
+    // Asserted on the invalidation rather than on a request count: TanStack
+    // folds the heal into the initial fetch when that is still in flight, so
+    // the observable contract is "one invalidation per mount", not "one extra
+    // round trip".
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+
+    await renderSettled({ userId: 'u1' });
+
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate.mock.calls[0][0]).toEqual({
+      queryKey: qk.itemsInfinitePrefix('u1'),
+    });
+  });
+
+  it("folds another client's create into the cached page instead of refetching", async () => {
+    const { result } = await renderSettled({ userId: 'u1' });
+    const settled = getList.mock.calls.length;
+
+    act(() => emit('create', item('b', '2026-08-02 00:00:00.000Z')));
+
+    // Newest first under the default sort, and the total stays honest.
+    await waitFor(() =>
+      expect(result.current.itemsForPage(1).map((i) => i.id)).toEqual([
+        'b',
+        'a',
+      ])
+    );
+    expect(result.current.totalItems).toBe(2);
+    expect(getList).toHaveBeenCalledTimes(settled);
+  });
+
+  it('drops a record whose edit moved it out of the active search', async () => {
+    const { result } = await renderSettled({ userId: 'u1', q: 'a' });
+
+    act(() =>
+      emit('update', {
+        ...A,
+        itemLabel: 'zzz',
+        updated: '2026-08-03 00:00:00.000Z',
+      })
+    );
+
+    await waitFor(() => expect(result.current.itemsForPage(1)).toEqual([]));
+    expect(result.current.totalItems).toBe(0);
+  });
+
+  it('ignores the echo of a write already in the cache', async () => {
+    const { result } = await renderSettled({ userId: 'u1' });
+    const before = result.current.itemsForPage(1);
+
+    await act(async () => {
+      emit('update', { ...A });
+    });
+
+    // Same reference: the merge was a no-op, so no observer was notified.
+    expect(result.current.itemsForPage(1)).toBe(before);
+  });
+
+  it('does not resubscribe while the search is being typed', async () => {
+    const { rerender } = await renderSettled({ userId: 'u1', q: '' });
+
+    rerender({ userId: 'u1', q: 'dri' });
+    rerender({ userId: 'u1', q: 'drill' });
+    await waitFor(() => expect(getList.mock.calls.length).toBeGreaterThan(2));
+
+    // The feed's identity is the user, not the query.
+    expect(subscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the subscription on unmount', async () => {
+    const { unmount } = await renderSettled({ userId: 'u1' });
+
+    unmount();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays unsubscribed until there is a signed-in user', async () => {
+    renderHook(() => useItemsInfinite({ userId: null }), {
+      wrapper: liveWrapper,
+    });
+
+    await waitFor(() => expect(getList).not.toHaveBeenCalled());
+    expect(subscribe).not.toHaveBeenCalled();
   });
 });

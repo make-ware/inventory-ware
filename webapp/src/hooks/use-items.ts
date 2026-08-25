@@ -8,24 +8,41 @@
  * exactly the pages that were visited and back-navigation repaints from cache
  * instead of refetching the whole collection.
  *
+ * The list is live: `useLiveInfiniteList` subscribes to the `Items` collection
+ * and folds each SSE event into the cached pages, so another tab's create,
+ * edit or delete lands here without a refetch. `itemSpec` below is the client
+ * mirror of the filter and sort the *server* ran, and is what decides whether
+ * an incoming record belongs in this window and where.
+ *
  * Filters are still built in the mutator layer (see CLAUDE.md) — this module
- * hands the free-text query and the category filters to
- * `ItemMutator.search()` and never assembles a filter string itself.
+ * hands the free-text query and the category filters to `ItemMutator.search()`
+ * and never assembles a filter string itself.
  */
 import { useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
-import { ItemMutator, isUnrepresentableFilterValue } from '@project/shared';
+  ItemMutator,
+  ITEM_SEARCH_FIELDS,
+  eq,
+  isUnrepresentableFilterValue,
+} from '@project/shared';
 import type { Item } from '@project/shared';
 import type { SearchFilters } from '@/components/inventory';
 import pb from '@/lib/pocketbase-client';
 import { qk, seedFromListCache } from '@/lib/query';
+import { useLiveInfiniteList } from '@/hooks/use-live-infinite-list';
+import type { LiveListSpec } from '@/lib/live-list';
+import {
+  buildSortSpec,
+  matchesAllFields,
+  matchesAnyField,
+} from '@/lib/live-list-spec';
 
 /** Page size for the items grid; also the PocketBase `perPage`. */
 export const ITEMS_PER_PAGE = 12;
+
+/** Stable empty window, so a withheld query does not hand out a new array each render. */
+const EMPTY_PAGES: never[] = [];
 
 export interface UseItemsInfiniteOptions {
   /** Authenticated user id; the query stays idle while this is null. */
@@ -52,12 +69,46 @@ function normaliseFilters(filters?: SearchFilters): SearchFilters {
 }
 
 /**
- * Paged items list, one PocketBase request per page.
+ * Build the client mirror of the query `ItemMutator.search()` just ran.
+ *
+ * `matches` mirrors `buildSearchFilter`: the free-text query against the same
+ * four fields PocketBase matches it against, then equality on each set
+ * category filter. It also re-checks `UserRef`, so a record can never leak
+ * across accounts even if the collection's ListRule is ever loosened.
+ *
+ * `compare`/`canCompare` come from the sort string, and the `id` tiebreak they
+ * carry is load-bearing: `applyListEvent` reads "compares equal" as "this
+ * update did not move the row".
+ */
+function itemSpec(
+  userId: string,
+  q: string,
+  filters: SearchFilters,
+  sort: string
+): LiveListSpec<Item> {
+  const { compare, canCompare } = buildSortSpec<Item>(sort);
+  return {
+    matches: (record) =>
+      record.UserRef === userId &&
+      matchesAnyField(record, ITEM_SEARCH_FIELDS, q) &&
+      matchesAllFields(record, {
+        categoryFunctional: filters.functional,
+        categorySpecific: filters.specific,
+        itemType: filters.itemType,
+      }),
+    compare,
+    canCompare,
+  };
+}
+
+/**
+ * Paged items list, one PocketBase request per page, kept live by SSE.
  *
  * `isRejectedQuery` reports the one search string PocketBase cannot parse (a
  * trailing backslash — see `isUnrepresentableFilterValue`). The request is
  * withheld in that case rather than sent to be 400'd, so a half-typed Windows
- * path does not surface as a load failure.
+ * path does not surface as a load failure. The subscription is deliberately
+ * *not* withheld with it: the feed's identity is the user, not the search.
  */
 export function useItemsInfinite({
   userId,
@@ -69,7 +120,30 @@ export function useItemsInfinite({
   const normalisedFilters = useMemo(() => normaliseFilters(filters), [filters]);
   const isRejectedQuery = isUnrepresentableFilterValue(q);
 
-  const query = useInfiniteQuery({
+  const spec = useMemo(
+    () => itemSpec(userId ?? '', q, normalisedFilters, sort),
+    [userId, q, normalisedFilters, sort]
+  );
+
+  const subscription = useMemo(
+    () =>
+      userId
+        ? {
+            collection: 'Items',
+            topic: '*',
+            // Coarse and stable: everything volatile (search, category
+            // filters, sort) lives in `spec`, so typing never resubscribes.
+            // `expand` is what keeps a live-updated card's thumbnail — SSE
+            // payloads carry no expand unless it is asked for.
+            options: { filter: eq('UserRef', userId), expand: 'ImageRef' },
+            key: `items:${userId}`,
+            gapHealKey: qk.itemsInfinitePrefix(userId),
+          }
+        : null,
+    [userId]
+  );
+
+  const list = useLiveInfiniteList<Item>({
     // `userId` is only ever '' while the query is disabled, so nothing is
     // cached under the placeholder — see the note in @/lib/query/keys.
     queryKey: qk.itemsInfinite(userId ?? '', {
@@ -77,9 +151,10 @@ export function useItemsInfinite({
       filters: normalisedFilters,
       sort,
     }),
-    queryFn: ({ pageParam }) =>
+    enabled: !!userId && !isRejectedQuery,
+    fetchPage: (page) =>
       itemMutator.search(q, {
-        page: pageParam,
+        page,
         perPage: ITEMS_PER_PAGE,
         filters: {
           categoryFunctional: normalisedFilters.functional,
@@ -89,24 +164,15 @@ export function useItemsInfinite({
         sort,
         expand: 'ImageRef',
       }),
-    initialPageParam: 1,
-    getNextPageParam: (last) =>
-      last.page < last.totalPages ? last.page + 1 : undefined,
-    enabled: !!userId && !isRejectedQuery,
-    // Keep the previous result on screen while a new filter/sort loads, so the
-    // grid does not blank out between keystrokes.
-    placeholderData: (previous) => previous,
+    spec,
+    subscription,
   });
 
-  const pages = useMemo(
-    () => (isRejectedQuery ? [] : (query.data?.pages ?? [])),
-    [isRejectedQuery, query.data]
-  );
-  // Every page envelope carries the same totals; the last one is the freshest.
+  // A rejected search leaves the query disabled, and `placeholderData` would
+  // otherwise keep the previous search's rows on screen as if they matched.
+  const pages = isRejectedQuery ? EMPTY_PAGES : list.pages;
   const lastPage = pages[pages.length - 1];
 
-  // Fields are listed rather than spread: `...query` would subscribe the caller
-  // to every property of the query state (see @tanstack/query/no-rest-destructuring).
   return {
     pages,
     isRejectedQuery,
@@ -115,15 +181,17 @@ export function useItemsInfinite({
     /** The rows PocketBase returned for `page`, or [] if it is not loaded yet. */
     itemsForPage: (page: number) =>
       pages.find((entry) => entry.page === page)?.items ?? [],
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isError: query.isError,
-    error: query.error,
-    fetchStatus: query.fetchStatus,
-    hasNextPage: query.hasNextPage,
-    isFetchingNextPage: query.isFetchingNextPage,
-    fetchNextPage: query.fetchNextPage,
-    refetch: query.refetch,
+    isLoading: list.isLoading,
+    isFetching: list.isFetching,
+    isError: list.isError,
+    error: list.error,
+    fetchStatus: list.fetchStatus,
+    hasNextPage: list.hasNextPage,
+    isFetchingNextPage: list.isFetchingNextPage,
+    fetchNextPage: list.fetchNextPage,
+    refetch: list.refetch,
+    /** Optimistically drop rows from the cached window (bulk delete). */
+    removeFromCache: list.removeFromCache,
   };
 }
 

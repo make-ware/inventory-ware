@@ -94,6 +94,27 @@ mirrors failed PocketBase requests to stdout, since PocketBase's own log only
 goes to its `_logs` table. See `docker/README.md` for the operator-facing
 version.
 
+**Live lists (PocketBase realtime folded into the query cache).** The Items,
+Containers and Images lists stay current without polling or refetching:
+`webapp/src/hooks/use-realtime-subscription.ts` owns the single SSE
+subscription, and `webapp/src/lib/live-list.ts` holds the *pure* merges that
+fold each event into the cached pages. The invariants there are load-bearing —
+same reference on a no-op (so structural sharing suppresses the render), replace
+only on a strictly newer `updated` stamp (so the echo of a local write drops),
+and the sort-window rule that decides whether an unloaded record belongs in the
+window or only in `totalItems`. Read that file's header before changing a merge.
+
+A subscription's identity is its `key` and nothing else, so typing in a search
+box never resubscribes; everything volatile (search text, filters, sort) reaches
+the handler through refs and through the `LiveListSpec` built by
+`webapp/src/lib/live-list-spec.ts`, which is the client mirror of the filter and
+sort the *mutator* sent. That mirror is allowed to approximate — the gap-heal
+invalidation fired once per mount, plus the next fetch, corrects any drift.
+Handlers only write to the query cache; a handler that writes to PocketBase is a
+loop with every other tab. Adding a live list means writing a `LiveListSpec` and
+passing a subscription to `use-live-infinite-list.ts`, not hand-rolling
+`pb.collection(...).subscribe`. See `docs/PB_REALTIME.md`.
+
 **Context providers.** `webapp/src/contexts/auth-context.tsx`, `inventory-context.tsx`, and `upload-context.tsx` provide app-wide state. The upload context owns the multi-file upload queue (including clearing/cancelling) surfaced by `components/inventory/upload-tracker.tsx`.
 
 ## Environment

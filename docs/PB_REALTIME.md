@@ -23,6 +23,53 @@ Events are automatically sent for:
 
 If a user doesn't have permission, they won't receive events for that data.
 
+## In This App: Live Lists
+
+Everything below this section is generic PocketBase reference. In inventory-ware
+you should almost never call `subscribe` yourself — the Items, Containers and
+Images lists are already live, through four modules:
+
+| Module | Responsibility |
+| --- | --- |
+| `webapp/src/lib/live-list.ts` | Pure merges: fold one event into cached `InfiniteData<ListResult<T>>` pages. No React, no PocketBase. |
+| `webapp/src/lib/live-list-spec.ts` | Client mirror of the filter and sort the mutator sent, so an event can be placed in the window. |
+| `webapp/src/hooks/use-realtime-subscription.ts` | The one subscription: lifecycle, gap heal, teardown. |
+| `webapp/src/hooks/use-live-infinite-list.ts` | `useInfiniteList` + a subscription, joined by a `LiveListSpec`. |
+
+To make a new list live, write its `LiveListSpec` and hand
+`useLiveInfiniteList` a subscription — see `useItemsInfinite` in
+`webapp/src/hooks/use-items.ts` for the full shape.
+
+### Rules that are easy to get wrong
+
+- **A subscription's identity is its `key`.** Put the user in it, never the
+  search text or the sort. Volatile inputs reach the handler through refs, so
+  typing in the search box costs no `POST /api/realtime`.
+- **Merges must return the same reference on a no-op.** TanStack's structural
+  sharing is what stops an irrelevant event from re-rendering the grid.
+- **Only apply a strictly newer `updated` stamp.** The SSE echo of your own
+  write carries the same stamp the cache already holds; applying it would churn
+  every writer's UI.
+- **Heal the gap once.** Events landing between the first fetch's server read
+  and the subscription coming live are lost, so `gapHealKey` is invalidated
+  exactly once after `subscribe` resolves — not on every event.
+- **Handlers never write to the database.** They touch the query cache only. A
+  handler that writes is a feedback loop with every other tab.
+- **The client mirror is allowed to be approximate.** `~` wildcards and
+  collation edge cases will drift; the gap heal and the next fetch correct it.
+  What must be exact is the *total* order — `compare` ends in an `id` tiebreak,
+  because a `0` is read as "this update did not move the row".
+
+### Verified against PocketBase 0.35
+
+- Collection subscriptions are filtered by the **ListRule**. `Items`,
+  `Containers` and `Images` are all `UserRef = @request.auth.id`, so one user
+  never receives another's events even before the subscription `filter` applies.
+- `filter` and `expand` in the subscribe options both work. `create`, `update`
+  **and** `delete` events all carry the full record with `expand` populated, so
+  a live-merged card keeps its thumbnail and `spec.matches` is evaluable on a
+  delete. No `mapEvent` normalizer is needed.
+
 ## Using Mutators (Recommended)
 
 The shared package provides type-safe mutators with built-in subscription methods:

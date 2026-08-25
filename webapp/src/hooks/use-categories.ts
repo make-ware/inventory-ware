@@ -18,12 +18,13 @@
  * dropdown. A dropdown wants every value the user has actually used and nothing
  * they have not, so the UI reads the raw distinct values.
  */
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { ItemMutator } from '@project/shared';
+import { useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ItemMutator, eq } from '@project/shared';
 import type { CategoryLibrary } from '@project/shared';
 import pb from '@/lib/pocketbase-client';
 import { qk } from '@/lib/query';
+import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 
 const EMPTY_CATEGORIES: CategoryLibrary = {
   functional: [],
@@ -38,15 +39,43 @@ const EMPTY_CATEGORIES: CategoryLibrary = {
  * an item is created, edited or deleted — none of which happen while a dropdown
  * is open — so this holds a longer `staleTime` than the client default. Writes
  * invalidate `qk.categoriesPrefix()` rather than waiting it out.
+ *
+ * The library is not a collection, so unlike the lists it cannot merge a
+ * realtime event: whether a category is still in use is a fact about *every*
+ * item, and one event does not answer it. It therefore subscribes to `Items`
+ * and invalidates its own key — the one place in this codebase where an event
+ * costs a refetch, because the alternative is a dropdown offering categories
+ * nothing is filed under. This is cheap in practice: with no live observer,
+ * invalidation only marks the key stale.
  */
 export function useCategoryLibrary(userId: string | null) {
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: qk.categories(userId ?? ''),
     queryFn: () => itemMutator.getDistinctCategories(),
     enabled: !!userId,
     staleTime: 60_000,
+  });
+
+  const onEvent = useCallback(() => {
+    if (!userId) return;
+    void queryClient.invalidateQueries({ queryKey: qk.categories(userId) });
+  }, [queryClient, userId]);
+
+  useRealtimeSubscription({
+    subscription: userId
+      ? {
+          collection: 'Items',
+          topic: '*',
+          options: { filter: eq('UserRef', userId) },
+          // Distinct from the items list's key so the two feeds are torn down
+          // independently; PocketBase multiplexes them onto one SSE connection.
+          key: `categories:${userId}`,
+        }
+      : null,
+    onEvent,
   });
 
   return {

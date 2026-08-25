@@ -29,6 +29,14 @@ export const qk = {
   itemsPrefix: () => ['items'] as const,
   items: (userId: string, options: ItemsListOptions) =>
     ['items', userId, options] as const,
+  /**
+   * Prefix covering one user's infinite items keys, whatever they are filtered
+   * or sorted by. This is what the realtime gap-heal invalidates: narrow enough
+   * to leave the detail/picker queries alone, broad enough to cover every
+   * search the list may currently be showing.
+   */
+  itemsInfinitePrefix: (userId: string) =>
+    ['items', 'infinite', userId] as const,
   itemsInfinite: (userId: string, options: ItemsListOptions) =>
     ['items', 'infinite', userId, options] as const,
   /** Every item, unpaged — the pool the container "add item" picker draws on. */
@@ -41,6 +49,9 @@ export const qk = {
   containersPrefix: () => ['containers'] as const,
   containers: (userId: string, options: ContainersListOptions) =>
     ['containers', userId, options] as const,
+  /** Prefix covering one user's infinite containers keys; see itemsInfinitePrefix. */
+  containersInfinitePrefix: (userId: string) =>
+    ['containers', 'infinite', userId] as const,
   containersInfinite: (userId: string, options: ContainersListOptions) =>
     ['containers', 'infinite', userId, options] as const,
   containerById: (id: string) => ['container', id] as const,

@@ -9,27 +9,36 @@
  * comes from the server and back-navigation repaints from cache instead of
  * refetching the whole collection.
  *
+ * The list is live: `useLiveInfiniteList` subscribes to the `Containers`
+ * collection and folds each SSE event into the cached pages, so another tab's
+ * write lands here without a refetch. See `@/hooks/use-items` for the same
+ * wiring with the fuller filter set.
+ *
  * Filters are still built in the mutator layer (see CLAUDE.md) — this module
  * hands the free-text query to `ContainerMutator.search()` and never assembles
  * a filter string itself.
  */
 import { useMemo } from 'react';
-import {
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ContainerMutator,
+  CONTAINER_SEARCH_FIELDS,
   ItemMutator,
+  eq,
   isUnrepresentableFilterValue,
 } from '@project/shared';
 import type { Container } from '@project/shared';
 import pb from '@/lib/pocketbase-client';
 import { qk, seedFromListCache } from '@/lib/query';
+import { useLiveInfiniteList } from '@/hooks/use-live-infinite-list';
+import type { LiveListSpec } from '@/lib/live-list';
+import { buildSortSpec, matchesAnyField } from '@/lib/live-list-spec';
 
 /** Page size for the containers grid; also the PocketBase `perPage`. */
 export const CONTAINERS_PER_PAGE = 12;
+
+/** Stable empty window, so a withheld query does not hand out a new array each render. */
+const EMPTY_PAGES: never[] = [];
 
 export interface UseContainersInfiniteOptions {
   /** Authenticated user id; the query stays idle while this is null. */
@@ -40,12 +49,33 @@ export interface UseContainersInfiniteOptions {
 }
 
 /**
- * Paged containers list, one PocketBase request per page.
+ * Client mirror of the query `ContainerMutator.search()` just ran: the
+ * free-text match against the same two fields, plus the owning user, plus the
+ * sort with its `id` tiebreak. See `itemSpec` in `@/hooks/use-items`.
+ */
+function containerSpec(
+  userId: string,
+  q: string,
+  sort: string
+): LiveListSpec<Container> {
+  const { compare, canCompare } = buildSortSpec<Container>(sort);
+  return {
+    matches: (record) =>
+      record.UserRef === userId &&
+      matchesAnyField(record, CONTAINER_SEARCH_FIELDS, q),
+    compare,
+    canCompare,
+  };
+}
+
+/**
+ * Paged containers list, one PocketBase request per page, kept live by SSE.
  *
  * `isRejectedQuery` reports the one search string PocketBase cannot parse (a
  * trailing backslash — see `isUnrepresentableFilterValue`). The request is
  * withheld in that case rather than sent to be 400'd, so a half-typed Windows
- * path does not surface as a load failure.
+ * path does not surface as a load failure. The subscription is deliberately
+ * *not* withheld with it: the feed's identity is the user, not the search.
  */
 export function useContainersInfinite({
   userId,
@@ -55,35 +85,46 @@ export function useContainersInfinite({
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const isRejectedQuery = isUnrepresentableFilterValue(q);
 
-  const query = useInfiniteQuery({
+  const spec = useMemo(
+    () => containerSpec(userId ?? '', q, sort),
+    [userId, q, sort]
+  );
+
+  const subscription = useMemo(
+    () =>
+      userId
+        ? {
+            collection: 'Containers',
+            topic: '*',
+            options: { filter: eq('UserRef', userId), expand: 'ImageRef' },
+            key: `containers:${userId}`,
+            gapHealKey: qk.containersInfinitePrefix(userId),
+          }
+        : null,
+    [userId]
+  );
+
+  const list = useLiveInfiniteList<Container>({
     // `userId` is only ever '' while the query is disabled, so nothing is
     // cached under the placeholder — see the note in @/lib/query/keys.
     queryKey: qk.containersInfinite(userId ?? '', { q, sort }),
-    queryFn: ({ pageParam }) =>
+    enabled: !!userId && !isRejectedQuery,
+    fetchPage: (page) =>
       containerMutator.search(q, {
-        page: pageParam,
+        page,
         perPage: CONTAINERS_PER_PAGE,
         sort,
         expand: 'ImageRef',
       }),
-    initialPageParam: 1,
-    getNextPageParam: (last) =>
-      last.page < last.totalPages ? last.page + 1 : undefined,
-    enabled: !!userId && !isRejectedQuery,
-    // Keep the previous result on screen while a new search/sort loads, so the
-    // grid does not blank out between keystrokes.
-    placeholderData: (previous) => previous,
+    spec,
+    subscription,
   });
 
-  const pages = useMemo(
-    () => (isRejectedQuery ? [] : (query.data?.pages ?? [])),
-    [isRejectedQuery, query.data]
-  );
-  // Every page envelope carries the same totals; the last one is the freshest.
+  // A rejected search leaves the query disabled, and `placeholderData` would
+  // otherwise keep the previous search's rows on screen as if they matched.
+  const pages = isRejectedQuery ? EMPTY_PAGES : list.pages;
   const lastPage = pages[pages.length - 1];
 
-  // Fields are listed rather than spread: `...query` would subscribe the caller
-  // to every property of the query state (see @tanstack/query/no-rest-destructuring).
   return {
     pages,
     isRejectedQuery,
@@ -92,15 +133,17 @@ export function useContainersInfinite({
     /** The rows PocketBase returned for `page`, or [] if it is not loaded yet. */
     containersForPage: (page: number) =>
       pages.find((entry) => entry.page === page)?.items ?? [],
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    isError: query.isError,
-    error: query.error,
-    fetchStatus: query.fetchStatus,
-    hasNextPage: query.hasNextPage,
-    isFetchingNextPage: query.isFetchingNextPage,
-    fetchNextPage: query.fetchNextPage,
-    refetch: query.refetch,
+    isLoading: list.isLoading,
+    isFetching: list.isFetching,
+    isError: list.isError,
+    error: list.error,
+    fetchStatus: list.fetchStatus,
+    hasNextPage: list.hasNextPage,
+    isFetchingNextPage: list.isFetchingNextPage,
+    fetchNextPage: list.fetchNextPage,
+    refetch: list.refetch,
+    /** Optimistically drop rows from the cached window. */
+    removeFromCache: list.removeFromCache,
   };
 }
 
