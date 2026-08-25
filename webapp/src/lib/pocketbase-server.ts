@@ -14,7 +14,7 @@ import type { TypedPocketBase } from '@project/shared/types';
  *
  * @example
  * ```ts
- * // app/api/example/route.ts
+ * // app/api-next/example/route.ts
  * import { createServerPocketBaseClient } from '@/lib/pocketbase-server';
  *
  * export async function GET() {
@@ -39,7 +39,7 @@ export function createServerPocketBaseClient(): TypedPocketBase {
  *
  * @example
  * ```ts
- * // app/api/example/route.ts
+ * // app/api-next/example/route.ts
  * import { createServerPocketBaseClient, authenticateAsUser } from '@/lib/pocketbase-server';
  *
  * export async function GET(req: Request) {

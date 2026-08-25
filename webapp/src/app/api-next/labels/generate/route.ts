@@ -7,7 +7,7 @@ import { generateLabel } from '@/lib/server/label-generator';
 import { createLogger, errorMessage } from '@/lib/logger';
 import { z } from 'zod';
 
-const log = createLogger('api/labels/generate');
+const log = createLogger('api-next/labels/generate');
 
 const requestSchema = z.object({
   targetId: z.string(),
