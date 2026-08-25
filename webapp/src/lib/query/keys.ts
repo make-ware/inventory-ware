@@ -25,6 +25,8 @@ interface ContainersListOptions {
 }
 
 export const qk = {
+  /** Prefix covering every items list key; invalidate this after a write. */
+  itemsPrefix: () => ['items'] as const,
   items: (userId: string, options: ItemsListOptions) =>
     ['items', userId, options] as const,
   itemsInfinite: (userId: string, options: ItemsListOptions) =>
@@ -40,6 +42,7 @@ export const qk = {
   containerById: (id: string) => ['container', id] as const,
 
   images: (userId: string) => ['images', userId] as const,
+  categoriesPrefix: () => ['categories'] as const,
   categories: (userId: string) => ['categories', userId] as const,
 } as const;
 

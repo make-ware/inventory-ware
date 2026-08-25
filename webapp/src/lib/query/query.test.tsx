@@ -72,6 +72,9 @@ describe('qk', () => {
       'infinite',
     ]);
     expect(qk.itemsByContainer('c1')).toEqual(['items', 'byContainer', 'c1']);
+    expect(qk.itemsPrefix()).toEqual(['items']);
+    expect(qk.categoriesPrefix()).toEqual(['categories']);
+    expect(qk.categories('user-a').slice(0, 1)).toEqual(qk.categoriesPrefix());
   });
 
   it('builds single-record and per-user keys', () => {

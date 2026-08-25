@@ -1,15 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  Suspense,
+} from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, ImageMutator } from '@project/shared';
-import type { Item, Image } from '@project/shared';
-import type {
-  CategoryLibrary,
-  SearchFilters,
-  BulkEditData,
-} from '@/components/inventory';
+import type { Item } from '@project/shared';
+import type { SearchFilters, BulkEditData } from '@/components/inventory';
 import {
   SearchFilter,
   ItemCard,
@@ -36,9 +40,11 @@ import {
   X,
 } from 'lucide-react';
 import { useUpload } from '@/contexts/upload-context';
+import { useAuth } from '@/hooks/use-auth';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { useItemsInfinite, useItemCategories } from '@/hooks/use-items';
+import { qk } from '@/lib/query';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-
-const ITEMS_PER_PAGE = 12;
 
 function ItemsPageContent() {
   const router = useRouter();
@@ -46,6 +52,8 @@ function ItemsPageContent() {
   const pathname = usePathname();
   const { addFiles } = useUpload();
   const { confirm } = useConfirm();
+  const { userId, isLoading: isAuthLoading } = useAuth();
+  const queryClient = useQueryClient();
 
   // Initialize state from query string
   const [initialState] = useState(() => ({
@@ -59,14 +67,6 @@ function ItemsPageContent() {
     } as SearchFilters,
   }));
 
-  const [items, setItems] = useState<Item[]>([]);
-  const [images, setImages] = useState<Map<string, Image>>(new Map());
-  const [categories, setCategories] = useState<CategoryLibrary>({
-    functional: [],
-    specific: [],
-    itemType: [],
-  });
-
   // Search/Sort State
   const [searchQuery, setSearchQuery] = useState(initialState.query);
   const [sortValue, setSortValue] = useState(initialState.sort);
@@ -74,7 +74,6 @@ function ItemsPageContent() {
     initialState.filters
   );
 
-  const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(initialState.page);
 
   // Bulk Edit State
@@ -91,68 +90,89 @@ function ItemsPageContent() {
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
-  const loadItems = useCallback(async () => {
-    try {
-      const results = (
-        await itemMutator.search(searchQuery, {
-          filters: {
-            categoryFunctional: searchFilters.functional,
-            categorySpecific: searchFilters.specific,
-            itemType: searchFilters.itemType,
-          },
-          expand: 'ImageRef',
-          sort: sortValue,
-        })
-      ).items;
-      setItems(results);
+  // Only the free-text box needs debouncing; the sort and category selects
+  // change one discrete step at a time.
+  const debouncedQuery = useDebouncedValue(searchQuery);
 
-      setImages((prev) => {
-        const newImages = new Map(prev);
-        for (const item of results) {
-          if (item.expand?.ImageRef) {
-            newImages.set(item.expand.ImageRef.id, item.expand.ImageRef);
-          }
-        }
-        return newImages;
-      });
-    } catch (error) {
-      console.error('Failed to load items:', error);
+  const { categories } = useItemCategories(userId);
+
+  const {
+    pages,
+    totalPages,
+    itemsForPage,
+    isRejectedQuery,
+    isLoading,
+    isError,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useItemsInfinite({
+    userId,
+    q: debouncedQuery,
+    filters: searchFilters,
+    sort: sortValue,
+  });
+
+  const visibleItems = itemsForPage(currentPage);
+  // Landing on ?page=3 means pages 2 and 3 are still being walked to; that is a
+  // load, not an empty result.
+  const isAwaitingPage =
+    pages.length > 0 &&
+    pages.length < currentPage &&
+    (hasNextPage || isFetchingNextPage);
+
+  /** Drop every cached items page so the next render refetches from PocketBase. */
+  const invalidateItems = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+    [queryClient]
+  );
+
+  useEffect(() => {
+    if (isError) {
       toast.error('Failed to load items');
     }
-  }, [searchQuery, searchFilters, sortValue, itemMutator]);
+  }, [isError]);
 
-  const loadCategories = useCallback(async () => {
-    try {
-      const categoryLibrary = await itemMutator.getDistinctCategories();
-      setCategories(categoryLibrary);
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-    }
-  }, [itemMutator]);
-
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      await Promise.all([loadItems(), loadCategories()]);
-    } catch (error) {
-      console.error('Failed to load inventory data:', error);
-      toast.error('Failed to load inventory data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [loadItems, loadCategories]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
+  // Uploads and image edits still announce themselves with a window event
+  // (realtime lands in a later phase); refresh the cache rather than the page's
+  // own copy of the data.
   useEffect(() => {
     const handleUpdate = () => {
-      loadData();
+      invalidateItems();
+      queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() });
     };
     window.addEventListener('inventory-updated', handleUpdate);
     return () => window.removeEventListener('inventory-updated', handleUpdate);
-  }, [loadData]);
+  }, [invalidateItems, queryClient]);
+
+  // An infinite query only ever holds a contiguous run of pages from the first,
+  // so deep-linking to ?page=3 has to walk forward to it.
+  useEffect(() => {
+    if (pages.length === 0) return;
+    if (pages.length >= currentPage) return;
+    if (!hasNextPage || isFetchingNextPage) return;
+    fetchNextPage();
+  }, [
+    pages.length,
+    currentPage,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  ]);
+
+  // A new query/filter/sort restarts paging at page 1, so keep the visible page
+  // in step instead of walking forward through pages nobody asked for.
+  const queryInputs = JSON.stringify([
+    debouncedQuery,
+    searchFilters,
+    sortValue,
+  ]);
+  const previousQueryInputs = useRef(queryInputs);
+  useEffect(() => {
+    if (previousQueryInputs.current === queryInputs) return;
+    previousQueryInputs.current = queryInputs;
+    setCurrentPage(1);
+  }, [queryInputs]);
 
   // Sync state FROM URL
   useEffect(() => {
@@ -215,18 +235,13 @@ function ItemsPageContent() {
     searchParams,
   ]);
 
-  // Reload items when search/filters/sort change
-  useEffect(() => {
-    loadItems();
-  }, [searchQuery, searchFilters, sortValue, loadItems]);
-
   const handleDeleteItem = async (itemId: string) => {
     if (!(await confirm('Are you sure you want to delete this item?'))) return;
 
     try {
       await itemMutator.delete(itemId);
       toast.success('Item deleted successfully');
-      await loadItems();
+      await invalidateItems();
     } catch (error) {
       console.error('Failed to delete item:', error);
       toast.error('Failed to delete item');
@@ -234,11 +249,10 @@ function ItemsPageContent() {
   };
 
   const getItemImageUrl = (item: Item): string | undefined => {
-    if (item.ImageRef) {
-      const image = images.get(item.ImageRef);
-      if (image) return imageMutator.getFileUrl(image);
-    }
-    return undefined;
+    // `expand: 'ImageRef'` on the list query means the image record travels
+    // with the item; there is no separate lookup table to keep in sync.
+    const image = item.expand?.ImageRef;
+    return image ? imageMutator.getFileUrl(image) : undefined;
   };
 
   const handlePageChange = useCallback((newPage: number) => {
@@ -282,7 +296,7 @@ function ItemsPageContent() {
       toast.success(`Deleted ${selectedItems.size} items`);
       setSelectedItems(new Set());
       setIsSelectionMode(false);
-      await loadItems();
+      await invalidateItems();
     } catch (error) {
       console.error('Failed to bulk delete:', error);
       toast.error('Failed to bulk delete items');
@@ -297,18 +311,12 @@ function ItemsPageContent() {
       toast.success(`Updated ${selectedItems.size} items`);
       setSelectedItems(new Set());
       setIsSelectionMode(false);
-      await loadItems();
+      await invalidateItems();
     } catch (error) {
       console.error('Failed to bulk update:', error);
       toast.error('Failed to bulk update items');
     }
   };
-
-  const paginatedItems = items.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
-  const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
 
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
@@ -337,7 +345,7 @@ function ItemsPageContent() {
     { label: 'Name (Z-A)', value: '-itemLabel' },
   ];
 
-  if (isLoading && items.length === 0) {
+  if (isAuthLoading || (isLoading && pages.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -404,18 +412,24 @@ function ItemsPageContent() {
           </div>
         </div>
 
-        {paginatedItems.length === 0 ? (
+        {isAwaitingPage ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : visibleItems.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {searchQuery || Object.keys(searchFilters).length > 0
-                ? 'No items match your search criteria'
-                : 'No items yet. Upload an image or create an item manually.'}
+              {isRejectedQuery
+                ? 'A search cannot end with a backslash'
+                : searchQuery || Object.keys(searchFilters).length > 0
+                  ? 'No items match your search criteria'
+                  : 'No items yet. Upload an image or create an item manually.'}
             </p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {paginatedItems.map((item) => (
+              {visibleItems.map((item) => (
                 <ItemCard
                   key={item.id}
                   item={item}
