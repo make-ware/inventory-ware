@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
-import { ContainerMutator, ItemMutator } from '@project/shared';
+import { ItemMutator } from '@project/shared';
 import type { Container, Item } from '@project/shared';
 import { getImageFileUrl, getExpandedImageUrl } from '@/lib/image-utils';
 
@@ -17,6 +18,13 @@ import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dia
 import { ContainerImageUpload } from '@/components/inventory/container-image-upload';
 import { CleanupPromptDialog } from '@/components/inventory/cleanup-prompt-dialog';
 import { createInventoryService, type CleanupActionRequest } from '@/services';
+import { useContainer, useItemsByContainer } from '@/hooks/use-containers';
+import { useDeleteContainer } from '@/hooks/use-container-mutations';
+import {
+  useAddItemToContainer,
+  useRemoveItemFromContainer,
+} from '@/hooks/use-item-mutations';
+import { qk } from '@/lib/query';
 import { AsyncCombobox } from '@/components/ui/async-combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -36,78 +44,40 @@ export default function ContainerDetailPage() {
   const router = useRouter();
   const params = useParams();
   const containerId = params.id as string;
+  const queryClient = useQueryClient();
 
-  const [container, setContainer] = useState<Container | null>(null);
-  const [containerItems, setContainerItems] = useState<Item[]>([]);
-  const [containerItemCount, setContainerItemCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  /** When true the picker also offers items that live in another container. */
+  // Off: only items filed nowhere are offered. On: every item outside this
+  // container, so an add can also be a move.
   const [showAssigned, setShowAssigned] = useState(false);
-  /** Bumped after every add, to reset the picker's paging. */
+  // Bumped after each add, to reload the picker from page 1 (see below).
   const [addNonce, setAddNonce] = useState(0);
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
   const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
   const [unmatchedItems, setUnmatchedItems] = useState<Item[]>([]);
   const { confirm } = useConfirm();
 
-  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
-  const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const inventoryService = useMemo(() => createInventoryService(pb), []);
+  // The picker pages the server as the user types, so it owns its own reads
+  // rather than drawing on a query hook — see docs/DROPDOWNS.md.
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
-  const loadContainerDetails = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const deleteContainer = useDeleteContainer();
+  const addItemToContainer = useAddItemToContainer();
+  const removeItemFromContainer = useRemoveItemFromContainer();
 
-      // Load container with expanded ImageRef
-      const containerData = await containerMutator.getById(
-        containerId,
-        'ImageRef'
-      );
-      if (!containerData) {
-        throw new Error('Container not found');
-      }
-      setContainer(containerData);
-
-      // Load items in this container with expanded ImageRef
-      const contents = await itemMutator.getByContainer(containerId, {
-        expand: 'ImageRef',
-      });
-      setContainerItems(contents.items);
-      // The page total is what PocketBase counted, not what this page returned.
-      setContainerItemCount(contents.totalItems);
-    } catch (error) {
-      console.error('Failed to load container details:', error);
-      toast.error('Failed to load container details');
-      router.push('/inventory');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [containerId, router, containerMutator, itemMutator]);
-
-  useEffect(() => {
-    loadContainerDetails();
-  }, [loadContainerDetails]);
-
-  const handleDelete = async () => {
-    try {
-      await containerMutator.delete(containerId);
-      toast.success('Container deleted successfully');
-      router.push('/inventory');
-    } catch (error) {
-      console.error('Failed to delete container:', error);
-      toast.error('Failed to delete container');
-    }
-  };
-
-  const getDeleteMessage = () => {
-    if (containerItems.length > 0) {
-      return `This container has ${containerItems.length} items. Delete anyway?`;
-    }
-    return 'Are you sure you want to delete this container?';
-  };
-
+  const {
+    container,
+    isPending: isContainerPending,
+    isError: isContainerError,
+    isMissing: isContainerMissing,
+  } = useContainer(containerId);
+  const {
+    items: containerItems,
+    totalItems: containerItemCount,
+    isError: isItemsError,
+  } = useItemsByContainer(containerId);
   /**
    * One page of candidate items for the picker.
    *
@@ -135,6 +105,63 @@ export default function ContainerDetailPage() {
     return expanded?.containerLabel;
   };
 
+  /**
+   * Re-read everything this page shows.
+   *
+   * Moving an item in or out changes both the container's item list and the
+   * paged items lists elsewhere, so the whole `items` prefix goes — and a
+   * re-analysed container image can rewrite the container record itself.
+   */
+  const refreshContainer = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({
+          queryKey: qk.containerById(containerId),
+        }),
+        queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+      ]),
+    [queryClient, containerId]
+  );
+
+  // A missing container and a failed request are the same dead end here: there
+  // is no page to render, so say so once and go back to the inventory.
+  const isContainerUnavailable = isContainerError || isContainerMissing;
+  useEffect(() => {
+    if (!isContainerUnavailable) return;
+    toast.error('Failed to load container details');
+    router.push('/inventory');
+  }, [isContainerUnavailable, router]);
+
+  // The container itself still renders when its items fail to load, so that
+  // only warrants a toast. The picker reports its own load failures inline.
+  useEffect(() => {
+    if (isItemsError) {
+      toast.error('Failed to load items in this container');
+    }
+  }, [isItemsError]);
+
+  const handleDelete = async () => {
+    try {
+      // The mutation detaches this container's items before deleting it, and
+      // evicts the detail key the page is reading — so leave when it resolves.
+      await deleteContainer.mutateAsync(containerId);
+      toast.success('Container deleted successfully');
+      router.push('/inventory');
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete container'
+      );
+    }
+  };
+
+  const getDeleteMessage = () => {
+    if (containerItemCount > 0) {
+      return `This container has ${containerItemCount} items. Delete anyway?`;
+    }
+    return 'Are you sure you want to delete this container?';
+  };
+
   const handleAddItem = async () => {
     if (!selectedItem) {
       toast.error('Please select an item to add');
@@ -156,16 +183,21 @@ export default function ContainerDetailPage() {
 
     try {
       setIsAddingItem(true);
-      await itemMutator.update(selectedItem.id, { ContainerRef: containerId });
+      await addItemToContainer.mutateAsync({
+        itemId: selectedItem.id,
+        containerId,
+      });
       toast.success('Item added to container');
       setSelectedItem(null);
       // Every add shifts the offsets of the remaining pages, so reload the
       // picker from the top rather than trying to patch the loaded pages.
       setAddNonce((nonce) => nonce + 1);
-      await loadContainerDetails();
     } catch (error) {
-      console.error('Failed to add item to container:', error);
-      toast.error('Failed to add item to container');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to add item to container'
+      );
     } finally {
       setIsAddingItem(false);
     }
@@ -175,15 +207,14 @@ export default function ContainerDetailPage() {
     if (!(await confirm('Remove this item from the container?'))) return;
 
     try {
-      // Must be '', not undefined: `BaseMutator.update` passes the body
-      // straight to PocketBase, and JSON.stringify drops undefined keys, so
-      // the PATCH would be an empty no-op that still reported success.
-      await itemMutator.update(itemId, { ContainerRef: '' });
+      await removeItemFromContainer.mutateAsync({ itemId, containerId });
       toast.success('Item removed from container');
-      await loadContainerDetails();
     } catch (error) {
-      console.error('Failed to remove item from container:', error);
-      toast.error('Failed to remove item from container');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to remove item from container'
+      );
     }
   };
 
@@ -203,10 +234,8 @@ export default function ContainerDetailPage() {
   // Handle successful container image upsert
   const handleContainerUpsertSuccess = useCallback(
     (result: { unmatchedExisting: Item[] }) => {
-      // Refresh the container details to show updated/new items
-      loadContainerDetails();
-
-      // If there are unmatched items, show the cleanup prompt dialog
+      // The upload component invalidates what the upsert rewrote, so there is
+      // nothing to refresh here — only the unmatched items to ask about.
       if (result.unmatchedExisting.length > 0) {
         setUnmatchedItems(result.unmatchedExisting);
         setIsCleanupDialogOpen(true);
@@ -214,7 +243,7 @@ export default function ContainerDetailPage() {
         toast.success('Container image updated successfully');
       }
     },
-    [loadContainerDetails]
+    []
   );
 
   // Handle cleanup actions from the cleanup prompt dialog
@@ -223,9 +252,9 @@ export default function ContainerDetailPage() {
       await inventoryService.executeCleanupActions(actions);
       toast.success('Cleanup actions applied successfully');
       // Refresh container details after cleanup
-      await loadContainerDetails();
+      await refreshContainer();
     },
-    [inventoryService, loadContainerDetails]
+    [inventoryService, refreshContainer]
   );
 
   // Get image URL for unmatched items in cleanup dialog
@@ -236,7 +265,7 @@ export default function ContainerDetailPage() {
     []
   );
 
-  if (isLoading) {
+  if (isContainerPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

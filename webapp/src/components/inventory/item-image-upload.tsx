@@ -2,10 +2,12 @@
 
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { useQueryClient } from '@tanstack/react-query';
 import { Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import pb from '@/lib/pocketbase-client';
+import { qk, invalidateItemCaches } from '@/lib/query';
 import { UploadDropzone } from './upload-dropzone';
 import type { ItemsResponse, ImagesResponse } from '@project/shared';
 
@@ -35,6 +37,7 @@ export function ItemImageUpload({
   const [stage, setStage] = useState<UploadStage>('idle');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ItemUploadResult | null>(null);
+  const queryClient = useQueryClient();
 
   const uploadImage = useCallback(
     async (file: File) => {
@@ -76,8 +79,12 @@ export function ItemImageUpload({
           onSuccess(data);
         }
 
-        // Dispatch event for other components to refresh
-        window.dispatchEvent(new CustomEvent('inventory-updated'));
+        // The route rewrote the item from what it saw in the image and added
+        // an image record, so both this item and the images library are stale.
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: qk.imagesPrefix() }),
+          invalidateItemCaches(queryClient, [itemId]),
+        ]);
       } catch (err) {
         console.error('Item image upload failed:', err);
         const errorMessage =
@@ -90,7 +97,7 @@ export function ItemImageUpload({
         }
       }
     },
-    [itemId, onSuccess, onError]
+    [itemId, onSuccess, onError, queryClient]
   );
 
   const onDrop = useCallback(

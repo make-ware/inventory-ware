@@ -4,20 +4,22 @@ import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator } from '@project/shared';
-import type { ItemInput, CategoryLibrary } from '@project/shared';
+import type { ItemInput } from '@project/shared';
 import { ItemCreateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useCategoryLibrary } from '@/hooks/use-categories';
+import { useCreateItem } from '@/hooks/use-item-mutations';
 
 function NewItemContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId } = useAuth();
+  const createItem = useCreateItem();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<CategoryLibrary>();
   const [defaultValues, setDefaultValues] = useState<Partial<ItemInput>>({});
   const [isLoadingDefaults, setIsLoadingDefaults] = useState(false);
 
@@ -25,17 +27,9 @@ function NewItemContent() {
   const imageId = searchParams.get('imageId');
   const cloneFromId = searchParams.get('clone_from');
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const result = await itemMutator.getDistinctCategories();
-        setCategories(result);
-      } catch (error) {
-        console.error('Failed to load categories:', error);
-      }
-    };
-    loadCategories();
-  }, [itemMutator]);
+  // Shared with the items list and the edit form, so arriving here from either
+  // of them paints the comboboxes from cache.
+  const { categories } = useCategoryLibrary(userId);
 
   useEffect(() => {
     const loadDefaults = async () => {
@@ -95,15 +89,19 @@ function NewItemContent() {
         return;
       }
       setIsSubmitting(true);
-      const newItem = await itemMutator.create({
+      // The mutation marks the lists and the category library stale before it
+      // resolves, so the detail page this navigates to reads the new row back
+      // rather than repainting a list that predates it.
+      const newItem = await createItem.mutateAsync({
         ...data,
         UserRef: userId,
       } as ItemInput);
       toast.success('Item created successfully');
       router.push(`/inventory/items/${newItem.id}`);
     } catch (error) {
-      console.error('Failed to create item:', error);
-      toast.error('Failed to create item');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create item'
+      );
     } finally {
       setIsSubmitting(false);
     }

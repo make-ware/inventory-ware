@@ -2,9 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator } from '@project/shared';
 import type { Image } from '@project/shared';
+import { useAuth } from '@/hooks/use-auth';
+import { useImages } from '@/hooks/use-images';
+import { qk } from '@/lib/query';
 import { ImageCard, PaginationControls } from '@/components/inventory';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
@@ -23,6 +27,8 @@ const IMAGES_PER_PAGE = 24;
 function ImagesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const { userId } = useAuth();
 
   // Initialize state from query string
   const [initialState] = useState(() => ({
@@ -31,9 +37,6 @@ function ImagesPageContent() {
     type: searchParams.get('type') || 'all',
     status: searchParams.get('status') || 'all',
   }));
-
-  const [images, setImages] = useState<Image[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(initialState.page);
   const [searchQuery, setSearchQuery] = useState(initialState.query);
@@ -47,43 +50,29 @@ function ImagesPageContent() {
   );
   const { confirm } = useConfirm();
 
-  const imageMutator = new ImageMutator(pb);
+  const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
-  const loadImages = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const result = await imageMutator.getList(1, 1000, undefined, '-created');
-      setImages(result.items);
-    } catch (error) {
-      console.error('Failed to load images:', error);
-      toast.error('Failed to load images');
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { images, isLoading, isError } = useImages(userId);
 
+  /** Drop the cached list so the next render reads it back from PocketBase. */
+  const invalidateImages = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: qk.imagesPrefix() }),
+    [queryClient]
+  );
+
+  // The type and status selects narrow the fetched set rather than the request:
+  // the whole library is already in the cache (see @/hooks/use-images), so
+  // filtering here costs a pass over an array instead of a round trip.
   const filteredImages = useMemo(() => {
-    let filtered = images;
-
-    if (imageTypeFilter !== 'all') {
-      filtered = filtered.filter((img) => img.imageType === imageTypeFilter);
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((img) => img.analysisStatus === statusFilter);
-    }
-
-    if (searchQuery) {
-      const lowerQuery = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (img) =>
+    const lowerQuery = searchQuery.toLowerCase();
+    return images.filter(
+      (img) =>
+        (imageTypeFilter === 'all' || img.imageType === imageTypeFilter) &&
+        (statusFilter === 'all' || img.analysisStatus === statusFilter) &&
+        (!searchQuery ||
           img.file.toLowerCase().includes(lowerQuery) ||
-          img.id.toLowerCase().includes(lowerQuery)
-      );
-    }
-
-    return filtered;
+          img.id.toLowerCase().includes(lowerQuery))
+    );
   }, [images, imageTypeFilter, statusFilter, searchQuery]);
 
   // Sync state FROM URL
@@ -102,9 +91,7 @@ function ImagesPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Sync state TO URL. `history.replaceState` rather than `router.push`:
-  // Next keeps `useSearchParams` in sync with it, but skips the router
-  // navigation (and history spam) a push would cost on every filter change.
+  // Sync state TO URL
   useEffect(() => {
     const timer = setTimeout(() => {
       const params = new URLSearchParams();
@@ -114,36 +101,28 @@ function ImagesPageContent() {
       if (statusFilter !== 'all') params.set('status', statusFilter);
 
       const query = params.toString();
+      const url = query ? `?${query}` : '/inventory/images';
+
       const currentParams = new URLSearchParams(searchParams.toString());
       if (query !== currentParams.toString()) {
-        window.history.replaceState(
-          null,
-          '',
-          query ? `?${query}` : '/inventory/images'
-        );
+        router.push(url, { scroll: false });
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchQuery, imageTypeFilter, statusFilter, currentPage, searchParams]);
+  }, [
+    searchQuery,
+    imageTypeFilter,
+    statusFilter,
+    currentPage,
+    router,
+    searchParams,
+  ]);
 
-  // Load initial data
   useEffect(() => {
-    loadImages();
-  }, [loadImages]);
-
-  // Poll for status updates on processing images
-  useEffect(() => {
-    const processing = images.filter(
-      (img) => img.analysisStatus === 'processing'
-    );
-    if (processing.length === 0) return;
-
-    const intervalId = setInterval(() => {
-      loadImages();
-    }, 5000); // Poll every 5 seconds
-
-    return () => clearInterval(intervalId);
-  }, [images, loadImages]);
+    if (isError) {
+      toast.error('Failed to load images');
+    }
+  }, [isError]);
 
   const handleDeleteImage = async (imageId: string) => {
     if (!(await confirm('Are you sure you want to delete this image?'))) return;
@@ -151,7 +130,7 @@ function ImagesPageContent() {
     try {
       await imageMutator.delete(imageId);
       toast.success('Image deleted successfully');
-      await loadImages();
+      await invalidateImages();
     } catch (error) {
       console.error('Failed to delete image:', error);
       toast.error('Failed to delete image');
@@ -177,7 +156,13 @@ function ImagesPageContent() {
       }
 
       toast.success('Image processed successfully!');
-      await loadImages();
+      // Analysis creates items and containers as well as restamping the image.
+      await Promise.all([
+        invalidateImages(),
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
+      ]);
     } catch (error) {
       console.error('Failed to process image:', error);
       toast.error(
@@ -202,7 +187,10 @@ function ImagesPageContent() {
     setCurrentPage(newPage);
   }, []);
 
-  // Pagination
+  // Paging is a slice here, not a request per page like the items and
+  // containers grids: the free-text box matches on filename and id, which
+  // `ImageMutator` has no server-side filter for, so the whole library is
+  // fetched once (capped by `IMAGES_FETCH_LIMIT`) and narrowed in memory.
   const paginatedImages = filteredImages.slice(
     (currentPage - 1) * IMAGES_PER_PAGE,
     currentPage * IMAGES_PER_PAGE

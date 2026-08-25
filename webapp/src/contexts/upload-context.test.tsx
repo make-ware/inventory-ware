@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { ReactNode } from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { UploadProvider, useUpload } from './upload-context';
+import { createQueryClient } from '@/lib/query';
 import pb from '@/lib/pocketbase-client';
 
 // Mock pb
@@ -36,6 +39,18 @@ import { ImageMutator } from '@project/shared';
 // Mock fetch
 global.fetch = vi.fn();
 
+// The provider invalidates the query cache once an upload lands, so it needs a
+// client above it. One per file is enough: nothing here reads a query.
+const queryClient = createQueryClient();
+
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <UploadProvider>{children}</UploadProvider>
+    </QueryClientProvider>
+  );
+}
+
 describe('UploadContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,14 +63,14 @@ describe('UploadContext', () => {
 
   it('provides initial state', () => {
     const { result } = renderHook(() => useUpload(), {
-      wrapper: UploadProvider,
+      wrapper,
     });
     expect(result.current.queue).toEqual([]);
   });
 
   it('can clear the queue', async () => {
     const { result } = renderHook(() => useUpload(), {
-      wrapper: UploadProvider,
+      wrapper,
     });
 
     const file = new File(['content'], 'test.png', { type: 'image/png' });
@@ -78,7 +93,7 @@ describe('UploadContext', () => {
 
   it('can remove an item', async () => {
     const { result } = renderHook(() => useUpload(), {
-      wrapper: UploadProvider,
+      wrapper,
     });
     const file = new File(['content'], 'test.png', { type: 'image/png' });
 
@@ -100,7 +115,7 @@ describe('UploadContext', () => {
 
   it('clears queue on logout', async () => {
     const { result } = renderHook(() => useUpload(), {
-      wrapper: UploadProvider,
+      wrapper,
     });
     const file = new File(['content'], 'test.png', { type: 'image/png' });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ItemMutator, ContainerMutator } from '@project/shared';
 import type { Item } from '@project/shared';
 
@@ -111,11 +112,22 @@ const mockSearch = vi.fn();
 const mockGetByContainer = vi.fn();
 const mockUpdate = vi.fn();
 
+/**
+ * The page reads the container and its items through TanStack Query, so it
+ * needs a client. A fresh one per render, with retries off and no cache
+ * lifetime, keeps each test's reads isolated from the last one's.
+ */
 function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+
   return render(
-    <ConfirmDialogProvider>
-      <ContainerDetailPage />
-    </ConfirmDialogProvider>
+    <QueryClientProvider client={queryClient}>
+      <ConfirmDialogProvider>
+        <ContainerDetailPage />
+      </ConfirmDialogProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import pb from '@/lib/pocketbase-client';
-import { ContainerMutator, formatPocketBaseError } from '@project/shared';
-import type { Container, ContainerInput } from '@project/shared';
-import { useInventory } from '@/hooks/use-inventory';
+import { formatPocketBaseError } from '@project/shared';
+import type { ContainerInput } from '@project/shared';
+import { useContainer } from '@/hooks/use-containers';
+import { useUpdateContainer } from '@/hooks/use-container-mutations';
+import { getExpandedImageUrl } from '@/lib/image-utils';
 import { ContainerUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,53 +31,33 @@ export default function EditContainerPage() {
   const params = useParams();
   const containerId = params.id as string;
 
-  const [container, setContainer] = useState<Container | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { cacheImage } = useInventory();
-  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+  const updateContainer = useUpdateContainer();
 
-  const loadContainer = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const containerData = await containerMutator.getById(
-        containerId,
-        'ImageRef'
-      );
-      if (!containerData) {
-        throw new Error('Container not found');
-      }
+  const { container, isPending, isError, isMissing, error } =
+    useContainer(containerId);
 
-      // Cache the primary image if it exists so the form can display it
-      if (containerData.expand?.ImageRef) {
-        cacheImage(containerData.expand.ImageRef);
-      }
-
-      setContainer(containerData);
-    } catch (error) {
-      console.error('Failed to load container:', error);
-      toast.error(describeError(error, 'Failed to load container'));
-      router.push('/inventory');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [containerId, router, containerMutator, cacheImage]);
-
+  // A missing container and a failed request both leave nothing to edit.
+  const isUnavailable = isError || isMissing;
   useEffect(() => {
-    loadContainer();
-  }, [loadContainer]);
+    if (!isUnavailable) return;
+    toast.error(describeError(error, 'Failed to load container'));
+    router.push('/inventory');
+  }, [isUnavailable, error, router]);
 
   const handleSubmit = async (
     data: Partial<Omit<ContainerInput, 'UserRef'>>
   ) => {
     try {
       setIsSubmitting(true);
-      await containerMutator.update(containerId, data);
+      // The edit is in the cache before the request goes out and the affected
+      // keys are stale before this resolves, so the detail page this returns to
+      // shows the new values immediately and re-reads them behind that.
+      await updateContainer.mutateAsync({ id: containerId, data });
       toast.success('Container updated successfully');
       router.push(`/inventory/containers/${containerId}`);
     } catch (error) {
-      console.error('Failed to update container:', error);
       toast.error(
         describeError(error, 'Failed to update container. Please try again.')
       );
@@ -89,7 +70,7 @@ export default function EditContainerPage() {
     router.push(`/inventory/containers/${containerId}`);
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -127,6 +108,9 @@ export default function EditContainerPage() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}
+            // The detail query expands `ImageRef`, so the image record travels
+            // with the container and the crop preview needs no lookup of its own.
+            imageUrl={getExpandedImageUrl(container)}
           />
         </CardContent>
       </Card>

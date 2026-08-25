@@ -2,8 +2,6 @@
 
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import pb from '@/lib/pocketbase-client';
-import { ContainerMutator } from '@project/shared';
 import type { ContainerInput } from '@project/shared';
 import { ContainerCreateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
@@ -11,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useCreateContainer } from '@/hooks/use-container-mutations';
 
 function NewContainerContent() {
   const router = useRouter();
@@ -18,7 +17,7 @@ function NewContainerContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { userId } = useAuth();
 
-  const containerMutator = new ContainerMutator(pb);
+  const createContainer = useCreateContainer();
   const imageId = searchParams.get('imageId');
 
   const handleSubmit = async (
@@ -29,15 +28,18 @@ function NewContainerContent() {
       if (!userId) {
         throw new Error('No authenticated user');
       }
-      const newContainer = await containerMutator.create({
+      // The mutation marks the container lists stale before it resolves, so
+      // the page this navigates to reads the new record back.
+      const newContainer = await createContainer.mutateAsync({
         ...data,
         UserRef: userId,
       } as ContainerInput);
       toast.success('Container created successfully');
       router.push(`/inventory/containers/${newContainer.id}`);
     } catch (error) {
-      console.error('Failed to create container:', error);
-      toast.error('Failed to create container');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create container'
+      );
     } finally {
       setIsSubmitting(false);
     }

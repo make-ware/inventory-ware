@@ -94,7 +94,62 @@ mirrors failed PocketBase requests to stdout, since PocketBase's own log only
 goes to its `_logs` table. See `docker/README.md` for the operator-facing
 version.
 
-**Context providers.** `webapp/src/contexts/auth-context.tsx`, `inventory-context.tsx`, and `upload-context.tsx` provide app-wide state. The upload context owns the multi-file upload queue (including clearing/cancelling) surfaced by `components/inventory/upload-tracker.tsx`.
+**Live lists (PocketBase realtime folded into the query cache).** The Items,
+Containers and Images lists stay current without polling or refetching:
+`webapp/src/hooks/use-realtime-subscription.ts` owns the single SSE
+subscription, and `webapp/src/lib/live-list.ts` holds the *pure* merges that
+fold each event into the cached pages. The invariants there are load-bearing —
+same reference on a no-op (so structural sharing suppresses the render), replace
+only on a strictly newer `updated` stamp (so the echo of a local write drops),
+and the sort-window rule that decides whether an unloaded record belongs in the
+window or only in `totalItems`. Read that file's header before changing a merge.
+
+A subscription's identity is its `key` and nothing else, so typing in a search
+box never resubscribes; everything volatile (search text, filters, sort) reaches
+the handler through refs and through the `LiveListSpec` built by
+`webapp/src/lib/live-list-spec.ts`, which is the client mirror of the filter and
+sort the *mutator* sent. That mirror is allowed to approximate — the gap-heal
+invalidation fired once per mount, plus the next fetch, corrects any drift.
+Handlers only write to the query cache; a handler that writes to PocketBase is a
+loop with every other tab. Adding a live list means writing a `LiveListSpec` and
+passing a subscription to `use-live-infinite-list.ts`, not hand-rolling
+`pb.collection(...).subscribe`. See `docs/PB_REALTIME.md`.
+
+**Writes go through the mutation hooks, never a mutator called from a page.**
+Every create, edit and delete in the webapp is a `useMutation` in
+`webapp/src/hooks/use-item-mutations.ts` or `use-container-mutations.ts`. Each
+one patches the query cache before the request leaves (`onMutate`), puts its
+snapshot back if the request is refused (`onError`) and invalidates the keys it
+touched on success — so the screen moves on the click, an error undoes itself,
+and the server still has the last word. A page that calls
+`itemMutator.delete(...)` itself gets none of that, so add a hook rather than a
+call site.
+
+The cache surgery lives in `webapp/src/lib/query/mutations.ts`, and it is
+deliberately *not* the realtime merge: a local patch carries the cached
+record's `updated` stamp, so the newer-wins rule that makes the SSE merges
+idempotent would reject every one of them, and rows are patched in place rather
+than repositioned (the invalidation — or the echo, whichever lands first —
+settles the order). Creates are not optimistic: there is no id to insert under
+and every create navigates to the record it just made. Deleting a container is
+the one compound write, and the order is load-bearing: read *all* of its items,
+clear each `ContainerRef` (with `''`; an `undefined` field never reaches
+PocketBase's JSON body), then delete the record — PocketBase does not cascade.
+
+**Context providers.** Two are left: `webapp/src/contexts/auth-context.tsx` and
+`upload-context.tsx`. The upload context owns the multi-file upload queue
+(including clearing/cancelling) surfaced by
+`components/inventory/upload-tracker.tsx`, and invalidates the
+item/container/image keys once an upload's analysis lands. There is no
+inventory context — every record a page shows now comes from a query hook in
+`webapp/src/hooks/` and every write from a mutation hook, so a page holds no
+`useState` copy of a list and no `window` event tells it to reload. Detail
+pages read through the same layer: `useItem`/`useContainer`/`useImage` for the
+record, and `useItemsByContainer`/`useItemsByImage`/`useContainersByImage` for
+what hangs off it. Adding a page means adding (or reusing) a hook, not a
+provider. The one read that stays outside the cache is an `AsyncCombobox`'s
+`fetchPage`: the picker owns its own paging and per-keystroke query, so it
+takes a mutator call directly (see `docs/DROPDOWNS.md`) rather than a hook.
 
 ## Environment
 

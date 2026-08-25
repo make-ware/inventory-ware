@@ -1,20 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
-import {
-  ItemMutator,
-  ContainerMutator,
-  formatCategoryLabel,
-} from '@project/shared';
-import type { Item, Container } from '@project/shared';
+import { formatCategoryLabel } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
 import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
 import { ItemImageUpload } from '@/components/inventory/item-image-upload';
+import { useItem } from '@/hooks/use-items';
+import { useDeleteItem } from '@/hooks/use-item-mutations';
+import { useContainer } from '@/hooks/use-containers';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,60 +34,39 @@ export default function ItemDetailPage() {
   const params = useParams();
   const itemId = params.id as string;
 
-  const [item, setItem] = useState<Item | null>(null);
-  const [container, setContainer] = useState<Container | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
 
-  const itemMutator = new ItemMutator(pb);
-  const containerMutator = new ContainerMutator(pb);
+  const deleteItem = useDeleteItem();
 
-  const loadItemDetails = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const { item, isPending, isError, isMissing } = useItem(itemId);
+  // The container is a secondary read: it only names the button below, so its
+  // own failure hides that button rather than taking the page down.
+  const { container } = useContainer(item?.ContainerRef);
 
-      // Load item with expanded ImageRef
-      const itemData = await itemMutator.getById(itemId, 'ImageRef');
-      if (!itemData) {
-        throw new Error('Item not found');
-      }
-      setItem(itemData);
-
-      // Load container if item is in one
-      if (itemData.ContainerRef) {
-        const containerData = await containerMutator.getById(
-          itemData.ContainerRef
-        );
-        if (containerData) {
-          setContainer(containerData);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load item details:', error);
-      toast.error('Failed to load item details');
-      router.push('/inventory');
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemId, router]);
-
+  // A missing item and a failed request are the same dead end here: there is
+  // no page to render, so say so once and go back to the inventory.
+  const isUnavailable = isError || isMissing;
   useEffect(() => {
-    loadItemDetails();
-  }, [loadItemDetails]);
+    if (!isUnavailable) return;
+    toast.error('Failed to load item details');
+    router.push('/inventory');
+  }, [isUnavailable, router]);
 
   const handleDelete = async () => {
     try {
-      await itemMutator.delete(itemId);
+      // The mutation evicts this page's own detail key on the way out, so
+      // there is nothing left here to read once it resolves.
+      await deleteItem.mutateAsync(itemId);
       toast.success('Item deleted successfully');
       router.push('/inventory');
     } catch (error) {
-      console.error('Failed to delete item:', error);
-      toast.error('Failed to delete item');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete item'
+      );
     }
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -301,8 +277,9 @@ export default function ItemDetailPage() {
               <ItemImageUpload
                 itemId={itemId}
                 onSuccess={() => {
+                  // The upload component invalidates what the route rewrote,
+                  // so there is nothing to refresh here.
                   toast.success('Item image updated successfully');
-                  loadItemDetails();
                 }}
                 onError={(error) => toast.error(error.message)}
               />

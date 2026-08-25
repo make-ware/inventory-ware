@@ -1,27 +1,24 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import pb from '@/lib/pocketbase-client';
-import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
-import type {
-  Image,
-  Item,
-  Container,
-  BoundingBox,
-  CategoryLibrary,
-  ItemInput,
-  ContainerInput,
-} from '@project/shared';
+import type { BoundingBox, ItemInput, ContainerInput } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BoundingBoxEditor } from '@/components/inventory/bounding-box-editor';
 import { ItemCreateForm } from '@/components/inventory/item-create-form';
 import { ContainerCreateForm } from '@/components/inventory/container-create-form';
+import { getImageFileUrl } from '@/lib/image-utils';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Box, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useCategoryLibrary } from '@/hooks/use-categories';
+import { useImage } from '@/hooks/use-images';
+import { useItemsByImage } from '@/hooks/use-items';
+import { useContainersByImage } from '@/hooks/use-containers';
+import { useCreateItem } from '@/hooks/use-item-mutations';
+import { useCreateContainer } from '@/hooks/use-container-mutations';
 import { ImageWithLoader } from '@/components/image/image-with-loader';
 
 export default function ImageLabelingWizard() {
@@ -30,11 +27,6 @@ export default function ImageLabelingWizard() {
   const imageId = params.id as string;
   const { userId } = useAuth();
 
-  const [image, setImage] = useState<Image | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [containers, setContainers] = useState<Container[]>([]);
-  const [categories, setCategories] = useState<CategoryLibrary>();
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // State for the wizard
@@ -43,55 +35,25 @@ export default function ImageLabelingWizard() {
   );
   const [isEditingBbox, setIsEditingBbox] = useState(false);
 
-  const imageMutator = useMemo(() => new ImageMutator(pb), []);
-  const itemMutator = useMemo(() => new ItemMutator(pb), []);
-  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+  // The combobox vocabulary is the same list the items pages show, so it comes
+  // from the shared query rather than a third scan of the collection.
+  const { categories } = useCategoryLibrary(userId);
 
-  const loadData = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  // The source image and the "Created" tab, all from the cache. The create
+  // mutations below invalidate the `items`/`containers` prefixes, which these
+  // two keys sit under — so a submit refreshes the list without this page
+  // re-reading it by hand.
+  const { image, isPending, isError, isMissing } = useImage(imageId);
+  const { items } = useItemsByImage(imageId);
+  const { containers } = useContainersByImage(imageId);
 
-      // Load image
-      const imageData = await imageMutator.getById(imageId);
-      if (!imageData) {
-        throw new Error('Image not found');
-      }
-      setImage(imageData);
-
-      // Load items linked to this image
-      const linkedItems = await itemMutator.getList(
-        1,
-        100,
-        `ImageRef="${imageId}"`
-      );
-      setItems(linkedItems.items);
-
-      // Load containers linked to this image
-      const linkedContainers = await containerMutator.getList(
-        1,
-        100,
-        `ImageRef="${imageId}"`
-      );
-      setContainers(linkedContainers.items);
-
-      // Load categories
-      const categoryLibrary = await itemMutator.getDistinctCategories();
-      setCategories(categoryLibrary);
-    } catch (error) {
-      console.error('Failed to load wizard data:', error);
-      toast.error('Failed to load data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [imageId, imageMutator, itemMutator, containerMutator]);
+  const createItem = useCreateItem();
+  const createContainer = useCreateContainer();
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const getImageUrl = (image: Image): string => {
-    return imageMutator.getFileUrl(image);
-  };
+    if (!isError && !isMissing) return;
+    toast.error('Failed to load data');
+  }, [isError, isMissing]);
 
   const handleBboxSave = (box: BoundingBox) => {
     setSelectedBbox(box);
@@ -107,25 +69,18 @@ export default function ImageLabelingWizard() {
         return;
       }
       setIsSubmitting(true);
-      await itemMutator.create({
+      await createItem.mutateAsync({
         ...data,
         UserRef: userId,
         ImageRef: imageId,
         boundingBox: selectedBbox,
       } as ItemInput);
       toast.success('Item created successfully');
-
-      // Refresh lists and reset bbox
-      const linkedItems = await itemMutator.getList(
-        1,
-        100,
-        `ImageRef="${imageId}"`
-      );
-      setItems(linkedItems.items);
       setSelectedBbox(undefined);
     } catch (error) {
-      console.error('Failed to create item:', error);
-      toast.error('Failed to create item');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create item'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -140,31 +95,24 @@ export default function ImageLabelingWizard() {
         return;
       }
       setIsSubmitting(true);
-      await containerMutator.create({
+      await createContainer.mutateAsync({
         ...data,
         UserRef: userId,
         ImageRef: imageId,
         boundingBox: selectedBbox,
       } as ContainerInput);
       toast.success('Container created successfully');
-
-      // Refresh lists and reset bbox
-      const linkedContainers = await containerMutator.getList(
-        1,
-        100,
-        `ImageRef="${imageId}"`
-      );
-      setContainers(linkedContainers.items);
       setSelectedBbox(undefined);
     } catch (error) {
-      console.error('Failed to create container:', error);
-      toast.error('Failed to create container');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create container'
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -199,7 +147,7 @@ export default function ImageLabelingWizard() {
           <CardContent className="flex-1 min-h-0 relative lg:overflow-y-auto">
             {isEditingBbox ? (
               <BoundingBoxEditor
-                imageUrl={getImageUrl(image)}
+                imageUrl={getImageFileUrl(image)}
                 initialBox={selectedBbox}
                 onSave={handleBboxSave}
                 onCancel={() => setIsEditingBbox(false)}
@@ -208,7 +156,7 @@ export default function ImageLabelingWizard() {
               <div className="flex flex-col gap-4">
                 <div className="relative aspect-square md:aspect-auto md:h-[500px] border rounded-md overflow-hidden bg-muted">
                   <ImageWithLoader
-                    src={getImageUrl(image)}
+                    src={getImageFileUrl(image)}
                     alt="Source"
                     fill
                     sizes="(max-width: 1024px) 100vw, 50vw"
