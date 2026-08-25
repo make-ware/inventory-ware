@@ -20,18 +20,12 @@ import {
 } from '@tanstack/react-query';
 import { ItemMutator, isUnrepresentableFilterValue } from '@project/shared';
 import type { Item } from '@project/shared';
-import type { CategoryLibrary, SearchFilters } from '@/components/inventory';
+import type { SearchFilters } from '@/components/inventory';
 import pb from '@/lib/pocketbase-client';
 import { qk, seedFromListCache } from '@/lib/query';
 
 /** Page size for the items grid; also the PocketBase `perPage`. */
 export const ITEMS_PER_PAGE = 12;
-
-const EMPTY_CATEGORIES: CategoryLibrary = {
-  functional: [],
-  specific: [],
-  itemType: [],
-};
 
 export interface UseItemsInfiniteOptions {
   /** Authenticated user id; the query stays idle while this is null. */
@@ -130,30 +124,6 @@ export function useItemsInfinite({
     isFetchingNextPage: query.isFetchingNextPage,
     fetchNextPage: query.fetchNextPage,
     refetch: query.refetch,
-  };
-}
-
-/**
- * The distinct category values used by the search filters' dropdowns.
- *
- * Separate from the list query because it scans the whole collection and only
- * changes when items are created, edited or deleted — not when the list is
- * paged, sorted or filtered.
- */
-export function useItemCategories(userId: string | null) {
-  const itemMutator = useMemo(() => new ItemMutator(pb), []);
-
-  const query = useQuery({
-    queryKey: qk.categories(userId ?? ''),
-    queryFn: () => itemMutator.getDistinctCategories(),
-    enabled: !!userId,
-  });
-
-  return {
-    categories: query.data ?? EMPTY_CATEGORIES,
-    isLoading: query.isLoading,
-    isSuccess: query.isSuccess,
-    isError: query.isError,
   };
 }
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
 import type {
@@ -9,7 +10,6 @@ import type {
   Item,
   Container,
   BoundingBox,
-  CategoryLibrary,
   ItemInput,
   ContainerInput,
 } from '@project/shared';
@@ -22,6 +22,8 @@ import { ContainerCreateForm } from '@/components/inventory/container-create-for
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Box, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useCategoryLibrary } from '@/hooks/use-categories';
+import { qk } from '@/lib/query';
 import { ImageWithLoader } from '@/components/image/image-with-loader';
 
 export default function ImageLabelingWizard() {
@@ -29,11 +31,11 @@ export default function ImageLabelingWizard() {
   const params = useParams();
   const imageId = params.id as string;
   const { userId } = useAuth();
+  const queryClient = useQueryClient();
 
   const [image, setImage] = useState<Image | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
-  const [categories, setCategories] = useState<CategoryLibrary>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -42,6 +44,10 @@ export default function ImageLabelingWizard() {
     undefined
   );
   const [isEditingBbox, setIsEditingBbox] = useState(false);
+
+  // The combobox vocabulary is the same list the items pages show, so it comes
+  // from the shared query rather than a third scan of the collection.
+  const { categories } = useCategoryLibrary(userId);
 
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
@@ -73,10 +79,6 @@ export default function ImageLabelingWizard() {
         `ImageRef="${imageId}"`
       );
       setContainers(linkedContainers.items);
-
-      // Load categories
-      const categoryLibrary = await itemMutator.getDistinctCategories();
-      setCategories(categoryLibrary);
     } catch (error) {
       console.error('Failed to load wizard data:', error);
       toast.error('Failed to load data');
@@ -114,6 +116,12 @@ export default function ImageLabelingWizard() {
         boundingBox: selectedBbox,
       } as ItemInput);
       toast.success('Item created successfully');
+      // The item lists and the category library are cached elsewhere; a create
+      // from here has to reach them too.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
+      ]);
 
       // Refresh lists and reset bbox
       const linkedItems = await itemMutator.getList(
@@ -147,6 +155,7 @@ export default function ImageLabelingWizard() {
         boundingBox: selectedBbox,
       } as ContainerInput);
       toast.success('Container created successfully');
+      await queryClient.invalidateQueries({ queryKey: qk.containersPrefix() });
 
       // Refresh lists and reset bbox
       const linkedContainers = await containerMutator.getList(

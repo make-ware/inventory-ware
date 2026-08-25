@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, afterAll } from 'vitest';
+import { render } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { InventoryProvider } from './inventory-context';
 import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
+import { createQueryClient } from '@/lib/query';
 
 afterAll(() => {
   vi.restoreAllMocks();
@@ -26,17 +28,8 @@ vi.mock('@project/shared', async () => {
   };
 });
 
-// Mock services
-vi.mock('@/services', () => ({
-  createInventoryService: vi.fn(() => ({
-    getCategoryLibrary: vi
-      .fn()
-      .mockResolvedValue({ functional: [], specific: [], itemType: [] }),
-  })),
-}));
-
 describe('InventoryProvider', () => {
-  it('fetches items on mount', async () => {
+  it('reads nothing on mount', async () => {
     const mockGetListItems = vi
       .fn()
       .mockResolvedValue({ items: [], totalItems: 0 });
@@ -46,15 +39,16 @@ describe('InventoryProvider', () => {
     const mockGetListImages = vi
       .fn()
       .mockResolvedValue({ items: [], totalItems: 0 });
+    const mockGetDistinctCategories = vi
+      .fn()
+      .mockResolvedValue({ functional: [], specific: [], itemType: [] });
 
     // Setup mock implementation
     (ItemMutator as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       function () {
         return {
           getList: mockGetListItems,
-          getDistinctCategories: vi
-            .fn()
-            .mockResolvedValue({ functional: [], specific: [], itemType: [] }),
+          getDistinctCategories: mockGetDistinctCategories,
           search: vi.fn().mockResolvedValue({
             page: 1,
             perPage: 100,
@@ -83,18 +77,23 @@ describe('InventoryProvider', () => {
     );
 
     render(
-      <InventoryProvider>
-        <div>Test</div>
-      </InventoryProvider>
+      <QueryClientProvider client={createQueryClient()}>
+        <InventoryProvider>
+          <div>Test</div>
+        </InventoryProvider>
+      </QueryClientProvider>
     );
 
-    await waitFor(() => {
-      // Expect getList to be called for images (we kept this)
-      expect(mockGetListImages).toHaveBeenCalled();
-    });
+    // `render` flushes mount effects, so anything the provider was going to
+    // fetch has already been asked for by the time this runs.
+    await Promise.resolve();
 
-    // Expect getList to NOT be called for items and containers (Optimization)
+    // Every read now belongs to a TanStack query owned by the page that needs
+    // it (see @/hooks/use-images and use-categories); the provider is the write
+    // path only, so mounting it must not fetch anything.
     expect(mockGetListItems).not.toHaveBeenCalled();
     expect(mockGetListContainers).not.toHaveBeenCalled();
+    expect(mockGetListImages).not.toHaveBeenCalled();
+    expect(mockGetDistinctCategories).not.toHaveBeenCalled();
   });
 });

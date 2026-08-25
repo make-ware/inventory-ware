@@ -13,12 +13,7 @@ vi.mock('@/lib/pocketbase-client', () => ({
   },
 }));
 
-import {
-  useItemsInfinite,
-  useItemCategories,
-  useItem,
-  useAllItems,
-} from './use-items';
+import { useItemsInfinite, useItem, useAllItems } from './use-items';
 import { qk } from '@/lib/query';
 
 function makePage(page: number, totalPages: number, ids: string[]) {
@@ -131,55 +126,6 @@ describe('useItemsInfinite', () => {
     await waitFor(() => expect(result.current.isRejectedQuery).toBe(true));
     expect(getList).not.toHaveBeenCalled();
     expect(result.current.itemsForPage(1)).toEqual([]);
-  });
-});
-
-describe('useItemCategories', () => {
-  beforeEach(() => {
-    getList.mockReset();
-  });
-
-  it('derives the filter dropdown vocabulary from the items', async () => {
-    getList.mockResolvedValue({
-      page: 1,
-      perPage: 5000,
-      totalItems: 2,
-      totalPages: 1,
-      items: [
-        {
-          id: 'a',
-          categoryFunctional: 'lighting',
-          categorySpecific: 'lamps',
-          itemType: 'desk-lamp',
-        },
-        {
-          id: 'b',
-          categoryFunctional: 'lighting',
-          categorySpecific: 'bulbs',
-          itemType: 'led',
-        },
-      ],
-    });
-
-    const { result } = renderHook(() => useItemCategories('u1'), { wrapper });
-
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.categories).toEqual({
-      functional: ['lighting'],
-      specific: ['bulbs', 'lamps'],
-      itemType: ['desk-lamp', 'led'],
-    });
-  });
-
-  it('reports an empty library before the query has run', () => {
-    const { result } = renderHook(() => useItemCategories(null), { wrapper });
-
-    expect(getList).not.toHaveBeenCalled();
-    expect(result.current.categories).toEqual({
-      functional: [],
-      specific: [],
-      itemType: [],
-    });
   });
 });
 

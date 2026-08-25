@@ -1,31 +1,36 @@
 'use client';
 
+/**
+ * Write-path helpers for inventory records.
+ *
+ * This context no longer holds any records. Reads all go through TanStack Query
+ * (`@/hooks/use-items`, `use-containers`, `use-images`, `use-categories`), so
+ * what is left here is the mutation side plus the `isLoading` / `error` pair
+ * the forms show while one is in flight. After a write the affected query keys
+ * are invalidated rather than refetched into local state — the cache is the
+ * single copy of the data, and whichever page is mounted re-reads it.
+ */
 import {
   createContext,
   useContext,
   useState,
   useCallback,
   ReactNode,
-  useEffect,
   useMemo,
 } from 'react';
-import { createInventoryService } from '@/services';
-import { ItemMutator, ContainerMutator, ImageMutator } from '@project/shared';
+import { useQueryClient } from '@tanstack/react-query';
+import { ItemMutator, ContainerMutator } from '@project/shared';
 import pb from '@/lib/pocketbase-client';
 import type {
   Item,
   Container,
-  Image,
   ItemInput,
   ContainerInput,
 } from '@project/shared';
-import type { CategoryLibrary, SearchFilters } from '@/components/inventory';
+import type { SearchFilters } from '@/components/inventory';
+import { qk } from '@/lib/query';
 
 interface InventoryState {
-  items: Item[];
-  containers: Container[];
-  images: Map<string, Image>;
-  categories: CategoryLibrary;
   isLoading: boolean;
   error: string | null;
 }
@@ -35,8 +40,6 @@ interface InventoryContextValue extends InventoryState {
   uploadAndAnalyze: (file: File) => Promise<void>;
   /** Reset loading state after mutations */
   clearLoadingState: () => Promise<void>;
-  /** Refresh the category library from existing items */
-  refreshCategories: () => Promise<void>;
   /** Search items by query and optional filters */
   searchItems: (query: string, filters?: SearchFilters) => Promise<Item[]>;
   /** Update an existing item */
@@ -51,75 +54,52 @@ interface InventoryContextValue extends InventoryState {
   deleteContainer: (id: string) => Promise<void>;
   /** Create a new container */
   createContainer: (data: ContainerInput) => Promise<Container>;
-  /** Get the URL for an image by its ID */
-  getImageUrl: (imageId?: string) => string | undefined;
-  /** Get the URL for an item's image, falling back to container's image if item has none */
-  getItemImageUrl: (item: Item) => string | undefined;
   /** Get items belonging to a specific container */
   getItemsByContainer: (containerId: string) => Promise<Item[]>;
   /** Add an item to a container */
   addItemToContainer: (itemId: string, containerId: string) => Promise<void>;
   /** Remove an item from its container */
   removeItemFromContainer: (itemId: string) => Promise<void>;
-  /** Add an image to the local cache */
-  cacheImage: (image: Image) => void;
 }
 
 const InventoryContext = createContext<InventoryContextValue | null>(null);
 
 export function InventoryProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<InventoryState>({
-    items: [],
-    containers: [],
-    images: new Map(),
-    categories: { functional: [], specific: [], itemType: [] },
     isLoading: false,
     error: null,
   });
 
-  // Create service and mutators - memoized to prevent recreation on every render
-  const service = useMemo(() => createInventoryService(pb), []);
+  const queryClient = useQueryClient();
+
+  // Create mutators - memoized to prevent recreation on every render
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
-  const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
-  // Cache a single image
-  const cacheImage = useCallback((image: Image) => {
-    setState((prev) => {
-      const newImages = new Map(prev.images);
-      newImages.set(image.id, image);
-      return { ...prev, images: newImages };
-    });
-  }, []);
-
-  // Reset loading state after mutations (items/containers are fetched on-demand per page)
+  // Reset loading state after mutations (records are read through the query cache)
   const clearLoadingState = useCallback(async () => {
     setState((prev) => ({ ...prev, isLoading: false }));
   }, []);
 
-  // Refresh categories from existing items
-  const refreshCategories = useCallback(async () => {
-    try {
-      const categoryLibrary = await service.getCategoryLibrary();
-      setState((prev) => ({ ...prev, categories: categoryLibrary }));
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-    }
-  }, [service]);
+  /**
+   * Mark the item queries stale after a write.
+   *
+   * Category values live on items, so the library the comboboxes and filter
+   * selects offer moves with them and is dropped in the same breath.
+   */
+  const invalidateItems = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
+      ]),
+    [queryClient]
+  );
 
-  // Load images into the cache
-  const loadImages = useCallback(async () => {
-    try {
-      const result = await imageMutator.getList(1, 500);
-      const imageMap = new Map<string, Image>();
-      result.items.forEach((image) => {
-        imageMap.set(image.id, image);
-      });
-      setState((prev) => ({ ...prev, images: imageMap }));
-    } catch (error) {
-      console.error('Failed to load images:', error);
-    }
-  }, [imageMutator]);
+  const invalidateContainers = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+    [queryClient]
+  );
 
   // Upload and analyze an image with AI
   // Uses API route to ensure server-side processing where env vars are available
@@ -146,8 +126,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           throw new Error(errorData.error || 'Failed to process image');
         }
 
-        // Refresh categories and images after successful upload
-        await Promise.all([refreshCategories(), loadImages()]);
+        // Analysis creates items and containers from the new image, so every
+        // list is potentially out of date, not just the images one.
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: qk.imagesPrefix() }),
+          invalidateItems(),
+          invalidateContainers(),
+        ]);
         await clearLoadingState();
       } catch (error) {
         setState((prev) => ({
@@ -159,7 +144,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [clearLoadingState, refreshCategories, loadImages]
+    [clearLoadingState, invalidateItems, invalidateContainers, queryClient]
   );
 
   // Search items by query and filters
@@ -191,7 +176,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         const item = await itemMutator.create(data);
         await clearLoadingState();
-        await refreshCategories();
+        await invalidateItems();
         return item;
       } catch (error) {
         setState((prev) => ({
@@ -203,7 +188,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, clearLoadingState, refreshCategories]
+    [itemMutator, clearLoadingState, invalidateItems]
   );
 
   // Update an existing item
@@ -213,7 +198,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         await itemMutator.update(id, data as Partial<Item>);
         await clearLoadingState();
-        await refreshCategories();
+        await invalidateItems();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -224,7 +209,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, clearLoadingState, refreshCategories]
+    [itemMutator, clearLoadingState, invalidateItems]
   );
 
   // Delete an item
@@ -234,7 +219,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         await itemMutator.delete(id);
         await clearLoadingState();
-        await refreshCategories();
+        await invalidateItems();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -245,7 +230,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, clearLoadingState, refreshCategories]
+    [itemMutator, clearLoadingState, invalidateItems]
   );
 
   // Create a new container
@@ -255,6 +240,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         const container = await containerMutator.create(data);
         await clearLoadingState();
+        await invalidateContainers();
         return container;
       } catch (error) {
         setState((prev) => ({
@@ -268,7 +254,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [containerMutator, clearLoadingState]
+    [containerMutator, clearLoadingState, invalidateContainers]
   );
 
   // Update an existing container
@@ -278,6 +264,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
         await containerMutator.update(id, data as Partial<Container>);
         await clearLoadingState();
+        await invalidateContainers();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -290,7 +277,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [containerMutator, clearLoadingState]
+    [containerMutator, clearLoadingState, invalidateContainers]
   );
 
   // Delete a container
@@ -308,6 +295,8 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         // Then delete the container
         await containerMutator.delete(id);
         await clearLoadingState();
+        // Every item in it lost its ContainerRef on the way here.
+        await Promise.all([invalidateContainers(), invalidateItems()]);
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -320,7 +309,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [containerMutator, itemMutator, clearLoadingState]
+    [
+      containerMutator,
+      itemMutator,
+      clearLoadingState,
+      invalidateContainers,
+      invalidateItems,
+    ]
   );
 
   // Get items belonging to a specific container
@@ -345,6 +340,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           container: containerId,
         } as Partial<Item>);
         await clearLoadingState();
+        await invalidateItems();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -357,7 +353,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, clearLoadingState]
+    [itemMutator, clearLoadingState, invalidateItems]
   );
 
   // Remove an item from its container (set container to undefined)
@@ -369,6 +365,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
           container: undefined,
         } as Partial<Item>);
         await clearLoadingState();
+        await invalidateItems();
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -381,65 +378,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    [itemMutator, clearLoadingState]
+    [itemMutator, clearLoadingState, invalidateItems]
   );
-
-  // Get the URL for an image by its ID
-  const getImageUrl = useCallback(
-    (imageId?: string): string | undefined => {
-      if (!imageId) return undefined;
-      const image = state.images.get(imageId);
-      if (!image) return undefined;
-      return imageMutator.getFileUrl(image);
-    },
-    [state.images, imageMutator]
-  );
-
-  // Get the URL for an item's image, falling back to container's image if item has none
-  const getItemImageUrl = useCallback(
-    (item: Item): string | undefined => {
-      // First try the item's primary image
-      if (item.ImageRef) {
-        const url = getImageUrl(item.ImageRef);
-        if (url) return url;
-      }
-
-      // Fallback to container's primary image if item doesn't have one
-      if (item.ContainerRef) {
-        const container = state.containers.find(
-          (c) => c.id === item.ContainerRef
-        );
-        if (container?.ImageRef) {
-          return getImageUrl(container.ImageRef);
-        }
-      }
-
-      return undefined;
-    },
-    [state.containers, getImageUrl]
-  );
-
-  // Initial data load
-  useEffect(() => {
-    const loadInitialData = async () => {
-      setState((prev) => ({ ...prev, isLoading: true }));
-      try {
-        await Promise.all([refreshCategories(), loadImages()]);
-      } catch (error) {
-        console.error('Failed to load initial data:', error);
-      } finally {
-        setState((prev) => ({ ...prev, isLoading: false }));
-      }
-    };
-
-    loadInitialData();
-  }, [refreshCategories, loadImages]);
 
   const value: InventoryContextValue = {
     ...state,
     uploadAndAnalyze,
     clearLoadingState,
-    refreshCategories,
     searchItems,
     createItem,
     updateItem,
@@ -447,12 +392,9 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     createContainer,
     updateContainer,
     deleteContainer,
-    getImageUrl,
-    getItemImageUrl,
     getItemsByContainer,
     addItemToContainer,
     removeItemFromContainer,
-    cacheImage,
   };
 
   return (

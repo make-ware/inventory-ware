@@ -2,14 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { toast } from 'sonner';
 
-// Mock useInventory hook before importing the component
-vi.mock('@/hooks/use-inventory', () => ({
-  useInventory: vi.fn(() => ({
-    getImageUrl: (imageId?: string) =>
-      imageId ? `/images/${imageId}` : undefined,
-  })),
-}));
-
 import { ContainerUpdateForm } from '@/components/inventory/container-update-form';
 
 describe('ContainerUpdateForm', () => {

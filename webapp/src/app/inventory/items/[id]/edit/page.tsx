@@ -6,10 +6,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator, formatPocketBaseError } from '@project/shared';
 import type { ItemInput } from '@project/shared';
-import { useInventory } from '@/hooks/use-inventory';
 import { useAuth } from '@/hooks/use-auth';
-import { useItem, useItemCategories } from '@/hooks/use-items';
+import { useItem } from '@/hooks/use-items';
+import { useCategoryLibrary } from '@/hooks/use-categories';
 import { qk } from '@/lib/query';
+import { getExpandedImageUrl } from '@/lib/image-utils';
 import { ItemUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,18 +38,11 @@ export default function EditItemPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { cacheImage } = useInventory();
   const { userId } = useAuth();
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
   const { item, isPending, isError, isMissing, error } = useItem(itemId);
-  const { categories, isError: isCategoriesError } = useItemCategories(userId);
-
-  // Cache the primary image if it exists so the form can display it
-  useEffect(() => {
-    const image = item?.expand?.ImageRef;
-    if (image) cacheImage(image);
-  }, [item, cacheImage]);
+  const { categories, isError: isCategoriesError } = useCategoryLibrary(userId);
 
   // A missing item and a failed request both leave nothing to edit.
   const isUnavailable = isError || isMissing;
@@ -145,6 +139,9 @@ export default function EditItemPage() {
             onCancel={handleCancel}
             isSubmitting={isSubmitting}
             categories={categories}
+            // The detail query expands `ImageRef`, so the image record travels
+            // with the item and the crop preview needs no lookup of its own.
+            imageUrl={getExpandedImageUrl(item)}
           />
         </CardContent>
       </Card>

@@ -6,9 +6,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ContainerMutator, formatPocketBaseError } from '@project/shared';
 import type { ContainerInput } from '@project/shared';
-import { useInventory } from '@/hooks/use-inventory';
 import { useContainer } from '@/hooks/use-containers';
 import { qk } from '@/lib/query';
+import { getExpandedImageUrl } from '@/lib/image-utils';
 import { ContainerUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,17 +36,10 @@ export default function EditContainerPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { cacheImage } = useInventory();
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
 
   const { container, isPending, isError, isMissing, error } =
     useContainer(containerId);
-
-  // Cache the primary image if it exists so the form can display it
-  useEffect(() => {
-    const image = container?.expand?.ImageRef;
-    if (image) cacheImage(image);
-  }, [container, cacheImage]);
 
   // A missing container and a failed request both leave nothing to edit.
   const isUnavailable = isError || isMissing;
@@ -124,6 +117,9 @@ export default function EditContainerPage() {
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             isSubmitting={isSubmitting}
+            // The detail query expands `ImageRef`, so the image record travels
+            // with the container and the crop preview needs no lookup of its own.
+            imageUrl={getExpandedImageUrl(container)}
           />
         </CardContent>
       </Card>

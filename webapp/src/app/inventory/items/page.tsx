@@ -42,7 +42,8 @@ import {
 import { useUpload } from '@/contexts/upload-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { useItemsInfinite, useItemCategories } from '@/hooks/use-items';
+import { useItemsInfinite } from '@/hooks/use-items';
+import { useCategoryLibrary } from '@/hooks/use-categories';
 import { qk } from '@/lib/query';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
@@ -94,7 +95,7 @@ function ItemsPageContent() {
   // change one discrete step at a time.
   const debouncedQuery = useDebouncedValue(searchQuery);
 
-  const { categories } = useItemCategories(userId);
+  const { categories } = useCategoryLibrary(userId);
 
   const {
     pages,

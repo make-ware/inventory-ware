@@ -2,22 +2,25 @@
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator } from '@project/shared';
-import type { ItemInput, CategoryLibrary } from '@project/shared';
+import type { ItemInput } from '@project/shared';
 import { ItemCreateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useCategoryLibrary } from '@/hooks/use-categories';
+import { qk } from '@/lib/query';
 
 function NewItemContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [categories, setCategories] = useState<CategoryLibrary>();
   const [defaultValues, setDefaultValues] = useState<Partial<ItemInput>>({});
   const [isLoadingDefaults, setIsLoadingDefaults] = useState(false);
 
@@ -25,17 +28,9 @@ function NewItemContent() {
   const imageId = searchParams.get('imageId');
   const cloneFromId = searchParams.get('clone_from');
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const result = await itemMutator.getDistinctCategories();
-        setCategories(result);
-      } catch (error) {
-        console.error('Failed to load categories:', error);
-      }
-    };
-    loadCategories();
-  }, [itemMutator]);
+  // Shared with the items list and the edit form, so arriving here from either
+  // of them paints the comboboxes from cache.
+  const { categories } = useCategoryLibrary(userId);
 
   useEffect(() => {
     const loadDefaults = async () => {
@@ -100,6 +95,12 @@ function NewItemContent() {
         UserRef: userId,
       } as ItemInput);
       toast.success('Item created successfully');
+      // The new row belongs in the lists, and its categories in the library the
+      // comboboxes offer; both are cached, so say so before navigating.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
+      ]);
       router.push(`/inventory/items/${newItem.id}`);
     } catch (error) {
       console.error('Failed to create item:', error);

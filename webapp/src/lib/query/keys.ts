@@ -45,7 +45,11 @@ export const qk = {
     ['containers', 'infinite', userId, options] as const,
   containerById: (id: string) => ['container', id] as const,
 
+  /** Prefix covering every images key; invalidate this after an upload. */
+  imagesPrefix: () => ['images'] as const,
   images: (userId: string) => ['images', userId] as const,
+
+  /** Prefix covering the category library; invalidate it after an item write. */
   categoriesPrefix: () => ['categories'] as const,
   categories: (userId: string) => ['categories', userId] as const,
 } as const;

@@ -25,7 +25,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { useInventory } from '@/hooks/use-inventory';
 import { CroppedImageViewer } from '../image/cropped-image-viewer';
 import { BoundingBoxEditor } from './bounding-box-editor';
 import { Crop } from 'lucide-react';
@@ -54,6 +53,14 @@ interface ContainerUpdateFormProps {
   ) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
+  /**
+   * URL of the container's primary image, for the crop preview and editor.
+   *
+   * Passed in rather than looked up: the caller already holds the expanded
+   * `ImageRef` record it comes from, and resolving it here would mean this
+   * presentational form owning a data fetch of its own.
+   */
+  imageUrl?: string;
 }
 
 export function ContainerUpdateForm({
@@ -61,8 +68,8 @@ export function ContainerUpdateForm({
   onSubmit,
   onCancel,
   isSubmitting,
+  imageUrl,
 }: ContainerUpdateFormProps) {
-  const { getImageUrl } = useInventory();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   // Create a form schema without UserRef since it's not part of the form
@@ -84,17 +91,11 @@ export function ContainerUpdateForm({
 
   // PocketBase returns `null` for unset relation/json columns; the schema
   // normalises that on parse, but the raw form values still carry it.
-  const ImageRefId =
-    useWatch({
-      control: form.control,
-      name: 'ImageRef',
-    }) ?? undefined;
   const boundingBox =
     useWatch({
       control: form.control,
       name: 'boundingBox',
     }) ?? undefined;
-  const imageUrl = getImageUrl(ImageRefId);
 
   const handleSubmit = async (data: z.output<typeof FormSchema>) => {
     // Only send fields that were actually changed (dirty). The form also
