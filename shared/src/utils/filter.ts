@@ -34,6 +34,17 @@ export function eq(field: string, value: string): string {
   return `${field}="${escapeFilterValue(value)}"`;
 }
 
+/**
+ * `field!="value"` with the value escaped.
+ *
+ * Only use this against single-value fields. On a *multi-value* field (a
+ * multiple relation or select) PocketBase reads `!=` as "none of the values
+ * match"; `?!=` is the any-of variant. See docs/PB_FILTERS.md.
+ */
+export function neq(field: string, value: string): string {
+  return `${field}!="${escapeFilterValue(value)}"`;
+}
+
 /** `field~"value"` (PocketBase's "contains") with the value escaped. */
 export function like(field: string, value: string): string {
   return `${field}~"${escapeFilterValue(value)}"`;
