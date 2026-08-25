@@ -49,9 +49,8 @@ export function LabelGeneratorDialog({
   const handleGenerate = async () => {
     if (!target) return;
     setIsGenerating(true);
-    console.log('Generating label with token:', pb.authStore.token);
     try {
-      const res = await fetch('/api/labels/generate', {
+      const res = await fetch('/api-next/labels/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
