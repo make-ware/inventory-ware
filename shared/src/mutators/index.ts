@@ -14,6 +14,7 @@ export {
   type CategoryLibrary,
   ITEM_SEARCH_FIELDS,
 } from './item';
+export { LabelMutator, generateLabelId } from './label';
 export {
   ContainerMutator,
   type ContainerSearchFilters,

@@ -62,12 +62,22 @@ export function LabelGeneratorDialog({
           format,
         }),
       });
-      if (!res.ok) throw new Error('Failed to generate label');
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        const detail = body?.reason ?? body?.error;
+        throw new Error(
+          detail
+            ? `Failed to generate label (${res.status}): ${detail}`
+            : `Failed to generate label (${res.status})`
+        );
+      }
       const data = await res.json();
       setGeneratedSvg(data.svg);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to generate label');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to generate label'
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -161,7 +171,7 @@ export function LabelGeneratorDialog({
             ) : generatedSvg ? (
               <div
                 dangerouslySetInnerHTML={{ __html: generatedSvg }}
-                className="max-h-[300px] max-w-full shadow-lg bg-white"
+                className="h-[280px] w-full shadow-lg bg-white [&>svg]:h-full [&>svg]:w-full"
               />
             ) : (
               <div className="text-sm text-gray-400">

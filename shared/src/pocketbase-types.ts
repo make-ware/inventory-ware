@@ -257,9 +257,9 @@ export interface UsersRecord {
   email: string;
   password: any;
   avatar?: string;
+  tokenKey: string;
   emailVisibility?: boolean;
   verified?: boolean;
-  tokenKey: string;
 }
 
 export type UsersResponse = UsersRecord;

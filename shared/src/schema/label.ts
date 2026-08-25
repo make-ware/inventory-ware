@@ -6,11 +6,18 @@ import {
 import { z } from 'zod';
 
 // Define the Zod schema for label input (for creating new labels)
+// `id` may be supplied explicitly: the Labels collection forbids updates
+// (updateRule: null), so callers that embed the record id in the stored data
+// must pre-generate the id and create in one shot.
 export const LabelInputSchema = z.object({
+  id: z
+    .string()
+    .regex(/^[a-z0-9]{15}$/, 'Label id must be 15 chars of [a-z0-9]')
+    .optional(),
   ItemRef: RelationField({ collection: 'Items' }).optional(),
   ContainerRef: RelationField({ collection: 'Containers' }).optional(),
   format: z.string().min(1, 'Format is required'),
-  data: z.any().optional(),
+  data: z.string().optional(),
 });
 
 // Define the Zod schema for label update (all fields optional)
@@ -18,7 +25,7 @@ export const LabelUpdateSchema = z.object({
   ItemRef: RelationField({ collection: 'Items' }).optional(),
   ContainerRef: RelationField({ collection: 'Containers' }).optional(),
   format: z.string().min(1, 'Format is required').optional(),
-  data: z.any().optional(),
+  data: z.string().optional(),
 });
 
 // Database schema for the complete label record
@@ -28,7 +35,7 @@ export const LabelSchema = z
     ItemRef: RelationField({ collection: 'Items' }).optional(),
     ContainerRef: RelationField({ collection: 'Containers' }).optional(),
     format: z.string().min(1, 'Format is required'),
-    data: z.any().optional(),
+    data: z.string().optional(),
   })
   .extend(baseSchema);
 
