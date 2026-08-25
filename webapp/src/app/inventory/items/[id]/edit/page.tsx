@@ -1,15 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
-import pb from '@/lib/pocketbase-client';
-import { ItemMutator, formatPocketBaseError } from '@project/shared';
+import { formatPocketBaseError } from '@project/shared';
 import type { ItemInput } from '@project/shared';
 import { useAuth } from '@/hooks/use-auth';
 import { useItem } from '@/hooks/use-items';
+import { useUpdateItem } from '@/hooks/use-item-mutations';
 import { useCategoryLibrary } from '@/hooks/use-categories';
-import { qk } from '@/lib/query';
 import { getExpandedImageUrl } from '@/lib/image-utils';
 import { ItemUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
@@ -34,12 +32,11 @@ export default function EditItemPage() {
   const router = useRouter();
   const params = useParams();
   const itemId = params.id as string;
-  const queryClient = useQueryClient();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { userId } = useAuth();
-  const itemMutator = useMemo(() => new ItemMutator(pb), []);
+  const updateItem = useUpdateItem();
 
   const { item, isPending, isError, isMissing, error } = useItem(itemId);
   const { categories, isError: isCategoriesError } = useCategoryLibrary(userId);
@@ -69,18 +66,13 @@ export default function EditItemPage() {
   const handleSubmit = async (data: Partial<Omit<ItemInput, 'UserRef'>>) => {
     try {
       setIsSubmitting(true);
-      await itemMutator.update(itemId, data);
+      // The edit is in the cache before the request goes out and the affected
+      // keys are stale before this resolves, so the detail page this returns to
+      // shows the new values immediately and re-reads them behind that.
+      await updateItem.mutateAsync({ id: itemId, data });
       toast.success('Item updated successfully');
-      // Drop the pre-edit copies before navigating, so the detail page this
-      // returns to reads the record back rather than repainting the old one.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: qk.itemById(itemId) }),
-        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
-        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
-      ]);
       router.push(`/inventory/items/${itemId}`);
     } catch (error) {
-      console.error('Failed to update item:', error);
       toast.error(
         describeError(error, 'Failed to update item. Please try again.')
       );

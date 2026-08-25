@@ -2,7 +2,6 @@
 
 import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ItemMutator } from '@project/shared';
 import type { ItemInput } from '@project/shared';
@@ -13,13 +12,13 @@ import { toast } from 'sonner';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useCategoryLibrary } from '@/hooks/use-categories';
-import { qk } from '@/lib/query';
+import { useCreateItem } from '@/hooks/use-item-mutations';
 
 function NewItemContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId } = useAuth();
-  const queryClient = useQueryClient();
+  const createItem = useCreateItem();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [defaultValues, setDefaultValues] = useState<Partial<ItemInput>>({});
   const [isLoadingDefaults, setIsLoadingDefaults] = useState(false);
@@ -90,21 +89,19 @@ function NewItemContent() {
         return;
       }
       setIsSubmitting(true);
-      const newItem = await itemMutator.create({
+      // The mutation marks the lists and the category library stale before it
+      // resolves, so the detail page this navigates to reads the new row back
+      // rather than repainting a list that predates it.
+      const newItem = await createItem.mutateAsync({
         ...data,
         UserRef: userId,
       } as ItemInput);
       toast.success('Item created successfully');
-      // The new row belongs in the lists, and its categories in the library the
-      // comboboxes offer; both are cached, so say so before navigating.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
-        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
-      ]);
       router.push(`/inventory/items/${newItem.id}`);
     } catch (error) {
-      console.error('Failed to create item:', error);
-      toast.error('Failed to create item');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create item'
+      );
     } finally {
       setIsSubmitting(false);
     }

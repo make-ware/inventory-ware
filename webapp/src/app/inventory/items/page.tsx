@@ -9,9 +9,8 @@ import {
   Suspense,
 } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
-import { ItemMutator, ImageMutator } from '@project/shared';
+import { ImageMutator } from '@project/shared';
 import type { Item } from '@project/shared';
 import type { SearchFilters, BulkEditData } from '@/components/inventory';
 import {
@@ -43,8 +42,12 @@ import { useUpload } from '@/contexts/upload-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useItemsInfinite } from '@/hooks/use-items';
+import {
+  useBulkDeleteItems,
+  useBulkUpdateItems,
+  useDeleteItem,
+} from '@/hooks/use-item-mutations';
 import { useCategoryLibrary } from '@/hooks/use-categories';
-import { qk } from '@/lib/query';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
 function ItemsPageContent() {
@@ -54,7 +57,6 @@ function ItemsPageContent() {
   const { addFiles } = useUpload();
   const { confirm } = useConfirm();
   const { userId, isLoading: isAuthLoading } = useAuth();
-  const queryClient = useQueryClient();
 
   // Initialize state from query string
   const [initialState] = useState(() => ({
@@ -88,8 +90,13 @@ function ItemsPageContent() {
     type: 'item' | 'container';
   }>({ open: false, type: 'item' });
 
-  const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
+
+  // Writes go through mutations, which patch the cache themselves: the row
+  // leaves the grid on the click and comes back if the request is refused.
+  const deleteItem = useDeleteItem();
+  const bulkDeleteItems = useBulkDeleteItems();
+  const bulkUpdateItems = useBulkUpdateItems();
 
   // Only the free-text box needs debouncing; the sort and category selects
   // change one discrete step at a time.
@@ -122,29 +129,11 @@ function ItemsPageContent() {
     pages.length < currentPage &&
     (hasNextPage || isFetchingNextPage);
 
-  /** Drop every cached items page so the next render refetches from PocketBase. */
-  const invalidateItems = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
-    [queryClient]
-  );
-
   useEffect(() => {
     if (isError) {
       toast.error('Failed to load items');
     }
   }, [isError]);
-
-  // Uploads and image edits still announce themselves with a window event
-  // (realtime lands in a later phase); refresh the cache rather than the page's
-  // own copy of the data.
-  useEffect(() => {
-    const handleUpdate = () => {
-      invalidateItems();
-      queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() });
-    };
-    window.addEventListener('inventory-updated', handleUpdate);
-    return () => window.removeEventListener('inventory-updated', handleUpdate);
-  }, [invalidateItems, queryClient]);
 
   // An infinite query only ever holds a contiguous run of pages from the first,
   // so deep-linking to ?page=3 has to walk forward to it.
@@ -240,12 +229,12 @@ function ItemsPageContent() {
     if (!(await confirm('Are you sure you want to delete this item?'))) return;
 
     try {
-      await itemMutator.delete(itemId);
+      await deleteItem.mutateAsync(itemId);
       toast.success('Item deleted successfully');
-      await invalidateItems();
     } catch (error) {
-      console.error('Failed to delete item:', error);
-      toast.error('Failed to delete item');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete item'
+      );
     }
   };
 
@@ -283,39 +272,38 @@ function ItemsPageContent() {
   };
 
   const handleBulkDelete = async () => {
+    // Read the selection once: it is cleared below, and the count belongs to
+    // the operation rather than to whatever is selected when the toast fires.
+    const ids = Array.from(selectedItems);
     if (
-      !(await confirm(
-        `Are you sure you want to delete ${selectedItems.size} items?`
-      ))
+      !(await confirm(`Are you sure you want to delete ${ids.length} items?`))
     )
       return;
 
     try {
-      await Promise.all(
-        Array.from(selectedItems).map((id) => itemMutator.delete(id))
-      );
-      toast.success(`Deleted ${selectedItems.size} items`);
+      await bulkDeleteItems.mutateAsync(ids);
+      toast.success(`Deleted ${ids.length} items`);
       setSelectedItems(new Set());
       setIsSelectionMode(false);
-      await invalidateItems();
     } catch (error) {
-      console.error('Failed to bulk delete:', error);
-      toast.error('Failed to bulk delete items');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to bulk delete items'
+      );
     }
   };
 
   const handleBulkEditConfirm = async (data: BulkEditData) => {
+    const ids = Array.from(selectedItems);
+
     try {
-      await Promise.all(
-        Array.from(selectedItems).map((id) => itemMutator.update(id, data))
-      );
-      toast.success(`Updated ${selectedItems.size} items`);
+      await bulkUpdateItems.mutateAsync({ ids, data });
+      toast.success(`Updated ${ids.length} items`);
       setSelectedItems(new Set());
       setIsSelectionMode(false);
-      await invalidateItems();
     } catch (error) {
-      console.error('Failed to bulk update:', error);
-      toast.error('Failed to bulk update items');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to bulk update items'
+      );
     }
   };
 

@@ -9,9 +9,8 @@ import {
   Suspense,
 } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
-import { ContainerMutator, ImageMutator } from '@project/shared';
+import { ImageMutator } from '@project/shared';
 import type { Container } from '@project/shared';
 import {
   ContainerCard,
@@ -25,7 +24,10 @@ import { Loader2, Plus, ArrowLeft, CheckSquare, X } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useContainersInfinite } from '@/hooks/use-containers';
-import { qk } from '@/lib/query';
+import {
+  useBulkDeleteContainers,
+  useDeleteContainer,
+} from '@/hooks/use-container-mutations';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 
 function ContainersPageContent() {
@@ -33,7 +35,6 @@ function ContainersPageContent() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { userId, isLoading: isAuthLoading } = useAuth();
-  const queryClient = useQueryClient();
 
   // Initialize state from query string
   const [initialState] = useState(() => ({
@@ -54,9 +55,13 @@ function ContainersPageContent() {
     new Set()
   );
 
-  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
   const { confirm } = useConfirm();
+
+  // Both delete paths detach the container's items before removing it; see
+  // @/hooks/use-container-mutations.
+  const deleteContainer = useDeleteContainer();
+  const bulkDeleteContainers = useBulkDeleteContainers();
 
   // Only the free-text box needs debouncing; the sort select changes one
   // discrete step at a time.
@@ -85,12 +90,6 @@ function ContainersPageContent() {
     pages.length > 0 &&
     pages.length < currentPage &&
     (hasNextPage || isFetchingNextPage);
-
-  /** Drop every cached containers page so the next render refetches. */
-  const invalidateContainers = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
-    [queryClient]
-  );
 
   useEffect(() => {
     if (isError) {
@@ -161,12 +160,12 @@ function ContainersPageContent() {
       return;
 
     try {
-      await containerMutator.delete(containerId);
+      await deleteContainer.mutateAsync(containerId);
       toast.success('Container deleted successfully');
-      await invalidateContainers();
     } catch (error) {
-      console.error('Failed to delete container:', error);
-      toast.error('Failed to delete container');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete container'
+      );
     }
   };
 
@@ -193,24 +192,27 @@ function ContainersPageContent() {
   };
 
   const handleBulkDelete = async () => {
+    // Read the selection once: it is cleared below, and the count belongs to
+    // the operation rather than to whatever is selected when the toast fires.
+    const ids = Array.from(selectedContainers);
     if (
       !(await confirm(
-        `Are you sure you want to delete ${selectedContainers.size} containers?`
+        `Are you sure you want to delete ${ids.length} containers?`
       ))
     )
       return;
 
     try {
-      await Promise.all(
-        Array.from(selectedContainers).map((id) => containerMutator.delete(id))
-      );
-      toast.success(`Deleted ${selectedContainers.size} containers`);
+      await bulkDeleteContainers.mutateAsync(ids);
+      toast.success(`Deleted ${ids.length} containers`);
       setSelectedContainers(new Set());
       setIsSelectionMode(false);
-      await invalidateContainers();
     } catch (error) {
-      console.error('Failed to bulk delete:', error);
-      toast.error('Failed to bulk delete containers');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to bulk delete containers'
+      );
     }
   };
 

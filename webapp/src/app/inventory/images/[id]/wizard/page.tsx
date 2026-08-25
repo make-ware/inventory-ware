@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
 import type {
@@ -23,7 +22,8 @@ import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Box, Package } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useCategoryLibrary } from '@/hooks/use-categories';
-import { qk } from '@/lib/query';
+import { useCreateItem } from '@/hooks/use-item-mutations';
+import { useCreateContainer } from '@/hooks/use-container-mutations';
 import { ImageWithLoader } from '@/components/image/image-with-loader';
 
 export default function ImageLabelingWizard() {
@@ -31,7 +31,6 @@ export default function ImageLabelingWizard() {
   const params = useParams();
   const imageId = params.id as string;
   const { userId } = useAuth();
-  const queryClient = useQueryClient();
 
   const [image, setImage] = useState<Image | null>(null);
   const [items, setItems] = useState<Item[]>([]);
@@ -52,6 +51,12 @@ export default function ImageLabelingWizard() {
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+
+  // The mutators above are this page's own reads (what is already linked to
+  // this image); the writes go through the shared mutations, which are what
+  // reach the lists and the category library elsewhere in the app.
+  const createItem = useCreateItem();
+  const createContainer = useCreateContainer();
 
   const loadData = useCallback(async () => {
     try {
@@ -109,19 +114,13 @@ export default function ImageLabelingWizard() {
         return;
       }
       setIsSubmitting(true);
-      await itemMutator.create({
+      await createItem.mutateAsync({
         ...data,
         UserRef: userId,
         ImageRef: imageId,
         boundingBox: selectedBbox,
       } as ItemInput);
       toast.success('Item created successfully');
-      // The item lists and the category library are cached elsewhere; a create
-      // from here has to reach them too.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
-        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
-      ]);
 
       // Refresh lists and reset bbox
       const linkedItems = await itemMutator.getList(
@@ -132,8 +131,9 @@ export default function ImageLabelingWizard() {
       setItems(linkedItems.items);
       setSelectedBbox(undefined);
     } catch (error) {
-      console.error('Failed to create item:', error);
-      toast.error('Failed to create item');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create item'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -148,14 +148,13 @@ export default function ImageLabelingWizard() {
         return;
       }
       setIsSubmitting(true);
-      await containerMutator.create({
+      await createContainer.mutateAsync({
         ...data,
         UserRef: userId,
         ImageRef: imageId,
         boundingBox: selectedBbox,
       } as ContainerInput);
       toast.success('Container created successfully');
-      await queryClient.invalidateQueries({ queryKey: qk.containersPrefix() });
 
       // Refresh lists and reset bbox
       const linkedContainers = await containerMutator.getList(
@@ -166,8 +165,9 @@ export default function ImageLabelingWizard() {
       setContainers(linkedContainers.items);
       setSelectedBbox(undefined);
     } catch (error) {
-      console.error('Failed to create container:', error);
-      toast.error('Failed to create container');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to create container'
+      );
     } finally {
       setIsSubmitting(false);
     }

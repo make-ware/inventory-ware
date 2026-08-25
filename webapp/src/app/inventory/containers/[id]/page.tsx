@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
-import { ContainerMutator, ItemMutator } from '@project/shared';
 import type { Item } from '@project/shared';
 import { getImageFileUrl, getExpandedImageUrl } from '@/lib/image-utils';
 
@@ -21,6 +20,11 @@ import { createInventoryService, type CleanupActionRequest } from '@/services';
 import { useAuth } from '@/hooks/use-auth';
 import { useContainer, useItemsByContainer } from '@/hooks/use-containers';
 import { useAllItems } from '@/hooks/use-items';
+import { useDeleteContainer } from '@/hooks/use-container-mutations';
+import {
+  useAddItemToContainer,
+  useRemoveItemFromContainer,
+} from '@/hooks/use-item-mutations';
 import { qk } from '@/lib/query';
 import {
   Select,
@@ -55,9 +59,11 @@ export default function ContainerDetailPage() {
   const [unmatchedItems, setUnmatchedItems] = useState<Item[]>([]);
   const { confirm } = useConfirm();
 
-  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
-  const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const inventoryService = useMemo(() => createInventoryService(pb), []);
+
+  const deleteContainer = useDeleteContainer();
+  const addItemToContainer = useAddItemToContainer();
+  const removeItemFromContainer = useRemoveItemFromContainer();
 
   const {
     container,
@@ -122,18 +128,15 @@ export default function ContainerDetailPage() {
 
   const handleDelete = async () => {
     try {
-      await containerMutator.delete(containerId);
+      // The mutation detaches this container's items before deleting it, and
+      // evicts the detail key the page is reading — so leave when it resolves.
+      await deleteContainer.mutateAsync(containerId);
       toast.success('Container deleted successfully');
-      // Evict rather than invalidate: the record is gone, so refetching its
-      // detail key would only produce a 404 for a page nobody is on any more.
-      queryClient.removeQueries({ queryKey: qk.containerById(containerId) });
-      await queryClient.invalidateQueries({
-        queryKey: qk.containersPrefix(),
-      });
       router.push('/inventory');
     } catch (error) {
-      console.error('Failed to delete container:', error);
-      toast.error('Failed to delete container');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete container'
+      );
     }
   };
 
@@ -152,13 +155,18 @@ export default function ContainerDetailPage() {
 
     try {
       setIsAddingItem(true);
-      await itemMutator.update(selectedItemId, { ContainerRef: containerId });
+      await addItemToContainer.mutateAsync({
+        itemId: selectedItemId,
+        containerId,
+      });
       toast.success('Item added to container');
       setSelectedItemId('');
-      await refreshContainer();
     } catch (error) {
-      console.error('Failed to add item to container:', error);
-      toast.error('Failed to add item to container');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to add item to container'
+      );
     } finally {
       setIsAddingItem(false);
     }
@@ -168,12 +176,14 @@ export default function ContainerDetailPage() {
     if (!(await confirm('Remove this item from the container?'))) return;
 
     try {
-      await itemMutator.update(itemId, { ContainerRef: undefined });
+      await removeItemFromContainer.mutateAsync({ itemId, containerId });
       toast.success('Item removed from container');
-      await refreshContainer();
     } catch (error) {
-      console.error('Failed to remove item from container:', error);
-      toast.error('Failed to remove item from container');
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to remove item from container'
+      );
     }
   };
 
@@ -193,10 +203,8 @@ export default function ContainerDetailPage() {
   // Handle successful container image upsert
   const handleContainerUpsertSuccess = useCallback(
     (result: { unmatchedExisting: Item[] }) => {
-      // Refresh the container details to show updated/new items
-      refreshContainer();
-
-      // If there are unmatched items, show the cleanup prompt dialog
+      // The upload component invalidates what the upsert rewrote, so there is
+      // nothing to refresh here — only the unmatched items to ask about.
       if (result.unmatchedExisting.length > 0) {
         setUnmatchedItems(result.unmatchedExisting);
         setIsCleanupDialogOpen(true);
@@ -204,7 +212,7 @@ export default function ContainerDetailPage() {
         toast.success('Container image updated successfully');
       }
     },
-    [refreshContainer]
+    []
   );
 
   // Handle cleanup actions from the cleanup prompt dialog

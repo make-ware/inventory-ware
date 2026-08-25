@@ -2,11 +2,17 @@
 
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
+import { useQueryClient } from '@tanstack/react-query';
 import { Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import pb from '@/lib/pocketbase-client';
+import {
+  qk,
+  invalidateContainerCaches,
+  invalidateItemCaches,
+} from '@/lib/query';
 import { UploadDropzone } from './upload-dropzone';
 import type {
   ItemsResponse,
@@ -44,6 +50,7 @@ export function ContainerImageUpload({
   const [stage, setStage] = useState<UploadStage>('idle');
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ContainerUpsertResult | null>(null);
+  const queryClient = useQueryClient();
 
   const uploadImage = useCallback(
     async (file: File) => {
@@ -86,8 +93,13 @@ export function ContainerImageUpload({
           onSuccess(data);
         }
 
-        // Dispatch event for other components to refresh
-        window.dispatchEvent(new CustomEvent('inventory-updated'));
+        // The upsert rewrote this container, created and updated items inside
+        // it, and added an image record — so all three are stale.
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: qk.imagesPrefix() }),
+          invalidateContainerCaches(queryClient, [containerId]),
+          invalidateItemCaches(queryClient),
+        ]);
       } catch (err) {
         console.error('Container image upload failed:', err);
         const errorMessage =
@@ -100,7 +112,7 @@ export function ContainerImageUpload({
         }
       }
     },
-    [containerId, onSuccess, onError]
+    [containerId, onSuccess, onError, queryClient]
   );
 
   const onDrop = useCallback(

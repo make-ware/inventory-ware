@@ -8,8 +8,10 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ImageMutator } from '@project/shared';
 import pb from '@/lib/pocketbase-client';
+import { qk, invalidateItemCaches } from '@/lib/query';
 import { toast } from 'sonner';
 
 export type UploadStatus =
@@ -40,6 +42,24 @@ const STORAGE_KEY = 'inventory_upload_queue';
 export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<UploadItem[]>([]);
   const imageMutator = useRef(new ImageMutator(pb)).current;
+  const queryClient = useQueryClient();
+
+  /**
+   * Mark everything an upload can have changed as stale.
+   *
+   * The upload itself adds an image; the analysis behind it creates items and
+   * containers from that image, and their categories join the library — so an
+   * upload reaches every list in the app, not just the images grid.
+   */
+  const invalidateUploadedData = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.imagesPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+        invalidateItemCaches(queryClient),
+      ]),
+    [queryClient]
+  );
 
   // Persist queue to localStorage
   useEffect(() => {
@@ -108,6 +128,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
           if (isManualMode) {
             toast.success(`Uploaded ${file.name}`);
+            // Nothing was analysed, so only the images library moved.
+            await queryClient.invalidateQueries({
+              queryKey: qk.imagesPrefix(),
+            });
             return;
           }
 
@@ -135,9 +159,11 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
             )
           );
 
-          // Trigger a refresh of the inventory data if we are on the inventory page
-          // This can be done via a custom event or by the page watching the queue
-          window.dispatchEvent(new CustomEvent('inventory-updated'));
+          // Analysis created items and containers from this image, so every
+          // list is potentially out of date — say so on the cache the pages
+          // read from rather than through a window event they have to listen
+          // for.
+          await invalidateUploadedData();
         } catch (error) {
           console.error(`Failed to process ${file.name}:`, error);
           setQueue((prev) =>
@@ -176,7 +202,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
       await Promise.all(activePromises);
     },
-    [imageMutator]
+    [imageMutator, invalidateUploadedData, queryClient]
   );
 
   const clearQueue = useCallback(() => {

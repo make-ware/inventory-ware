@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, act, waitFor } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { UploadProvider, useUpload } from '../contexts/upload-context';
+import { createQueryClient } from '@/lib/query';
 import {
   describe,
   it,
@@ -90,9 +92,11 @@ describe('UploadContext Performance', () => {
 
   it('processes files in parallel (optimized behavior)', async () => {
     const { getByText } = render(
-      <UploadProvider>
-        <TestComponent />
-      </UploadProvider>
+      <QueryClientProvider client={createQueryClient()}>
+        <UploadProvider>
+          <TestComponent />
+        </UploadProvider>
+      </QueryClientProvider>
     );
 
     await act(async () => {

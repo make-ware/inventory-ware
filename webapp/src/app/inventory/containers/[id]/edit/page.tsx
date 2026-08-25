@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
-import pb from '@/lib/pocketbase-client';
-import { ContainerMutator, formatPocketBaseError } from '@project/shared';
+import { formatPocketBaseError } from '@project/shared';
 import type { ContainerInput } from '@project/shared';
 import { useContainer } from '@/hooks/use-containers';
-import { qk } from '@/lib/query';
+import { useUpdateContainer } from '@/hooks/use-container-mutations';
 import { getExpandedImageUrl } from '@/lib/image-utils';
 import { ContainerUpdateForm } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
@@ -32,11 +30,10 @@ export default function EditContainerPage() {
   const router = useRouter();
   const params = useParams();
   const containerId = params.id as string;
-  const queryClient = useQueryClient();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+  const updateContainer = useUpdateContainer();
 
   const { container, isPending, isError, isMissing, error } =
     useContainer(containerId);
@@ -54,19 +51,13 @@ export default function EditContainerPage() {
   ) => {
     try {
       setIsSubmitting(true);
-      await containerMutator.update(containerId, data);
+      // The edit is in the cache before the request goes out and the affected
+      // keys are stale before this resolves, so the detail page this returns to
+      // shows the new values immediately and re-reads them behind that.
+      await updateContainer.mutateAsync({ id: containerId, data });
       toast.success('Container updated successfully');
-      // Drop the pre-edit copies before navigating, so the detail page this
-      // returns to reads the record back rather than repainting the old one.
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: qk.containerById(containerId),
-        }),
-        queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
-      ]);
       router.push(`/inventory/containers/${containerId}`);
     } catch (error) {
-      console.error('Failed to update container:', error);
       toast.error(
         describeError(error, 'Failed to update container. Please try again.')
       );

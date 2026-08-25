@@ -115,7 +115,28 @@ loop with every other tab. Adding a live list means writing a `LiveListSpec` and
 passing a subscription to `use-live-infinite-list.ts`, not hand-rolling
 `pb.collection(...).subscribe`. See `docs/PB_REALTIME.md`.
 
-**Context providers.** `webapp/src/contexts/auth-context.tsx`, `inventory-context.tsx`, and `upload-context.tsx` provide app-wide state. The upload context owns the multi-file upload queue (including clearing/cancelling) surfaced by `components/inventory/upload-tracker.tsx`.
+**Writes go through the mutation hooks, never a mutator called from a page.**
+Every create, edit and delete in the webapp is a `useMutation` in
+`webapp/src/hooks/use-item-mutations.ts` or `use-container-mutations.ts`. Each
+one patches the query cache before the request leaves (`onMutate`), puts its
+snapshot back if the request is refused (`onError`) and invalidates the keys it
+touched on success — so the screen moves on the click, an error undoes itself,
+and the server still has the last word. A page that calls
+`itemMutator.delete(...)` itself gets none of that, so add a hook rather than a
+call site.
+
+The cache surgery lives in `webapp/src/lib/query/mutations.ts`, and it is
+deliberately *not* the realtime merge: a local patch carries the cached
+record's `updated` stamp, so the newer-wins rule that makes the SSE merges
+idempotent would reject every one of them, and rows are patched in place rather
+than repositioned (the invalidation — or the echo, whichever lands first —
+settles the order). Creates are not optimistic: there is no id to insert under
+and every create navigates to the record it just made. Deleting a container is
+the one compound write, and the order is load-bearing: read *all* of its items,
+clear each `ContainerRef` (with `''`; an `undefined` field never reaches
+PocketBase's JSON body), then delete the record — PocketBase does not cascade.
+
+**Context providers.** `webapp/src/contexts/auth-context.tsx`, `inventory-context.tsx`, and `upload-context.tsx` provide app-wide state. The upload context owns the multi-file upload queue (including clearing/cancelling) surfaced by `components/inventory/upload-tracker.tsx`, and invalidates the item/container/image keys once an upload's analysis lands. The inventory context keeps no records and no mutations — what is left of it is the `/api-next/process-image` entry point.
 
 ## Environment
 

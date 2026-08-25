@@ -124,15 +124,6 @@ function ImagesPageContent() {
     }
   }, [isError]);
 
-  // Uploads still announce themselves with a window event (realtime lands in a
-  // later phase); refresh the cache rather than the page's own copy of the data.
-  // Polling for images mid-analysis is handled by the query itself.
-  useEffect(() => {
-    window.addEventListener('inventory-updated', invalidateImages);
-    return () =>
-      window.removeEventListener('inventory-updated', invalidateImages);
-  }, [invalidateImages]);
-
   const handleDeleteImage = async (imageId: string) => {
     if (!(await confirm('Are you sure you want to delete this image?'))) return;
 
