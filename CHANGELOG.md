@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.7.0...inventory-ware-v0.8.0) (2026-08-25)
+
+
+### Features
+
+* **ai:** reuse-first labeling prompt, larger vocabulary, experimental tool loop ([dee69c5](https://github.com/make-ware/inventory-ware/commit/dee69c54f41d97488b9b5f3634b2eab1bd10ee9d))
+* async typeahead with LIKE search, container filter and infinite scroll ([496206c](https://github.com/make-ware/inventory-ware/commit/496206c9bfbd017bb6709eb358a8617e47209951))
+* improve AI labeling prompts, expand categories and add experimental tool loop ([4fb8128](https://github.com/make-ware/inventory-ware/commit/4fb8128cb77da6ce287558a67ef494a1ba3fb5fb))
+* **webapp:** async typeahead with LIKE search, container filter and infinite scroll ([e33f164](https://github.com/make-ware/inventory-ware/commit/e33f164778f295740291c891757cd718c3639001))
+
+
+### Bug Fixes
+
+* improve async selectors ([97e53f6](https://github.com/make-ware/inventory-ware/commit/97e53f6e27edb16cc58cc34ead25ef250f1be14f))
+* make item/container update forms actually submit (closes [#57](https://github.com/make-ware/inventory-ware/issues/57)) ([528fc25](https://github.com/make-ware/inventory-ware/commit/528fc252a44d8dd841afe04d01e4af91b90660f1))
+* make item/container update forms actually submit (closes [#57](https://github.com/make-ware/inventory-ware/issues/57)) ([69589c5](https://github.com/make-ware/inventory-ware/commit/69589c564a70182a0647051872949a0a335f61b3))
+* repair label generation ([0487ebe](https://github.com/make-ware/inventory-ware/commit/0487ebe886b23ea8361f2e75141432baaedb7bf6))
+* **webapp:** actually clear ContainerRef when removing an item ([367478a](https://github.com/make-ware/inventory-ware/commit/367478a6e925402fb4ef8f89f314f07ee1f43912))
+* **webapp:** move label generation route to /api-next, guard the /api namespace ([f6091f9](https://github.com/make-ware/inventory-ware/commit/f6091f9409dde39913a6f1a885b601c6c434afd6))
+
 ## [0.7.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.6.2...inventory-ware-v0.7.0) (2026-08-23)
 
 
