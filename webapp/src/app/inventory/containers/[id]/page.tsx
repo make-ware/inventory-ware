@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import pb from '@/lib/pocketbase-client';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
-import type { Item } from '@project/shared';
+import { ItemMutator } from '@project/shared';
+import type { Container, Item } from '@project/shared';
 import { getImageFileUrl, getExpandedImageUrl } from '@/lib/image-utils';
 
 import { Button } from '@/components/ui/button';
@@ -17,22 +18,16 @@ import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dia
 import { ContainerImageUpload } from '@/components/inventory/container-image-upload';
 import { CleanupPromptDialog } from '@/components/inventory/cleanup-prompt-dialog';
 import { createInventoryService, type CleanupActionRequest } from '@/services';
-import { useAuth } from '@/hooks/use-auth';
 import { useContainer, useItemsByContainer } from '@/hooks/use-containers';
-import { useAllItems } from '@/hooks/use-items';
 import { useDeleteContainer } from '@/hooks/use-container-mutations';
 import {
   useAddItemToContainer,
   useRemoveItemFromContainer,
 } from '@/hooks/use-item-mutations';
 import { qk } from '@/lib/query';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { AsyncCombobox } from '@/components/ui/async-combobox';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import {
   Loader2,
@@ -50,16 +45,23 @@ export default function ContainerDetailPage() {
   const params = useParams();
   const containerId = params.id as string;
   const queryClient = useQueryClient();
-  const { userId } = useAuth();
 
   const [isAddingItem, setIsAddingItem] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState<string>('');
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  // Off: only items filed nowhere are offered. On: every item outside this
+  // container, so an add can also be a move.
+  const [showAssigned, setShowAssigned] = useState(false);
+  // Bumped after each add, to reload the picker from page 1 (see below).
+  const [addNonce, setAddNonce] = useState(0);
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
   const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
   const [unmatchedItems, setUnmatchedItems] = useState<Item[]>([]);
   const { confirm } = useConfirm();
 
   const inventoryService = useMemo(() => createInventoryService(pb), []);
+  // The picker pages the server as the user types, so it owns its own reads
+  // rather than drawing on a query hook — see docs/DROPDOWNS.md.
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
   const deleteContainer = useDeleteContainer();
   const addItemToContainer = useAddItemToContainer();
@@ -76,13 +78,32 @@ export default function ContainerDetailPage() {
     totalItems: containerItemCount,
     isError: isItemsError,
   } = useItemsByContainer(containerId);
-  const { items: allItems, isError: isAllItemsError } = useAllItems(userId);
-
-  // The picker offers everything that is not already filed here.
-  const availableItems = useMemo(
-    () => allItems.filter((item) => item.ContainerRef !== containerId),
-    [allItems, containerId]
+  /**
+   * One page of candidate items for the picker.
+   *
+   * `sort` is not optional: `ItemMutator` sets no default sort, so without it
+   * PocketBase returns rows in an unspecified order and paging would skip and
+   * repeat records as the offset moves.
+   */
+  const fetchItemPage = useCallback(
+    (query: string, page: number) =>
+      itemMutator.search(query, {
+        page,
+        perPage: 25,
+        sort: 'itemLabel',
+        // Only needed to show where an already-assigned item currently lives.
+        expand: showAssigned ? 'ContainerRef' : undefined,
+        filters: showAssigned
+          ? { excludeContainer: containerId }
+          : { hasContainer: false },
+      }),
+    [itemMutator, containerId, showAssigned]
   );
+
+  const getItemContainerLabel = (item: Item): string | undefined => {
+    const expanded = item.expand?.ContainerRef as Container | undefined;
+    return expanded?.containerLabel;
+  };
 
   /**
    * Re-read everything this page shows.
@@ -112,19 +133,13 @@ export default function ContainerDetailPage() {
     router.push('/inventory');
   }, [isContainerUnavailable, router]);
 
-  // The container itself still renders when its items (or the picker's pool)
-  // fail to load, so those only warrant a toast.
+  // The container itself still renders when its items fail to load, so that
+  // only warrants a toast. The picker reports its own load failures inline.
   useEffect(() => {
     if (isItemsError) {
       toast.error('Failed to load items in this container');
     }
   }, [isItemsError]);
-
-  useEffect(() => {
-    if (isAllItemsError) {
-      toast.error('Failed to load the list of items to add');
-    }
-  }, [isAllItemsError]);
 
   const handleDelete = async () => {
     try {
@@ -148,19 +163,35 @@ export default function ContainerDetailPage() {
   };
 
   const handleAddItem = async () => {
-    if (!selectedItemId) {
+    if (!selectedItem) {
       toast.error('Please select an item to add');
       return;
+    }
+
+    // In "show all" mode the add is really a move, so make that explicit.
+    if (selectedItem.ContainerRef) {
+      const currentLabel = getItemContainerLabel(selectedItem);
+      const from = currentLabel ? `"${currentLabel}"` : 'another container';
+      if (
+        !(await confirm(
+          `"${selectedItem.itemLabel}" is currently in ${from}. Move it here?`
+        ))
+      ) {
+        return;
+      }
     }
 
     try {
       setIsAddingItem(true);
       await addItemToContainer.mutateAsync({
-        itemId: selectedItemId,
+        itemId: selectedItem.id,
         containerId,
       });
       toast.success('Item added to container');
-      setSelectedItemId('');
+      setSelectedItem(null);
+      // Every add shifts the offsets of the remaining pages, so reload the
+      // picker from the top rather than trying to patch the loaded pages.
+      setAddNonce((nonce) => nonce + 1);
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -337,27 +368,53 @@ export default function ContainerDetailPage() {
             <CardHeader>
               <CardTitle className="text-lg">Add Item to Container</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="flex gap-2">
-                <Select
-                  value={selectedItemId}
-                  onValueChange={setSelectedItemId}
-                  disabled={isAddingItem || availableItems.length === 0}
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="show-assigned-items"
+                  checked={showAssigned}
+                  onCheckedChange={(checked) => {
+                    setShowAssigned(checked === true);
+                    setSelectedItem(null);
+                  }}
+                  disabled={isAddingItem}
+                />
+                <Label
+                  htmlFor="show-assigned-items"
+                  className="text-sm font-normal text-muted-foreground"
                 >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select an item..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.itemLabel}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  Show items already in another container
+                </Label>
+              </div>
+              <div className="flex min-w-0 flex-1 basis-80 gap-2">
+                <div className="min-w-0 flex-1">
+                  <AsyncCombobox<Item>
+                    value={selectedItem?.id}
+                    selectedLabel={selectedItem?.itemLabel}
+                    onChange={(_value, item) => setSelectedItem(item)}
+                    fetchPage={fetchItemPage}
+                    queryKey={showAssigned ? 'all' : 'unassigned'}
+                    resetToken={addNonce}
+                    getOptionValue={(item) => item.id}
+                    getOptionLabel={(item) => item.itemLabel}
+                    getOptionDescription={(item) =>
+                      showAssigned
+                        ? getItemContainerLabel(item)
+                        : item.itemManufacturer || item.itemType
+                    }
+                    placeholder="Select an item..."
+                    searchPlaceholder="Search items..."
+                    emptyMessage={
+                      showAssigned
+                        ? 'No matching items outside this container'
+                        : 'No unassigned items match'
+                    }
+                    disabled={isAddingItem}
+                  />
+                </div>
                 <Button
                   onClick={handleAddItem}
-                  disabled={isAddingItem || !selectedItemId}
+                  disabled={isAddingItem || !selectedItem}
                 >
                   {isAddingItem ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -369,12 +426,6 @@ export default function ContainerDetailPage() {
                   )}
                 </Button>
               </div>
-              {availableItems.length === 0 && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  No available items to add. All items are either in this
-                  container or other containers.
-                </p>
-              )}
             </CardContent>
           </Card>
 

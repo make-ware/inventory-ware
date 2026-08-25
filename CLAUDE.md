@@ -147,7 +147,9 @@ inventory context — every record a page shows now comes from a query hook in
 pages read through the same layer: `useItem`/`useContainer`/`useImage` for the
 record, and `useItemsByContainer`/`useItemsByImage`/`useContainersByImage` for
 what hangs off it. Adding a page means adding (or reusing) a hook, not a
-provider.
+provider. The one read that stays outside the cache is an `AsyncCombobox`'s
+`fetchPage`: the picker owns its own paging and per-keystroke query, so it
+takes a mutator call directly (see `docs/DROPDOWNS.md`) rather than a hook.
 
 ## Environment
 
