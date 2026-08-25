@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
-import { ContainerMutator } from '@project/shared';
+import { ContainerMutator, formatPocketBaseError } from '@project/shared';
 import type { Container, ContainerInput } from '@project/shared';
 import { useInventory } from '@/hooks/use-inventory';
 import { ContainerUpdateForm } from '@/components/inventory';
@@ -11,6 +11,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft } from 'lucide-react';
+
+/** Surface PocketBase's per-field messages rather than a flat fallback. */
+function describeError(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'data' in error) {
+    return formatPocketBaseError(
+      error as { data?: Record<string, string[]>; message?: string }
+    );
+  }
+  if (error instanceof Error) {
+    return error.message || fallback;
+  }
+  return fallback;
+}
 
 export default function EditContainerPage() {
   const router = useRouter();
@@ -43,7 +56,7 @@ export default function EditContainerPage() {
       setContainer(containerData);
     } catch (error) {
       console.error('Failed to load container:', error);
-      toast.error('Failed to load container');
+      toast.error(describeError(error, 'Failed to load container'));
       router.push('/inventory');
     } finally {
       setIsLoading(false);
@@ -64,7 +77,9 @@ export default function EditContainerPage() {
       router.push(`/inventory/containers/${containerId}`);
     } catch (error) {
       console.error('Failed to update container:', error);
-      toast.error('Failed to update container');
+      toast.error(
+        describeError(error, 'Failed to update container. Please try again.')
+      );
     } finally {
       setIsSubmitting(false);
     }

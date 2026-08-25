@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 
 // Mock useInventory hook before importing the component
 vi.mock('@/hooks/use-inventory', () => ({
@@ -121,52 +121,125 @@ describe('ItemUpdateForm', () => {
     ).toBeInTheDocument();
   });
 
-  it.skip('updates values and calls onSubmit', async () => {
-    const user = userEvent.setup();
+  it('updates values and calls onSubmit with only the changed fields', async () => {
     render(<ItemUpdateForm {...defaultProps} />);
 
-    // Update Name
-    const nameInput = screen.getByLabelText(/item name/i);
-    await user.clear(nameInput);
-    await user.type(nameInput, 'Updated Item');
+    fireEvent.change(screen.getByLabelText(/item name/i), {
+      target: { value: 'Updated Item' },
+    });
+    fireEvent.change(screen.getByLabelText(/item label/i), {
+      target: { value: 'Updated Label' },
+    });
 
-    // Update Label
-    const labelInput = screen.getByLabelText(/item label/i);
-    await user.clear(labelInput);
-    await user.type(labelInput, 'Updated Label');
-
-    // Submit
-    await user.click(screen.getByRole('button', { name: /update item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /update item/i }));
 
     await waitFor(() => {
       expect(defaultProps.onSubmit).toHaveBeenCalledTimes(1);
-      expect(defaultProps.onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          itemName: 'Updated Item',
-          itemLabel: 'Updated Label',
-          // Other values should remain or match what's in the form
-          categoryFunctional: 'Tools',
-          categorySpecific: 'Power Tools',
-          itemType: 'Drill',
-        })
-      );
+    });
+    // Only the dirty fields are sent — untouched values must not be echoed
+    // back, so a concurrent change elsewhere is not clobbered.
+    expect(defaultProps.onSubmit).toHaveBeenCalledWith({
+      itemName: 'Updated Item',
+      itemLabel: 'Updated Label',
     });
   });
 
-  it.skip('displays validation errors when clearing required fields', async () => {
-    const user = userEvent.setup();
+  it('displays validation errors when clearing required fields', async () => {
     render(<ItemUpdateForm {...defaultProps} />);
 
-    // Clear required field (Item Label)
-    const labelInput = screen.getByLabelText(/item label/i);
-    await user.clear(labelInput);
+    fireEvent.change(screen.getByLabelText(/item label/i), {
+      target: { value: '' },
+    });
 
-    // Submit
-    await user.click(screen.getByRole('button', { name: /update item/i }));
+    fireEvent.click(screen.getByRole('button', { name: /update item/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/item label is required/i)).toBeInTheDocument();
-      expect(defaultProps.onSubmit).not.toHaveBeenCalled();
     });
+    // Outside the waitFor: inside, this would pass trivially on the first tick.
+    expect(defaultProps.onSubmit).not.toHaveBeenCalled();
+    // The catch-all onInvalid handler surfaces the failure too.
+    expect(toast.error).toHaveBeenCalled();
+  });
+
+  // Regression for issue #57: the AI pipeline never writes boundingBox, so
+  // PocketBase hands back `null` for that (and itemAttributes). That null used
+  // to fail zodResolver on a field with no rendered <FormMessage />, leaving
+  // the Update button apparently dead.
+  it('submits an AI-created item whose json columns are null', async () => {
+    const onSubmit = vi.fn();
+    render(
+      <ItemUpdateForm
+        {...defaultProps}
+        onSubmit={onSubmit}
+        defaultValues={{
+          ...defaultValues,
+          itemAttributes: null,
+          boundingBox: null,
+          ContainerRef: '',
+          ImageRef: '',
+        }}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText(/item label/i), {
+      target: { value: 'Corrected Label' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /update item/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+    expect(onSubmit).toHaveBeenCalledWith({ itemLabel: 'Corrected Label' });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('gives visible feedback instead of silently doing nothing when unchanged', async () => {
+    render(<ItemUpdateForm {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /update item/i }));
+
+    await waitFor(() => {
+      expect(toast.info).toHaveBeenCalledWith('No changes to save');
+    });
+    expect(defaultProps.onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('syncs when defaultValues arrive asynchronously', async () => {
+    const onSubmit = vi.fn();
+    const { rerender } = render(
+      <ItemUpdateForm
+        {...defaultProps}
+        onSubmit={onSubmit}
+        defaultValues={undefined}
+      />
+    );
+
+    expect(screen.getByLabelText(/item label/i)).toHaveValue('');
+
+    // The edit page fetches the record after mount.
+    rerender(
+      <ItemUpdateForm
+        {...defaultProps}
+        onSubmit={onSubmit}
+        defaultValues={defaultValues}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/item label/i)).toHaveValue('My Item');
+    });
+    expect(screen.getByLabelText(/item name/i)).toHaveValue('Existing Item');
+
+    // Edits made after the sync are still tracked as dirty.
+    fireEvent.change(screen.getByLabelText(/item label/i), {
+      target: { value: 'Edited After Load' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /update item/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+    expect(onSubmit).toHaveBeenCalledWith({ itemLabel: 'Edited After Load' });
   });
 });

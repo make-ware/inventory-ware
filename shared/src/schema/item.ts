@@ -5,6 +5,7 @@ import {
 } from 'pocketbase-zod-schema';
 import { z } from 'zod';
 import { BoundingBoxSchema } from '../types/bounding-box.js';
+import { pbOptional } from '../utils/pb-optional.js';
 import { slugify } from '../utils/slugify.js';
 
 // Schema for individual item attributes (key-value pairs)
@@ -40,10 +41,15 @@ export const ItemInputSchema = z.object({
     .describe('Item type (e.g., Drill, Arduino)')
     .transform(slugify),
   itemManufacturer: z.string().optional().default(''),
-  itemAttributes: z.array(ItemAttributeSchema).optional().default([]),
-  ContainerRef: RelationField({ collection: 'Containers' }).optional(),
-  ImageRef: RelationField({ collection: 'Images' }).optional(),
-  boundingBox: BoundingBoxSchema.optional(),
+  // PocketBase returns `null` for unset json columns — tolerate it while
+  // preserving the `[]` default (see issue #57).
+  itemAttributes: z
+    .array(ItemAttributeSchema)
+    .nullish()
+    .transform((v) => v ?? []),
+  ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
+  ImageRef: pbOptional(RelationField({ collection: 'Images' })),
+  boundingBox: pbOptional(BoundingBoxSchema),
   UserRef: RelationField({ collection: 'Users' }),
 });
 
@@ -71,10 +77,10 @@ export const ItemUpdateSchema = z.object({
     .transform(slugify)
     .optional(),
   itemManufacturer: z.string().optional(),
-  itemAttributes: z.array(ItemAttributeSchema).optional(),
-  ContainerRef: RelationField({ collection: 'Containers' }).optional(),
-  ImageRef: RelationField({ collection: 'Images' }).optional(),
-  boundingBox: BoundingBoxSchema.optional(),
+  itemAttributes: pbOptional(z.array(ItemAttributeSchema)),
+  ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
+  ImageRef: pbOptional(RelationField({ collection: 'Images' })),
+  boundingBox: pbOptional(BoundingBoxSchema),
 });
 
 // Database schema for the complete item record

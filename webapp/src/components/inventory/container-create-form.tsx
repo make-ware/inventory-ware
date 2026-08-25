@@ -44,7 +44,13 @@ export function ContainerCreateForm({
   // Create a form schema without UserRef since it's not part of the form
   const FormSchema = ContainerInputSchema.omit({ UserRef: true });
 
-  const form = useForm<z.input<typeof FormSchema>>({
+  // Three generics: with a resolver, `handleSubmit` receives the schema's
+  // *output* (transformed) values, not the raw input.
+  const form = useForm<
+    z.input<typeof FormSchema>,
+    unknown,
+    z.output<typeof FormSchema>
+  >({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       containerLabel: '',
@@ -68,7 +74,7 @@ export function ContainerCreateForm({
     }
   }, [selectedBbox, form]);
 
-  const handleSubmit = async (data: z.input<typeof FormSchema>) => {
+  const handleSubmit = async (data: z.output<typeof FormSchema>) => {
     await onSubmit(data);
   };
 

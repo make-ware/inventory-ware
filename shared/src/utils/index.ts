@@ -6,6 +6,7 @@ import { z } from 'zod';
 export * from './hash.js';
 export * from './slugify.js';
 export * from './filter.js';
+export * from './pb-optional.js';
 
 /**
  * Validates data against a Zod schema and returns typed result

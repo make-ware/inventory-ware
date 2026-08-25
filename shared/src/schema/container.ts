@@ -5,13 +5,14 @@ import {
 } from 'pocketbase-zod-schema';
 import { z } from 'zod';
 import { BoundingBoxSchema } from '../types/bounding-box.js';
+import { pbOptional } from '../utils/pb-optional.js';
 
 // Define the Zod schema for container input (for creating new containers)
 export const ContainerInputSchema = z.object({
   containerLabel: z.string().min(1, 'Container label is required'),
   containerNotes: z.string().optional().default(''),
-  ImageRef: RelationField({ collection: 'Images' }).optional(),
-  boundingBox: BoundingBoxSchema.optional(),
+  ImageRef: pbOptional(RelationField({ collection: 'Images' })),
+  boundingBox: pbOptional(BoundingBoxSchema),
   UserRef: RelationField({ collection: 'Users' }),
 });
 
@@ -19,8 +20,8 @@ export const ContainerInputSchema = z.object({
 export const ContainerUpdateSchema = z.object({
   containerLabel: z.string().min(1, 'Container label is required').optional(),
   containerNotes: z.string().optional(),
-  ImageRef: RelationField({ collection: 'Images' }).optional(),
-  boundingBox: BoundingBoxSchema.optional(),
+  ImageRef: pbOptional(RelationField({ collection: 'Images' })),
+  boundingBox: pbOptional(BoundingBoxSchema),
 });
 
 // Database schema for the complete container record

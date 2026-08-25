@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import { z } from 'zod';
 import {
   ItemUpdateSchema,
@@ -35,9 +36,32 @@ import { useInventory } from '@/hooks/use-inventory';
 import { CroppedImageViewer } from '../image/cropped-image-viewer';
 import { BoundingBoxEditor } from './bounding-box-editor';
 import { Crop } from 'lucide-react';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('item-update-form');
+
+// The form is fed straight from a PocketBase record, which returns `null` for
+// unset json/relation columns — so the prop is the schema's *input* shape, not
+// its parsed output (issue #57).
+type ItemUpdateFormValues = z.input<typeof ItemUpdateSchema>;
+
+// Fallback values for keys the caller does not supply, so every field stays a
+// controlled input.
+const BASE_DEFAULTS: ItemUpdateFormValues = {
+  itemLabel: '',
+  itemName: '',
+  itemNotes: '',
+  categoryFunctional: '',
+  categorySpecific: '',
+  itemType: '',
+  itemManufacturer: '',
+  itemAttributes: [],
+  ImageRef: undefined,
+  boundingBox: undefined,
+};
 
 interface ItemUpdateFormProps {
-  defaultValues?: Partial<ItemUpdate>;
+  defaultValues?: Partial<ItemUpdateFormValues>;
   onSubmit: (data: Partial<ItemUpdate>) => void | Promise<void>;
   onCancel?: () => void;
   isSubmitting?: boolean;
@@ -57,35 +81,39 @@ export function ItemUpdateForm({
   // Create a form schema without UserRef since it's not part of the form
   const FormSchema = ItemUpdateSchema;
 
-  const form = useForm<z.input<typeof FormSchema>>({
+  // `values` rather than `defaultValues`, so the form re-syncs if the caller
+  // loads the record asynchronously. React Hook Form deep-compares before
+  // resetting, so passing a fresh object literal on every render is safe;
+  // `keepDirtyValues` protects edits the user has already made.
+  const form = useForm<
+    z.input<typeof FormSchema>,
+    unknown,
+    z.output<typeof FormSchema>
+  >({
     resolver: zodResolver(FormSchema),
-    defaultValues: {
-      itemLabel: '',
-      itemName: '',
-      itemNotes: '',
-      categoryFunctional: '',
-      categorySpecific: '',
-      itemType: '',
-      itemManufacturer: '',
-      itemAttributes: [],
-      ImageRef: undefined,
-      boundingBox: undefined,
-      ...defaultValues,
-    },
+    values: { ...BASE_DEFAULTS, ...defaultValues },
+    resetOptions: { keepDirtyValues: true },
   });
 
-  const ImageRefId = useWatch({
-    control: form.control,
-    name: 'ImageRef',
-  });
-  const boundingBox = useWatch({
-    control: form.control,
-    name: 'boundingBox',
-  });
+  // PocketBase returns `null` for unset relation/json columns; the schema
+  // normalises that on parse, but the raw form values still carry it.
+  const ImageRefId =
+    useWatch({
+      control: form.control,
+      name: 'ImageRef',
+    }) ?? undefined;
+  const boundingBox =
+    useWatch({
+      control: form.control,
+      name: 'boundingBox',
+    }) ?? undefined;
   const imageUrl = getImageUrl(ImageRefId);
 
-  const handleSubmit = async (data: z.input<typeof FormSchema>) => {
-    // Only send fields that were actually changed (dirty)
+  const handleSubmit = async (data: z.output<typeof FormSchema>) => {
+    // Only send fields that were actually changed (dirty). The form also
+    // carries ContainerRef/ImageRef, which cannot be edited here, and echoing
+    // them back would clobber a concurrent change made elsewhere (e.g.
+    // assigning the item to a container from the container page).
     const dirtyFields = form.formState.dirtyFields;
     const dirtyData: Record<string, unknown> = {};
 
@@ -95,15 +123,42 @@ export function ItemUpdateForm({
       }
     }
 
-    // Only submit if there are changes
-    if (Object.keys(dirtyData).length > 0) {
-      await onSubmit(dirtyData as Partial<ItemUpdate>);
+    // Never fail silently: an empty patch gets visible feedback instead of a
+    // dead-looking button (issue #57).
+    if (Object.keys(dirtyData).length === 0) {
+      toast.info('No changes to save');
+      return;
     }
+
+    await onSubmit(dirtyData as Partial<ItemUpdate>);
+  };
+
+  // Safety net: boundingBox, ImageRef and ContainerRef have no rendered
+  // <FormMessage />, so a validation failure on one of them would otherwise be
+  // completely invisible — which is exactly how issue #57 presented.
+  const handleInvalid = (errors: FieldErrors<z.input<typeof FormSchema>>) => {
+    // Flatten to field -> message: the raw error objects carry DOM refs, which
+    // are noise (and cyclic) in a log line.
+    const messages = Object.entries(errors).map(([field, error]) =>
+      typeof error?.message === 'string' ? error.message : `${field} is invalid`
+    );
+    log.error('Item update form validation failed', {
+      fields: Object.keys(errors).join(','),
+      messages: messages.join('; '),
+    });
+    toast.error(
+      messages.length > 0
+        ? `Could not save item: ${messages.join(', ')}`
+        : 'Could not save item: please fix the highlighted fields.'
+    );
   };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(handleSubmit, handleInvalid)}
+        className="space-y-6"
+      >
         <FormField
           control={form.control}
           name="itemName"
