@@ -139,7 +139,10 @@ export default function ContainerDetailPage() {
     if (!(await confirm('Remove this item from the container?'))) return;
 
     try {
-      await itemMutator.update(itemId, { ContainerRef: undefined });
+      // Must be '', not undefined: `BaseMutator.update` passes the body
+      // straight to PocketBase, and JSON.stringify drops undefined keys, so
+      // the PATCH would be an empty no-op that still reported success.
+      await itemMutator.update(itemId, { ContainerRef: '' });
       toast.success('Item removed from container');
       await loadContainerDetails();
     } catch (error) {
