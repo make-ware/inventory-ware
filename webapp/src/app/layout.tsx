@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
+import { QueryProvider } from '@/lib/query';
 import { AuthProvider } from '@/contexts/auth-context';
 import { UploadProvider } from '@/contexts/upload-context';
 import { ConfirmDialogProvider } from '@/components/ui/confirm-dialog';
@@ -40,16 +41,23 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <UploadProvider>
-              <ConfirmDialogProvider>
-                <NavigationBar />
-                <main className="min-h-screen">{children}</main>
-                <UploadTracker />
-                <Toaster />
-              </ConfirmDialogProvider>
-            </UploadProvider>
-          </AuthProvider>
+          {/*
+            QueryProvider sits above every data provider (including the
+            InventoryProvider mounted in app/inventory/layout.tsx) so they can
+            all read the same cache. Defaults live in @/lib/query/client.
+          */}
+          <QueryProvider>
+            <AuthProvider>
+              <UploadProvider>
+                <ConfirmDialogProvider>
+                  <NavigationBar />
+                  <main className="min-h-screen">{children}</main>
+                  <UploadTracker />
+                  <Toaster />
+                </ConfirmDialogProvider>
+              </UploadProvider>
+            </AuthProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>
