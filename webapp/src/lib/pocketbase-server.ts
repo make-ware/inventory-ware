@@ -3,7 +3,7 @@
  */
 import 'server-only';
 
-import PocketBase from 'pocketbase';
+import PocketBase, { ClientResponseError } from 'pocketbase';
 import type { TypedPocketBase } from '@project/shared/types';
 
 /**
@@ -24,7 +24,10 @@ import type { TypedPocketBase } from '@project/shared/types';
  * ```
  */
 export function createServerPocketBaseClient(): TypedPocketBase {
-  const pb = new PocketBase(process.env.POCKETBASE_URL) as TypedPocketBase;
+  // Mirror the client-side fallback so dev works even when the root .env
+  // was not loaded into this process (see webapp package.json dev script).
+  const url = process.env.POCKETBASE_URL || 'http://localhost:8090';
+  const pb = new PocketBase(url) as TypedPocketBase;
   pb.autoCancellation(false);
   return pb;
 }
@@ -106,6 +109,14 @@ export async function authenticateAsUser(
     }
   } catch (error) {
     pb.authStore.clear();
+    // status 0 means the request never got a response (the SDK's generic
+    // "Something went wrong.") — name the URL so the failure is diagnosable.
+    if (error instanceof ClientResponseError && error.status === 0) {
+      throw new Error(
+        `Could not reach PocketBase at ${pb.baseURL} (${error.message}) — ` +
+          'is PocketBase running and POCKETBASE_URL set correctly?'
+      );
+    }
     if (error instanceof Error) {
       throw error;
     }

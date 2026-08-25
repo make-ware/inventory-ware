@@ -1,25 +1,12 @@
 import QRCode from 'qrcode';
 import type { TypedPocketBase } from '@project/shared';
-import { ItemMutator, ContainerMutator } from '@project/shared';
-
-function escapeXml(unsafe: string): string {
-  return unsafe.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '&':
-        return '&amp;';
-      case "'":
-        return '&apos;';
-      case '"':
-        return '&quot;';
-      default:
-        return c;
-    }
-  });
-}
+import {
+  ItemMutator,
+  ContainerMutator,
+  LabelMutator,
+  generateLabelId,
+} from '@project/shared';
+import { escapeXml, fitTextLines, renderTextElement } from './svg-text';
 
 interface GenerateLabelOptions {
   targetId: string;
@@ -42,31 +29,25 @@ export async function generateLabel({
   // 1. Fetch target data
   const itemMutator = new ItemMutator(pb);
   const containerMutator = new ContainerMutator(pb);
-  let labelText = '';
-  let subText = '';
 
   let rawLabelText = '';
+  let subText = '';
   if (targetType === 'item') {
     const item = await itemMutator.getById(targetId);
     if (!item) throw new Error('Item not found');
     rawLabelText = item.itemLabel || item.itemName || 'Item';
-    subText = escapeXml(item.id);
+    subText = item.id;
   } else {
     const container = await containerMutator.getById(targetId);
     if (!container) throw new Error('Container not found');
     rawLabelText = container.containerLabel || 'Container';
-    subText = escapeXml(container.id);
+    subText = container.id;
   }
-  labelText = escapeXml(rawLabelText);
 
-  // 2. Create Label record
-  const labelRecord = await pb.collection('Labels').create({
-    type: targetType,
-    item: targetType === 'item' ? targetId : undefined,
-    container: targetType === 'container' ? targetId : undefined,
-    format: format,
-    data: { generated: new Date().toISOString() },
-  });
+  // 2. Pre-generate the record id. Labels are immutable (updateRule: null),
+  // and the rendered SVG embeds its own record id, so the id must exist
+  // before rendering and the record is created afterwards in one shot.
+  const labelId = generateLabelId();
 
   // 3. Generate QR Code
   // The QR code content will point to the webapp URL for this object
@@ -83,46 +64,98 @@ export async function generateLabel({
     },
   });
 
-  // 4. Generate full label SVG based on format
-  // This is a simple template engine
+  // 4. Generate full label SVG based on format.
+  // Every text run goes through fitTextLines/renderTextElement, which wrap,
+  // ellipsize and hard-clamp (SVG textLength) so no input string can escape
+  // the fixed viewBox.
   let fullSvg = '';
 
   if (format === 'shipping-4x6') {
-    // 4" x 6" label (approx 384x576 px at 96dpi, or use mm)
-    // We'll use a viewBox for scaling
+    // 4" x 6" label. viewBox 0 0 400 600; border rect spans 10..390 x 10..590.
+    const nameText = renderTextElement(
+      fitTextLines(rawLabelText, {
+        maxWidth: 360,
+        fontSize: 20,
+        bold: true,
+        maxLines: 2,
+      }),
+      {
+        x: 200,
+        yPositions: [355, 381],
+        fontSize: 20,
+        bold: true,
+        anchor: 'middle',
+      }
+    );
+    const subTextEl = renderTextElement(
+      fitTextLines(subText, { maxWidth: 360, fontSize: 14 }),
+      {
+        x: 200,
+        yPositions: [410],
+        fontSize: 14,
+        anchor: 'middle',
+        fill: '#666',
+      }
+    );
+    const labelIdEl = renderTextElement(
+      fitTextLines(`Label ID: ${labelId}`, { maxWidth: 360, fontSize: 12 }),
+      { x: 200, yPositions: [550], fontSize: 12, anchor: 'middle' }
+    );
     fullSvg = `
        <svg viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg" style="background: white;">
          <rect x="10" y="10" width="380" height="580" fill="none" stroke="black" stroke-width="2"/>
          <text x="200" y="50" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" font-weight="bold">INVENTORY LABEL</text>
-         <text x="200" y="90" font-family="Arial, sans-serif" font-size="18" text-anchor="middle">${targetType.toUpperCase()}</text>
+         <text x="200" y="90" font-family="Arial, sans-serif" font-size="18" text-anchor="middle">${escapeXml(targetType.toUpperCase())}</text>
 
          <g transform="translate(100, 120)">
            ${qrSvg.replace('<svg', '<svg width="200" height="200"')}
          </g>
 
-         <text x="200" y="360" font-family="Arial, sans-serif" font-size="20" text-anchor="middle" font-weight="bold">${labelText}</text>
-         <text x="200" y="390" font-family="Arial, sans-serif" font-size="14" text-anchor="middle" fill="#666">${subText}</text>
-         <text x="200" y="550" font-family="Arial, sans-serif" font-size="12" text-anchor="middle">Label ID: ${labelRecord.id}</text>
+         ${nameText}
+         ${subTextEl}
+         ${labelIdEl}
        </svg>
      `;
   } else if (format === 'address-30x100') {
-    // 30mm x 100mm
-    // Truncate before escaping to avoid cutting entities
-    const shortLabel = escapeXml(rawLabelText.substring(0, 15));
+    // 30mm x 100mm. viewBox 0 0 400 120; QR occupies 10..110, text starts at
+    // x=120 with a 10-unit right margin (maxWidth 270).
+    const nameText = renderTextElement(
+      fitTextLines(rawLabelText, { maxWidth: 270, fontSize: 24, bold: true }),
+      { x: 120, yPositions: [40], fontSize: 24, bold: true }
+    );
+    const subTextEl = renderTextElement(
+      fitTextLines(subText, { maxWidth: 270, fontSize: 16 }),
+      { x: 120, yPositions: [70], fontSize: 16, fill: '#666' }
+    );
+    const labelIdEl = renderTextElement(
+      fitTextLines(`ID: ${labelId}`, { maxWidth: 270, fontSize: 10 }),
+      { x: 120, yPositions: [100], fontSize: 10 }
+    );
     fullSvg = `
        <svg viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg" style="background: white;">
          <g transform="translate(10, 10)">
            ${qrSvg.replace('<svg', '<svg width="100" height="100"')}
          </g>
-         <text x="120" y="40" font-family="Arial, sans-serif" font-size="24" font-weight="bold">${shortLabel}</text>
-         <text x="120" y="70" font-family="Arial, sans-serif" font-size="16" fill="#666">${subText}</text>
-         <text x="120" y="100" font-family="Arial, sans-serif" font-size="10">ID: ${labelRecord.id}</text>
+         ${nameText}
+         ${subTextEl}
+         ${labelIdEl}
        </svg>
      `;
   } else {
     // QR Only
     fullSvg = qrSvg;
   }
+
+  // 5. Create the Label record last, storing the rendered SVG. A failure here
+  // propagates to the route's 500 handler with no record written.
+  const labelMutator = new LabelMutator(pb);
+  const labelRecord = await labelMutator.create({
+    id: labelId,
+    ItemRef: targetType === 'item' ? targetId : undefined,
+    ContainerRef: targetType === 'container' ? targetId : undefined,
+    format: format,
+    data: fullSvg,
+  });
 
   return {
     svg: fullSvg,

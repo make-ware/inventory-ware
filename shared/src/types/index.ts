@@ -11,6 +11,7 @@ import {
   type ContainerImagesResponse,
   type ItemRecordsResponse,
   type ContainerRecordsResponse,
+  type LabelsResponse,
   type TypedPocketBase as GeneratedTypedPocketBase,
 } from '../pocketbase-types.js';
 
@@ -24,6 +25,7 @@ export type {
   ContainerImagesResponse,
   ItemRecordsResponse,
   ContainerRecordsResponse,
+  LabelsResponse,
 };
 import { UserInputSchema } from '../schema/user.js';
 import { ImageInputSchema, ImageUpdateSchema } from '../schema/image.js';
@@ -36,6 +38,7 @@ import {
   ContainerInputSchema,
   ContainerUpdateSchema,
 } from '../schema/container.js';
+import { LabelInputSchema, LabelUpdateSchema } from '../schema/label.js';
 import { ImageMetadataInputSchema } from '../schema.js';
 
 // Auth Schemas (moved from schema/user.ts)
@@ -76,6 +79,10 @@ export type ItemAttribute = z.infer<typeof ItemAttributeSchema>;
 export type Container = ContainersResponse;
 export type ContainerInput = z.infer<typeof ContainerInputSchema>;
 export type ContainerUpdate = z.infer<typeof ContainerUpdateSchema>;
+
+export type Label = LabelsResponse;
+export type LabelInput = z.infer<typeof LabelInputSchema>;
+export type LabelUpdate = z.infer<typeof LabelUpdateSchema>;
 
 export type ItemImageMapping = ItemImagesResponse;
 export type ContainerImageMapping = ContainerImagesResponse;

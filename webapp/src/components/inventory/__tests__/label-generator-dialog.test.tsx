@@ -79,9 +79,13 @@ describe('LabelGeneratorDialog', () => {
     );
   });
 
-  it('surfaces an error toast when the request fails', async () => {
+  it('surfaces the server-provided reason in the error toast', async () => {
     const { toast } = await import('sonner');
-    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: 'Unauthorized', reason: 'token expired' }),
+    });
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -89,7 +93,29 @@ describe('LabelGeneratorDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /^generate$/i }));
 
     await waitFor(() =>
-      expect(toast.error).toHaveBeenCalledWith('Failed to generate label')
+      expect(toast.error).toHaveBeenCalledWith(
+        'Failed to generate label (401): token expired'
+      )
+    );
+  });
+
+  it('still reports the status when the error body is unreadable', async () => {
+    const { toast } = await import('sonner');
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => {
+        throw new Error('no body');
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    renderDialog();
+    fireEvent.click(screen.getByRole('button', { name: /^generate$/i }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to generate label (404)')
     );
   });
 });

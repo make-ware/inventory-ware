@@ -12,7 +12,7 @@ const log = createLogger('api-next/labels/generate');
 const requestSchema = z.object({
   targetId: z.string(),
   targetType: z.enum(['item', 'container']),
-  format: z.string(),
+  format: z.enum(['shipping-4x6', 'address-30x100', 'qr-only']),
 });
 
 export async function POST(req: NextRequest) {
@@ -22,7 +22,10 @@ export async function POST(req: NextRequest) {
     await authenticateAsUser(pb, req);
   } catch (e) {
     log.warn('authentication failed', { reason: errorMessage(e) });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return NextResponse.json(
+      { error: 'Unauthorized', reason: errorMessage(e) },
+      { status: 401 }
+    );
   }
 
   try {
