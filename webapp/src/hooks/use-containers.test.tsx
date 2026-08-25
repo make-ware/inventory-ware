@@ -36,6 +36,7 @@ import {
   useContainersInfinite,
   useContainer,
   useItemsByContainer,
+  useContainersByImage,
 } from './use-containers';
 
 beforeEach(() => {
@@ -230,6 +231,35 @@ describe('useItemsByContainer', () => {
     });
 
     await waitFor(() => expect(result.current.items).toEqual([]));
+    expect(getList).not.toHaveBeenCalled();
+  });
+});
+
+describe('useContainersByImage', () => {
+  it('filters through the mutator, never a string built here', async () => {
+    getList.mockResolvedValue({
+      page: 1,
+      perPage: 100,
+      totalItems: 1,
+      totalPages: 1,
+      items: [{ id: 'c1' }],
+    });
+
+    const { result } = renderHook(() => useContainersByImage('img1'), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.containers).toHaveLength(1));
+    expect(lastListOptions().filter).toContain('ImageRef="img1"');
+    expect(result.current.totalItems).toBe(1);
+  });
+
+  it('stays idle without an image id', async () => {
+    const { result } = renderHook(() => useContainersByImage(undefined), {
+      wrapper,
+    });
+
+    await waitFor(() => expect(result.current.containers).toEqual([]));
     expect(getList).not.toHaveBeenCalled();
   });
 });

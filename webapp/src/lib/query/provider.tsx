@@ -3,11 +3,11 @@
 /**
  * App-wide TanStack Query provider.
  *
- * Mounted in `app/layout.tsx` above every other provider so that
- * `InventoryProvider` (and the inventory pages under it) can consume the query
- * cache. The whole tree below stays client-only — see `docs/PB_SSR.md`: this app
- * deliberately does not fetch PocketBase data during server rendering, so there
- * is nothing to dehydrate/hydrate here.
+ * Mounted in `app/layout.tsx` above every other provider, so the auth and
+ * upload contexts and every page under them consume one cache. The whole tree
+ * below stays client-only — see `docs/PB_SSR.md`: this app deliberately does
+ * not fetch PocketBase data during server rendering, so there is nothing to
+ * dehydrate/hydrate here.
  *
  * Cache defaults (and the reasoning for `refetchOnWindowFocus: false`) live in
  * `./client`.

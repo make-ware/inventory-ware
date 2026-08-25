@@ -1,11 +1,16 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { ImageWithLoader } from '@/components/image/image-with-loader';
 import pb from '@/lib/pocketbase-client';
-import { ImageMutator, ItemMutator, ContainerMutator } from '@project/shared';
-import type { Image, Item, Container } from '@project/shared';
+import { ImageMutator } from '@project/shared';
+import { getImageFileUrl } from '@/lib/image-utils';
+import { qk } from '@/lib/query';
+import { useImage } from '@/hooks/use-images';
+import { useItemsByImage } from '@/hooks/use-items';
+import { useContainersByImage } from '@/hooks/use-containers';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,95 +35,65 @@ export default function ImageDetailPage() {
   const router = useRouter();
   const params = useParams();
   const imageId = params.id as string;
+  const queryClient = useQueryClient();
 
-  const [image, setImage] = useState<Image | null>(null);
-  const [item, setItem] = useState<Item | null>(null);
-  const [container, setContainer] = useState<Container | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  // Set the moment the delete lands, so the "image is gone" the invalidation
+  // below turns up reads as the delete rather than as a failed load.
+  const [isDeleted, setIsDeleted] = useState(false);
   const { confirm } = useConfirm();
 
-  const imageMutator = new ImageMutator(pb);
-  const itemMutator = new ItemMutator(pb);
-  const containerMutator = new ContainerMutator(pb);
+  const imageMutator = useMemo(() => new ImageMutator(pb), []);
 
-  const loadImageDetails = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  // The record, and what analysis made of it, all read from the query cache:
+  // arriving from the grid repaints from the row that was just on screen, and
+  // `useImage` keeps polling on its own while the status says `processing`.
+  const { image, isPending, isError, isMissing } = useImage(imageId);
+  const { items } = useItemsByImage(imageId);
+  const { containers } = useContainersByImage(imageId);
 
-      // Load image
-      const imageData = await imageMutator.getById(imageId);
-      if (!imageData) {
-        throw new Error('Image not found');
-      }
-      setImage(imageData);
+  // Analysis creates at most one of each per image, and the page only offers a
+  // link to it.
+  const item = items[0] ?? null;
+  const container = containers[0] ?? null;
 
-      // Find associated item by querying items with this image as ImageRef
-      try {
-        const items = await itemMutator.getList(
-          1,
-          100,
-          `ImageRef="${imageId}"`
-        );
-        if (items.items.length > 0) {
-          setItem(items.items[0]);
-        }
-      } catch (error) {
-        console.error('Failed to load item:', error);
-      }
-
-      // Find associated container by querying containers with this image as ImageRef
-      try {
-        const containers = await containerMutator.getList(
-          1,
-          100,
-          `ImageRef="${imageId}"`
-        );
-        if (containers.items.length > 0) {
-          setContainer(containers.items[0]);
-        }
-      } catch (error) {
-        console.error('Failed to load container:', error);
-      }
-    } catch (error) {
-      console.error('Failed to load image details:', error);
-      toast.error('Failed to load image details');
-      router.push('/inventory/images');
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageId, router]);
-
+  // A missing image and a failed request are the same dead end here: there is
+  // no page to render, so say so once and go back to the grid.
+  const isImageUnavailable = !isDeleted && (isError || isMissing);
   useEffect(() => {
-    loadImageDetails();
-  }, [loadImageDetails]);
-
-  // Poll for status updates if image is processing
-  useEffect(() => {
-    if (image?.analysisStatus !== 'processing') return;
-
-    const intervalId = setInterval(() => {
-      loadImageDetails();
-    }, 3000); // Poll every 3 seconds
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [image?.analysisStatus, loadImageDetails]);
+    if (!isImageUnavailable) return;
+    toast.error('Failed to load image details');
+    router.push('/inventory/images');
+  }, [isImageUnavailable, router]);
 
   const handleDelete = async () => {
     if (!(await confirm('Are you sure you want to delete this image?'))) return;
 
     try {
       await imageMutator.delete(imageId);
+      setIsDeleted(true);
       toast.success('Image deleted successfully');
       router.push('/inventory/images');
+      // The detail key lives under the images prefix, so this drops it with the
+      // grid — which is what we want, since the record is gone.
+      await queryClient.invalidateQueries({ queryKey: qk.imagesPrefix() });
     } catch (error) {
       console.error('Failed to delete image:', error);
       toast.error('Failed to delete image');
     }
   };
+
+  /** Everything a (re-)analysis can have rewritten. */
+  const invalidateAnalysis = useCallback(
+    () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: qk.imagesPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.itemsPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.containersPrefix() }),
+        queryClient.invalidateQueries({ queryKey: qk.categoriesPrefix() }),
+      ]),
+    [queryClient]
+  );
 
   const handleProcessImage = async () => {
     if (!image) return;
@@ -143,7 +118,7 @@ export default function ImageDetailPage() {
       }
 
       toast.success('Image processed successfully!');
-      await loadImageDetails();
+      await invalidateAnalysis();
     } catch (error) {
       console.error('Failed to process image:', error);
       toast.error(
@@ -154,10 +129,6 @@ export default function ImageDetailPage() {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const getImageUrl = (image: Image): string => {
-    return imageMutator.getFileUrl(image);
   };
 
   const getStatusColor = (status: string) => {
@@ -203,7 +174,7 @@ export default function ImageDetailPage() {
     }
   };
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -294,7 +265,7 @@ export default function ImageDetailPage() {
             <CardContent>
               <div className="relative aspect-square rounded-lg overflow-hidden border bg-muted">
                 <ImageWithLoader
-                  src={getImageUrl(image)}
+                  src={getImageFileUrl(image)}
                   alt="Image"
                   fill
                   sizes="(max-width: 1024px) 100vw, 66vw"

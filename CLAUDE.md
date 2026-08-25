@@ -136,7 +136,18 @@ the one compound write, and the order is load-bearing: read *all* of its items,
 clear each `ContainerRef` (with `''`; an `undefined` field never reaches
 PocketBase's JSON body), then delete the record — PocketBase does not cascade.
 
-**Context providers.** `webapp/src/contexts/auth-context.tsx`, `inventory-context.tsx`, and `upload-context.tsx` provide app-wide state. The upload context owns the multi-file upload queue (including clearing/cancelling) surfaced by `components/inventory/upload-tracker.tsx`, and invalidates the item/container/image keys once an upload's analysis lands. The inventory context keeps no records and no mutations — what is left of it is the `/api-next/process-image` entry point.
+**Context providers.** Two are left: `webapp/src/contexts/auth-context.tsx` and
+`upload-context.tsx`. The upload context owns the multi-file upload queue
+(including clearing/cancelling) surfaced by
+`components/inventory/upload-tracker.tsx`, and invalidates the
+item/container/image keys once an upload's analysis lands. There is no
+inventory context — every record a page shows now comes from a query hook in
+`webapp/src/hooks/` and every write from a mutation hook, so a page holds no
+`useState` copy of a list and no `window` event tells it to reload. Detail
+pages read through the same layer: `useItem`/`useContainer`/`useImage` for the
+record, and `useItemsByContainer`/`useItemsByImage`/`useContainersByImage` for
+what hangs off it. Adding a page means adding (or reusing) a hook, not a
+provider.
 
 ## Environment
 

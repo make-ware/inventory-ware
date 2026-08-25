@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * TanStack Query bindings for Containers, plus the two detail-page reads that
- * hang off a container (the container itself and the items inside it).
+ * TanStack Query bindings for Containers, plus the detail-page reads that hang
+ * off one: the container itself, the items inside it, and the containers an
+ * image was analysed into.
  *
  * Paging is done by PocketBase, not by slicing a client-side array: each
  * `useInfiniteQuery` page is one `Containers` list request, so `totalPages`
@@ -39,6 +40,9 @@ export const CONTAINERS_PER_PAGE = 12;
 
 /** Stable empty window, so a withheld query does not hand out a new array each render. */
 const EMPTY_PAGES: never[] = [];
+
+/** Stable empty result, for the same reason. */
+const EMPTY_CONTAINERS: Container[] = [];
 
 export interface UseContainersInfiniteOptions {
   /** Authenticated user id; the query stays idle while this is null. */
@@ -215,5 +219,31 @@ export function useItemsByContainer(containerId: string | null | undefined) {
     isError: query.isError,
     error: query.error,
     refetch: query.refetch,
+  };
+}
+
+/**
+ * The containers analysis filed against one image.
+ *
+ * The container half of `useItemsByImage` — same shape, same reasoning, and
+ * the same `filters.image` built inside `ContainerMutator`.
+ */
+export function useContainersByImage(imageId: string | null | undefined) {
+  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
+
+  const query = useQuery({
+    queryKey: qk.containersByImage(imageId ?? ''),
+    queryFn: () =>
+      containerMutator.search('', { filters: { image: imageId as string } }),
+    enabled: !!imageId,
+  });
+
+  return {
+    containers: query.data?.items ?? EMPTY_CONTAINERS,
+    totalItems: query.data?.totalItems ?? 0,
+    isPending: query.isPending,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    error: query.error,
   };
 }

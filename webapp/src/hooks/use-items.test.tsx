@@ -32,7 +32,12 @@ vi.mock('@/lib/pocketbase-client', () => ({
   },
 }));
 
-import { useItemsInfinite, useItem, useAllItems } from './use-items';
+import {
+  useItemsInfinite,
+  useItem,
+  useAllItems,
+  useItemsByImage,
+} from './use-items';
 import { qk } from '@/lib/query';
 
 beforeEach(() => {
@@ -241,6 +246,37 @@ describe('useAllItems', () => {
 
   it('stays idle until there is an authenticated user', async () => {
     const { result } = renderHook(() => useAllItems(null), { wrapper });
+
+    await waitFor(() => expect(result.current.items).toEqual([]));
+    expect(getList).not.toHaveBeenCalled();
+  });
+});
+
+describe('useItemsByImage', () => {
+  beforeEach(() => {
+    getList.mockReset();
+  });
+
+  it('filters through the mutator, never a string built here', async () => {
+    getList.mockResolvedValue({
+      page: 1,
+      perPage: 100,
+      totalItems: 1,
+      totalPages: 1,
+      items: [{ id: 'i1' }],
+    });
+
+    const { result } = renderHook(() => useItemsByImage('img1'), { wrapper });
+
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    expect(lastListOptions().filter).toContain('ImageRef="img1"');
+    expect(result.current.totalItems).toBe(1);
+  });
+
+  it('stays idle without an image id', async () => {
+    const { result } = renderHook(() => useItemsByImage(undefined), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.items).toEqual([]));
     expect(getList).not.toHaveBeenCalled();

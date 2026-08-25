@@ -44,6 +44,9 @@ export const ITEMS_PER_PAGE = 12;
 /** Stable empty window, so a withheld query does not hand out a new array each render. */
 const EMPTY_PAGES: never[] = [];
 
+/** Stable empty result, for the same reason. */
+const EMPTY_ITEMS: Item[] = [];
+
 export interface UseItemsInfiniteOptions {
   /** Authenticated user id; the query stays idle while this is null. */
   userId: string | null;
@@ -253,6 +256,34 @@ export function useAllItems(userId: string | null) {
   return {
     items: query.data?.items ?? [],
     isPending: query.isPending,
+    isError: query.isError,
+    error: query.error,
+  };
+}
+
+/**
+ * The items analysis filed against one image.
+ *
+ * An image carries at most a handful of these, so it is one unpaged request
+ * rather than a window — but `totalItems` still comes back with it, so a
+ * caller that wants a count does not have to trust `items.length`. The filter
+ * is `ItemMutator`'s (`filters.image`), never a string assembled here.
+ */
+export function useItemsByImage(imageId: string | null | undefined) {
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
+
+  const query = useQuery({
+    queryKey: qk.itemsByImage(imageId ?? ''),
+    queryFn: () =>
+      itemMutator.search('', { filters: { image: imageId as string } }),
+    enabled: !!imageId,
+  });
+
+  return {
+    items: query.data?.items ?? EMPTY_ITEMS,
+    totalItems: query.data?.totalItems ?? 0,
+    isPending: query.isPending,
+    isFetching: query.isFetching,
     isError: query.isError,
     error: query.error,
   };

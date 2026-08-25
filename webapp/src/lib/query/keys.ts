@@ -44,6 +44,8 @@ export const qk = {
   itemById: (id: string) => ['item', id] as const,
   itemsByContainer: (containerId: string) =>
     ['items', 'byContainer', containerId] as const,
+  /** The items analysis filed against one image; see the image detail page. */
+  itemsByImage: (imageId: string) => ['items', 'byImage', imageId] as const,
 
   /** Prefix covering every containers list key; invalidate this after a write. */
   containersPrefix: () => ['containers'] as const,
@@ -55,10 +57,24 @@ export const qk = {
   containersInfinite: (userId: string, options: ContainersListOptions) =>
     ['containers', 'infinite', userId, options] as const,
   containerById: (id: string) => ['container', id] as const,
+  /** The containers analysis filed against one image. */
+  containersByImage: (imageId: string) =>
+    ['containers', 'byImage', imageId] as const,
 
   /** Prefix covering every images key; invalidate this after an upload. */
   imagesPrefix: () => ['images'] as const,
   images: (userId: string) => ['images', userId] as const,
+  /**
+   * One image, deliberately *under* the images prefix rather than beside it
+   * like `itemById`/`containerById`.
+   *
+   * Every write path that touches an image already invalidates
+   * `imagesPrefix()` (the upload queue, the grid's delete, a re-analysis), and
+   * there is no per-image equivalent of `invalidateItemCaches(qc, ids)` to
+   * carry the id along — so keeping the detail under the prefix is what makes
+   * an open detail page follow those invalidations.
+   */
+  imageById: (id: string) => ['images', 'byId', id] as const,
 
   /** Prefix covering the category library; invalidate it after an item write. */
   categoriesPrefix: () => ['categories'] as const,

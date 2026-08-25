@@ -187,7 +187,10 @@ function ImagesPageContent() {
     setCurrentPage(newPage);
   }, []);
 
-  // Pagination
+  // Paging is a slice here, not a request per page like the items and
+  // containers grids: the free-text box matches on filename and id, which
+  // `ImageMutator` has no server-side filter for, so the whole library is
+  // fetched once (capped by `IMAGES_FETCH_LIMIT`) and narrowed in memory.
   const paginatedImages = filteredImages.slice(
     (currentPage - 1) * IMAGES_PER_PAGE,
     currentPage * IMAGES_PER_PAGE

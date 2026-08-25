@@ -4,6 +4,7 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const getList = vi.fn();
+const getOne = vi.fn();
 
 /** See use-items.test.tsx for the shape; `emit` replays an SSE event. */
 const unsubscribe = vi.fn();
@@ -21,11 +22,11 @@ const emit = (action: string, record: Record<string, unknown>) => {
 
 vi.mock('@/lib/pocketbase-client', () => ({
   default: {
-    collection: () => ({ getList, subscribe }),
+    collection: () => ({ getList, getOne, subscribe }),
   },
 }));
 
-import { useImages, IMAGES_FETCH_LIMIT } from './use-images';
+import { useImage, useImages, IMAGES_FETCH_LIMIT } from './use-images';
 import { qk } from '@/lib/query';
 
 beforeEach(() => {
@@ -105,6 +106,51 @@ describe('useImages', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('useImage', () => {
+  beforeEach(() => {
+    getList.mockReset();
+    getOne.mockReset();
+  });
+
+  it('paints from the cached grid row instead of waiting on a read', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    client.setQueryData(qk.images('u1'), makeList([{ id: 'a' }]));
+
+    const { result } = renderHook(() => useImage('a'), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    });
+
+    // The row was already on screen on the grid, so there is nothing to spin
+    // for — the background refetch settles the copy afterwards.
+    expect(result.current.isPending).toBe(false);
+    expect(result.current.image).toMatchObject({ id: 'a' });
+    await waitFor(() => expect(result.current.isFetching).toBe(false));
+  });
+
+  it('reports an id PocketBase has no record for as missing, not failed', async () => {
+    getOne.mockRejectedValue(
+      Object.assign(new Error('not found'), { status: 404 })
+    );
+
+    const { result } = renderHook(() => useImage('gone'), { wrapper });
+
+    await waitFor(() => expect(result.current.isMissing).toBe(true));
+    expect(result.current.isError).toBe(false);
+    expect(result.current.image).toBeNull();
+  });
+
+  it('stays idle without an image id', async () => {
+    const { result } = renderHook(() => useImage(null), { wrapper });
+
+    await waitFor(() => expect(result.current.image).toBeNull());
+    expect(getOne).not.toHaveBeenCalled();
   });
 });
 

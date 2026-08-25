@@ -42,9 +42,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {/*
-            QueryProvider sits above every data provider (including the
-            InventoryProvider mounted in app/inventory/layout.tsx) so they can
-            all read the same cache. Defaults live in @/lib/query/client.
+            QueryProvider sits above every other provider — and above every
+            page — so the whole tree reads one cache. Defaults live in
+            @/lib/query/client.
           */}
           <QueryProvider>
             <AuthProvider>

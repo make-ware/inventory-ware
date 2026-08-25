@@ -23,7 +23,7 @@ import { ImageMutator, eq } from '@project/shared';
 import type { Image } from '@project/shared';
 import type { ListResult, RecordSubscription } from 'pocketbase';
 import pb from '@/lib/pocketbase-client';
-import { qk } from '@/lib/query';
+import { qk, seedFromListCache } from '@/lib/query';
 import { useRealtimeSubscription } from '@/hooks/use-realtime-subscription';
 import { applyPageEvent, type LiveListSpec } from '@/lib/live-list';
 import { buildSortSpec } from '@/lib/live-list-spec';
@@ -117,6 +117,49 @@ export function useImages(userId: string | null) {
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+/**
+ * One image, seeded from whichever list already holds it.
+ *
+ * The detail page's own reason to re-read is the same one the grid has: an
+ * image left `processing` flips to `completed` out of band, and neither the
+ * flip nor the items it created come back through the POST that started it.
+ * The grid's SSE subscription covers the case where both are mounted; this
+ * query keeps the poll so a detail page opened on its own still settles.
+ */
+export function useImage(imageId: string | null | undefined) {
+  const imageMutator = useMemo(() => new ImageMutator(pb), []);
+  const queryClient = useQueryClient();
+
+  // Looked up on every render rather than memoised: `initialData` is consulted
+  // only while the key holds nothing — see `seedFromListCache`.
+  const seed = imageId
+    ? seedFromListCache<Image>(queryClient, qk.imagesPrefix(), imageId)
+    : undefined;
+
+  const query = useQuery({
+    queryKey: qk.imageById(imageId ?? ''),
+    queryFn: () => imageMutator.getById(imageId as string),
+    enabled: !!imageId,
+    initialData: seed?.data,
+    initialDataUpdatedAt: seed?.updatedAt,
+    refetchInterval: (query) =>
+      query.state.data?.analysisStatus === 'processing'
+        ? PROCESSING_POLL_MS
+        : false,
+  });
+
+  return {
+    image: query.data ?? null,
+    isPending: query.isPending,
+    isFetching: query.isFetching,
+    isError: query.isError,
+    /** The request succeeded and PocketBase has no such image. */
+    isMissing: query.isSuccess && query.data === null,
     error: query.error,
     refetch: query.refetch,
   };
