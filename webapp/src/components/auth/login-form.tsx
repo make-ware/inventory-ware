@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { LoginSchema } from '@project/shared';
 import type { LoginData } from '@project/shared';
 import { useAuth } from '@/hooks/use-auth';
+import { readReturnUrl, sanitizeReturnUrl } from '@/lib/auth/return-url';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,12 +50,12 @@ export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
       if (onSuccess) {
         onSuccess();
       } else {
-        // Check for return URL from query parameters (for post-login redirect)
-        const returnUrl = searchParams.get('returnUrl');
-        const destination = returnUrl
-          ? decodeURIComponent(returnUrl)
-          : redirectTo || '/';
-        router.push(destination);
+        // The page passes the destination down, but the form is also mounted
+        // on its own, so it falls back to reading the query string itself.
+        const destination = redirectTo
+          ? sanitizeReturnUrl(redirectTo)
+          : readReturnUrl(searchParams);
+        router.replace(destination);
       }
     } catch (error: unknown) {
       console.error('Login failed:', error);

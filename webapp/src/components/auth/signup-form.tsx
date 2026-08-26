@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { RegisterSchema } from '@project/shared';
 import type { RegisterData } from '@project/shared';
 import { useAuth } from '@/hooks/use-auth';
+import { sanitizeReturnUrl } from '@/lib/auth/return-url';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -79,10 +80,10 @@ export function SignupForm({ onSuccess, redirectTo }: SignupFormProps) {
 
       if (onSuccess) {
         onSuccess();
-      } else if (redirectTo) {
-        window.location.href = redirectTo;
       } else {
-        window.location.href = '/';
+        // Same destination rule as the login form, so a visitor bounced off a
+        // protected page lands there whichever way they authenticate.
+        window.location.href = sanitizeReturnUrl(redirectTo);
       }
     } catch (error: unknown) {
       console.error('Signup failed:', error);

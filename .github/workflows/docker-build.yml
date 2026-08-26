@@ -188,7 +188,7 @@ jobs:
           cache-from: type=gha,scope=monolith
           cache-to: type=gha,mode=max,scope=monolith
           build-args: |
-            POCKETBASE_VERSION=0.35.0
+            POCKETBASE_VERSION=0.39.9
 
       # Compose the Docker Hub overview from only the most recent release
       # section of the changelog. Pushing the full changelog would eventually
@@ -349,7 +349,7 @@ jobs:
           cache-from: type=gha,scope=webapp
           cache-to: type=gha,mode=max,scope=webapp
           build-args: |
-            POCKETBASE_VERSION=0.35.0
+            POCKETBASE_VERSION=0.39.9
 
       - name: Generate build summary
         run: |
@@ -471,7 +471,7 @@ jobs:
           cache-from: type=gha,scope=pocketbase
           cache-to: type=gha,mode=max,scope=pocketbase
           build-args: |
-            POCKETBASE_VERSION=0.35.0
+            POCKETBASE_VERSION=0.39.9
 
       - name: Generate build summary
         run: |

@@ -1,43 +1,34 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 import { ProfileForm } from '@/components/auth/profile-form';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function ProfilePage() {
-  const { user, isLoading, isAuthenticated } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login?redirect=/profile');
-    }
-  }, [isLoading, isAuthenticated, router]);
-
-  // Show loading state while checking authentication
-  if (isLoading) {
-    return (
-      <div className="container py-8 max-w-2xl">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <div className="space-y-4">
-            <Skeleton className="h-32 w-full" />
-            <Skeleton className="h-32 w-full" />
-          </div>
+function ProfileSkeleton() {
+  return (
+    <div className="container py-8 max-w-2xl">
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  // Don't render anything if not authenticated (will redirect)
-  if (!isAuthenticated || !user) {
-    return null;
+function ProfileContent() {
+  const { user } = useAuth();
+
+  // ProtectedRoute has already settled `isLoading` and `isAuthenticated`; this
+  // only covers the window where the record itself has not landed yet.
+  if (!user) {
+    return <ProfileSkeleton />;
   }
 
   return (
@@ -53,5 +44,13 @@ export default function ProfilePage() {
         <ProfileForm />
       </div>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <ProtectedRoute fallback={<ProfileSkeleton />}>
+      <ProfileContent />
+    </ProtectedRoute>
   );
 }

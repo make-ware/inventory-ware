@@ -6,7 +6,7 @@ const https = require('https');
 const crypto = require('crypto');
 const { execSync, execFileSync } = require('child_process');
 
-const POCKETBASE_VERSION = '0.35.0'; // Latest stable version as of 2024
+const POCKETBASE_VERSION = '0.39.9'; // Keep in sync with docker/Dockerfile and .github/workflows/docker-build.yml
 
 // Where a generated superuser credential is kept. Inside pb_data on purpose:
 // it only describes that database, so `rm -rf pocketbase/pb_data` takes the
@@ -74,6 +74,18 @@ function downloadFile(url, dest) {
   });
 }
 
+// `pocketbase --version` prints e.g. "pocketbase version 0.39.9". Returns null
+// when the binary cannot be run at all, which is the corrupted-download case.
+function readInstalledVersion(executablePath) {
+  try {
+    const output = execFileSync(executablePath, ['--version'], { encoding: 'utf8' });
+    const match = output.match(/(\d+\.\d+\.\d+)/);
+    return match ? match[1] : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function setupPocketBase() {
   try {
     const { platform, arch } = getPlatformInfo();
@@ -97,14 +109,20 @@ async function setupPocketBase() {
 
     // Check if PocketBase is already installed
     if (fs.existsSync(executablePath)) {
-      console.log('✅ PocketBase is already installed');
+      // A pinned version that disagrees with what is on disk has to win here.
+      // The binary is gitignored, so if this returned early on any existing
+      // binary, bumping POCKETBASE_VERSION would never reach a checkout that
+      // had already run setup once.
+      const installed = readInstalledVersion(executablePath);
 
-      // Check version
-      try {
-        const version = execSync(`cd ${pbDir} && ./${executableName} --version`, { encoding: 'utf8' });
-        console.log(`Current version: ${version.trim()}`);
+      if (installed === POCKETBASE_VERSION) {
+        console.log(`✅ PocketBase v${installed} is already installed`);
         return;
-      } catch (err) {
+      }
+
+      if (installed) {
+        console.log(`⬆️  Upgrading PocketBase v${installed} → v${POCKETBASE_VERSION}...`);
+      } else {
         console.log('⚠️  Existing PocketBase binary seems corrupted, re-downloading...');
       }
     }

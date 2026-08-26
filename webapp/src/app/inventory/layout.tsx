@@ -4,6 +4,7 @@ import { ReactNode, Suspense } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { InventoryUploadBar } from '@/components/inventory/inventory-upload-bar';
+import { ProtectedRoute } from '@/components/auth/protected-route';
 import { cn } from '@/lib/utils';
 import { Package, Box, Image as ImageIcon } from 'lucide-react';
 
@@ -77,18 +78,23 @@ export default function InventoryLayout({ children }: InventoryLayoutProps) {
     pathname !== '/inventory' &&
     !UPLOAD_BAR_HIDDEN_SUFFIXES.some((suffix) => pathname?.endsWith(suffix));
 
+  // Every route under /inventory reads the signed-in user's records, so the
+  // guard sits here rather than on each page — a page added later is covered
+  // without having to remember it.
   return (
-    <div className="min-h-screen bg-background">
-      <Suspense fallback={<div className="h-14 border-b bg-background" />}>
-        <InventoryNavigation />
-      </Suspense>
-      {showUploadBar && (
-        <div className="container pt-4 sm:pt-6">
-          <InventoryUploadBar />
-        </div>
-      )}
-      {/* Main content */}
-      <div className="container py-4 sm:py-6">{children}</div>
-    </div>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background">
+        <Suspense fallback={<div className="h-14 border-b bg-background" />}>
+          <InventoryNavigation />
+        </Suspense>
+        {showUploadBar && (
+          <div className="container pt-4 sm:pt-6">
+            <InventoryUploadBar />
+          </div>
+        )}
+        {/* Main content */}
+        <div className="container py-4 sm:py-6">{children}</div>
+      </div>
+    </ProtectedRoute>
   );
 }

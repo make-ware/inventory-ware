@@ -60,7 +60,7 @@ To make a new list live, write its `LiveListSpec` and hand
   What must be exact is the *total* order — `compare` ends in an `id` tiebreak,
   because a `0` is read as "this update did not move the row".
 
-### Verified against PocketBase 0.35
+### Verified against PocketBase 0.39.9
 
 - Collection subscriptions are filtered by the **ListRule**. `Items`,
   `Containers` and `Images` are all `UserRef = @request.auth.id`, so one user
@@ -69,6 +69,11 @@ To make a new list live, write its `LiveListSpec` and hand
   **and** `delete` events all carry the full record with `expand` populated, so
   a live-merged card keeps its thumbnail and `spec.matches` is evaluable on a
   delete. No `mapEvent` normalizer is needed.
+- Since 0.38.2 a connection is closed after an absolute **30 min** lifetime (on
+  top of the pre-existing 5 min idle timeout). The SDK reconnects on its own
+  and re-sends the subscriptions, and the gap-heal invalidation already covers
+  events missed while a connection was down, so neither is a new failure mode —
+  but a reconnect is now routine rather than exceptional.
 
 ## Using Mutators (Recommended)
 

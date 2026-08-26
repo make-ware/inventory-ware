@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { readReturnUrl } from '@/lib/auth/return-url';
 import { SignupForm } from '@/components/auth/signup-form';
 import {
   Card,
@@ -16,12 +17,14 @@ function SignupContent() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/';
+  // Validated here rather than trusted: the destination arrives in a query
+  // string, so an off-origin value would be an open redirect.
+  const redirectTo = readReturnUrl(searchParams);
 
   useEffect(() => {
     // Redirect to home or intended destination if already authenticated
     if (!isLoading && isAuthenticated) {
-      router.push(redirectTo);
+      router.replace(redirectTo);
     }
   }, [isLoading, isAuthenticated, router, redirectTo]);
 

@@ -33,7 +33,7 @@ RUN yarn install --immutable
 # Supports multi-architecture builds via TARGETARCH
 # -----------------------------------------------------------------------------
 FROM base AS pbbin
-ARG POCKETBASE_VERSION=0.35.0
+ARG POCKETBASE_VERSION=0.39.9
 ARG TARGETARCH
 RUN apk add --no-cache unzip curl
 RUN mkdir -p /app/pocketbase && \

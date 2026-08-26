@@ -25,7 +25,7 @@ vi.mock('@/hooks/use-auth', () => ({
 }));
 
 describe('Property Test: Route Protection', () => {
-  const mockPush = vi.fn();
+  const mockReplace = vi.fn();
   const mockUseRouter = vi.mocked(useRouter);
   const mockUsePathname = vi.mocked(usePathname);
   const mockUseAuth = vi.mocked(useAuth);
@@ -33,8 +33,8 @@ describe('Property Test: Route Protection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseRouter.mockReturnValue({
-      push: mockPush,
-      replace: vi.fn(),
+      push: vi.fn(),
+      replace: mockReplace,
       back: vi.fn(),
       forward: vi.fn(),
       refresh: vi.fn(),
@@ -59,7 +59,7 @@ describe('Property Test: Route Protection', () => {
 
     for (const pathname of testPaths) {
       // Reset mocks for each iteration
-      mockPush.mockClear();
+      mockReplace.mockClear();
 
       // Setup: unauthenticated user
       mockUseAuth.mockReturnValue({
@@ -86,7 +86,7 @@ describe('Property Test: Route Protection', () => {
       // Verify redirect to login with return URL
       await waitFor(() => {
         const expectedUrl = `/login?returnUrl=${encodeURIComponent(pathname)}`;
-        expect(mockPush).toHaveBeenCalledWith(expectedUrl);
+        expect(mockReplace).toHaveBeenCalledWith(expectedUrl);
       });
 
       // Verify protected content is not rendered
@@ -159,7 +159,7 @@ describe('Property Test: Route Protection', () => {
       );
 
       // Verify no redirect occurs
-      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
 
       // Verify protected content is rendered
       expect(
@@ -201,7 +201,7 @@ describe('Property Test: Route Protection', () => {
       expect(screen.getByRole('status', { hidden: true })).toBeInTheDocument();
 
       // Verify no redirect occurs during loading
-      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
 
       // Verify protected content is not rendered during loading
       expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
@@ -215,7 +215,7 @@ describe('Property Test: Route Protection', () => {
     const customRedirects = ['/custom-login', '/auth/signin', '/login-page'];
 
     for (const redirectTo of customRedirects) {
-      mockPush.mockClear();
+      mockReplace.mockClear();
 
       // Setup: unauthenticated user
       mockUseAuth.mockReturnValue({
@@ -242,8 +242,38 @@ describe('Property Test: Route Protection', () => {
       // Verify redirect to custom URL with return URL
       await waitFor(() => {
         const expectedUrl = `${redirectTo}?returnUrl=${encodeURIComponent('/protected')}`;
-        expect(mockPush).toHaveBeenCalledWith(expectedUrl);
+        expect(mockReplace).toHaveBeenCalledWith(expectedUrl);
       });
     }
+  });
+  it('preserves the query string of the intended destination', async () => {
+    mockUseAuth.mockReturnValue({
+      userId: null,
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      login: vi.fn(),
+      signup: vi.fn(),
+      logout: vi.fn(),
+      updateProfile: vi.fn(),
+      changePassword: vi.fn(),
+    });
+
+    mockUsePathname.mockReturnValue('/inventory/items');
+    window.history.replaceState({}, '', '/inventory/items?q=drill&page=2');
+
+    render(
+      <ProtectedRoute>
+        <div>Protected Content</div>
+      </ProtectedRoute>
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        `/login?returnUrl=${encodeURIComponent('/inventory/items?q=drill&page=2')}`
+      );
+    });
+
+    window.history.replaceState({}, '', '/');
   });
 });
