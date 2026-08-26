@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.8.0...inventory-ware-v0.9.0) (2026-08-26)
+
+
+### Features
+
+* TanStack Query migration — ship all 7 slices ([c92efdf](https://github.com/make-ware/inventory-ware/commit/c92efdf716fcc343c97d447bf393ef26443807fc))
+* **webapp:** back containers and detail pages with TanStack queries ([97c0d5d](https://github.com/make-ware/inventory-ware/commit/97c0d5d5dea25794a9928ecb128a4050ca13917f))
+* **webapp:** back images and the category library with TanStack queries ([f4f1789](https://github.com/make-ware/inventory-ware/commit/f4f17897aabba98040fa1c7934cd99ab83b3472c))
+* **webapp:** back the items list with a TanStack infinite query ([5024563](https://github.com/make-ware/inventory-ware/commit/50245638703f53282d7ee93520872e27d794dc15))
+* **webapp:** keep the inventory lists live over PocketBase realtime ([3640579](https://github.com/make-ware/inventory-ware/commit/364057913f79c04fcf905f1606b572aaed5d016f))
+* **webapp:** make inventory writes optimistic through TanStack mutations ([b95b39a](https://github.com/make-ware/inventory-ware/commit/b95b39a1d948c20c3b7fe4c1596e20b7373aa7ec))
+
+
+### Bug Fixes
+
+* add protected routes ([a167587](https://github.com/make-ware/inventory-ware/commit/a1675874747318f803d1cabc81548386e223f9e2))
+* **webapp:** restore the async item picker on the container page ([68a54e3](https://github.com/make-ware/inventory-ware/commit/68a54e31b103d3ab185587029016b232481659e8))
+
 ## [0.8.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.7.0...inventory-ware-v0.8.0) (2026-08-25)
 
 
