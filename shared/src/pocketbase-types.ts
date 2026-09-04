@@ -94,6 +94,8 @@ export interface ImageMetadataRecord {
   itemType: string;
   itemName: string;
   itemManufacturer: string;
+  estimatedValue?: number | undefined;
+  estimatedCurrency?: string | undefined;
   itemAttributes: ({
   name: string;
   value: string;
@@ -116,6 +118,8 @@ export interface ImageMetadataRecord {
   itemType: string;
   itemName: string;
   itemManufacturer: string;
+  estimatedValue?: number | undefined;
+  estimatedCurrency?: string | undefined;
   itemAttributes: ({
   name: string;
   value: string;
@@ -205,6 +209,8 @@ export interface ItemsRecord {
   categorySpecific: string;
   itemType: string;
   itemManufacturer?: string;
+  estimatedValue?: number;
+  estimatedCurrency?: string;
   itemAttributes?: ({
   name: string;
   value: string;
@@ -257,6 +263,8 @@ export interface UsersRecord {
   email: string;
   password: any;
   avatar?: string;
+  aiEstimateEnabled?: boolean;
+  aiEstimateCurrency?: string;
   tokenKey: string;
   emailVisibility?: boolean;
   verified?: boolean;

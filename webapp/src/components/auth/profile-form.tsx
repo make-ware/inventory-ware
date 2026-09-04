@@ -27,6 +27,8 @@ import {
 const ProfileUpdateSchema = z.object({
   name: z.string().max(255, 'Name must be less than 255 characters').optional(),
   email: z.string().email('Invalid email address'),
+  aiEstimateEnabled: z.boolean(),
+  aiEstimateCurrency: z.string().length(3),
 });
 
 // Schema for password change
@@ -55,6 +57,8 @@ export function ProfileForm() {
     defaultValues: {
       name: user?.name || '',
       email: user?.email || '',
+      aiEstimateEnabled: user?.aiEstimateEnabled ?? false,
+      aiEstimateCurrency: user?.aiEstimateCurrency || 'USD',
     },
   });
 
@@ -193,6 +197,44 @@ export function ProfileForm() {
                   {profileForm.formState.errors.name.message}
                 </p>
               )}
+            </div>
+
+            <div className="rounded-md border p-4 space-y-4">
+              <div className="flex items-start gap-3">
+                <input
+                  id="aiEstimateEnabled"
+                  type="checkbox"
+                  className="mt-1 h-4 w-4"
+                  {...profileForm.register('aiEstimateEnabled')}
+                  disabled={isUpdatingProfile}
+                />
+                <div>
+                  <Label htmlFor="aiEstimateEnabled">AI value estimates</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Ask the image analysis to estimate an approximate resale value.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="aiEstimateCurrency">Estimate currency</Label>
+                <Input
+                  id="aiEstimateCurrency"
+                  maxLength={3}
+                  {...profileForm.register('aiEstimateCurrency', {
+                    setValueAs: (value: string) => value.toUpperCase(),
+                  })}
+                  placeholder="USD"
+                  disabled={isUpdatingProfile}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Use a three-letter ISO 4217 code, such as USD, CAD, or EUR.
+                </p>
+                {profileForm.formState.errors.aiEstimateCurrency && (
+                  <p className="text-sm text-red-600">
+                    Enter a three-letter currency code.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">

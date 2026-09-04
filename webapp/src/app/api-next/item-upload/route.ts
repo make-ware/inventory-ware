@@ -69,13 +69,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const user = pb.authStore.record as {
+      aiEstimateEnabled?: boolean;
+      aiEstimateCurrency?: string;
+    };
+
     // Create service server-side where env vars are available
     const service = createInventoryService(pb);
 
     // Process the item image upload with metadata enhancement
     // This will verify item ownership and throw if unauthorized
     try {
-      const result = await service.processItemImageUpload(file, itemId, userId);
+      const result = await service.processItemImageUpload(file, itemId, userId, {
+        estimateValue: user.aiEstimateEnabled === true,
+        currency: user.aiEstimateCurrency || 'USD',
+      });
 
       log.info('item image processed', {
         itemId,

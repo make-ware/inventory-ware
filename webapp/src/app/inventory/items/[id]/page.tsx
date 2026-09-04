@@ -162,6 +162,19 @@ export default function ItemDetailPage() {
                 </div>
               )}
 
+              {item.estimatedValue !== undefined && item.estimatedCurrency && (
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Estimated Value</h3>
+                  <p className="text-lg font-semibold">
+                    {item.estimatedCurrency}{' '}
+                    {new Intl.NumberFormat(undefined, {
+                      maximumFractionDigits: 2,
+                    }).format(item.estimatedValue)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Approximate AI estimate</p>
+                </div>
+              )}
+
               <Separator />
 
               <div>

@@ -23,6 +23,8 @@ export const UserInputSchema = z.object({
       'image/webp',
     ],
   }).optional(),
+  aiEstimateEnabled: z.boolean().optional(),
+  aiEstimateCurrency: z.string().length(3).optional(),
 });
 
 // Internal schemas used for defining UserCollection
@@ -49,6 +51,8 @@ const UserCollectionSchema = z.object({
       'image/webp',
     ],
   }).optional(),
+  aiEstimateEnabled: z.boolean().optional(),
+  aiEstimateCurrency: z.string().length(3).optional(),
 });
 
 // Full schema with base fields for type inference

@@ -41,6 +41,8 @@ export const ItemInputSchema = z.object({
     .describe('Item type (e.g., Drill, Arduino)')
     .transform(slugify),
   itemManufacturer: z.string().optional().default(''),
+  estimatedValue: z.number().min(0).optional(),
+  estimatedCurrency: z.string().length(3).optional(),
   // PocketBase returns `null` for unset json columns — tolerate it while
   // preserving the `[]` default (see issue #57).
   itemAttributes: z
@@ -77,6 +79,8 @@ export const ItemUpdateSchema = z.object({
     .transform(slugify)
     .optional(),
   itemManufacturer: z.string().optional(),
+  estimatedValue: z.number().min(0).optional().nullable(),
+  estimatedCurrency: z.string().length(3).optional().nullable(),
   itemAttributes: pbOptional(z.array(ItemAttributeSchema)),
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
@@ -106,6 +110,8 @@ export const ItemSchema = z
       .describe('Item type (e.g., Drill, Arduino)')
       .transform(slugify),
     itemManufacturer: z.string().default(''),
+    estimatedValue: z.number().min(0).optional(),
+    estimatedCurrency: z.string().length(3).optional(),
     itemAttributes: z.array(ItemAttributeSchema).default([]),
     ContainerRef: RelationField({ collection: 'Containers' }).optional(),
     ImageRef: RelationField({ collection: 'Images' }).optional(),

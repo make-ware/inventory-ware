@@ -9,7 +9,11 @@ import {
   executeUpsert,
   type ItemMetadata,
 } from '@project/shared';
-import { createAIAnalysisService, type CategoryLibrary } from './ai-analysis';
+import {
+  createAIAnalysisService,
+  type AIAnalysisOptions,
+  type CategoryLibrary,
+} from './ai-analysis';
 import { CURATED_CATEGORIES, MAX_CATEGORY_EXAMPLES } from './category-defaults';
 import type {
   Item,
@@ -105,6 +109,23 @@ export interface ItemUploadResult {
  */
 export type CleanupAction = 'keep' | 'remove' | 'delete';
 
+function estimatedFields(
+  metadata: ItemMetadata,
+  options?: AIAnalysisOptions
+): Pick<ItemInput, 'estimatedValue' | 'estimatedCurrency'> {
+  if (
+    !options?.estimateValue ||
+    metadata.estimatedValue === undefined ||
+    !metadata.estimatedCurrency
+  ) {
+    return {};
+  }
+  return {
+    estimatedValue: metadata.estimatedValue,
+    estimatedCurrency: metadata.estimatedCurrency.toUpperCase(),
+  };
+}
+
 /**
  * Cleanup action request
  */
@@ -123,7 +144,11 @@ export interface InventoryService {
    * @param userId - ID of the authenticated user
    * @returns Processing result with created entities
    */
-  processImageUpload(file: File, userId: string): Promise<ProcessImageResult>;
+  processImageUpload(
+    file: File,
+    userId: string,
+    options?: AIAnalysisOptions
+  ): Promise<ProcessImageResult>;
 
   /**
    * Re-analyze an existing image
@@ -141,7 +166,8 @@ export interface InventoryService {
    */
   processExistingImage(
     imageId: string,
-    userId: string
+    userId: string,
+    options?: AIAnalysisOptions
   ): Promise<ProcessImageResult>;
 
   /**
@@ -154,7 +180,8 @@ export interface InventoryService {
   processContainerImageUpload(
     file: File,
     containerId: string,
-    userId: string
+    userId: string,
+    options?: AIAnalysisOptions
   ): Promise<ContainerUpsertResult>;
 
   /**
@@ -167,7 +194,8 @@ export interface InventoryService {
   processItemImageUpload(
     file: File,
     itemId: string,
-    userId: string
+    userId: string,
+    options?: AIAnalysisOptions
   ): Promise<ItemUploadResult>;
 
   /**
@@ -238,7 +266,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
   return {
     async processImageUpload(
       file: File,
-      userId: string
+      userId: string,
+      options?: AIAnalysisOptions
     ): Promise<ProcessImageResult> {
       // 1. Compute file hash for deduplication/caching
       const fileHash = await computeFileHash(file);
@@ -301,6 +330,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             itemType: result.data.item.itemType,
             itemManufacturer: result.data.item.itemManufacturer,
             itemAttributes: result.data.item.itemAttributes,
+            ...estimatedFields(result.data.item, options),
             ImageRef: image.id,
             UserRef: userId,
           };
@@ -366,6 +396,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               itemType: itemMetadata.itemType,
               itemManufacturer: itemMetadata.itemManufacturer,
               itemAttributes: itemMetadata.itemAttributes,
+              ...estimatedFields(itemMetadata, options),
               ContainerRef: container.id,
               ImageRef: image.id,
               UserRef: userId,
@@ -441,7 +472,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
     async processExistingImage(
       imageId: string,
-      userId: string
+      userId: string,
+      options?: AIAnalysisOptions
     ): Promise<ProcessImageResult> {
       // Get the image record
       const image = await imageMutator.getById(imageId);
@@ -484,7 +516,9 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
 
       // Check for cached metadata with same hash
       const cachedEntry = await imageMetadataMutator.findByHash(fileHash);
-      const cachedMetadata = cachedEntry?.metadata;
+      const cachedMetadata = options?.estimateValue
+        ? undefined
+        : cachedEntry?.metadata;
 
       // Download image and convert to base64 for AI analysis (providers cannot access localhost URLs)
       const imageData = await downloadImageAsBase64(pb, imageMutator, image);
@@ -523,15 +557,14 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           result = await getAIService().analyzeImage(
             imageData,
             categories,
-            this.searchCategories.bind(this)
+            this.searchCategories.bind(this),
+            options
           );
 
           // Save AI metadata to ImageMetadata collection for future cache hits
-          await imageMetadataMutator.saveMetadata(
-            fileHash,
-            result,
-            result.type
-          );
+          if (!options?.estimateValue) {
+            await imageMetadataMutator.saveMetadata(fileHash, result, result.type);
+          }
         }
 
         // 5. Create records based on result type
@@ -556,6 +589,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             itemType: result.data.item.itemType,
             itemManufacturer: result.data.item.itemManufacturer,
             itemAttributes: result.data.item.itemAttributes,
+            ...estimatedFields(result.data.item, options),
             ImageRef: image.id,
             UserRef: userId,
           };
@@ -612,6 +646,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               itemType: itemMetadata.itemType,
               itemManufacturer: itemMetadata.itemManufacturer,
               itemAttributes: itemMetadata.itemAttributes,
+              ...estimatedFields(itemMetadata, options),
               ContainerRef: container.id,
               ImageRef: image.id,
               UserRef: userId,
@@ -652,7 +687,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
     async processContainerImageUpload(
       file: File,
       containerId: string,
-      userId: string
+      userId: string,
+      options?: AIAnalysisOptions
     ): Promise<ContainerUpsertResult> {
       // 1. Verify container exists and user has access
       const container = await containerMutator.getById(containerId);
@@ -691,7 +727,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           imageData,
           existingItems,
           categories,
-          this.searchCategories.bind(this)
+          this.searchCategories.bind(this),
+          options
         );
 
         // 8. Convert AI result to ItemMetadata array (handle snake_case to camelCase)
@@ -730,6 +767,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
                 itemType: metadata.itemType,
                 itemManufacturer: metadata.itemManufacturer,
                 itemAttributes: metadata.itemAttributes,
+                ...estimatedFields(metadata, options),
                 ImageRef: imageId,
                 UserRef: userId,
               };
@@ -749,6 +787,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
                 itemType: metadata.itemType,
                 itemManufacturer: metadata.itemManufacturer,
                 itemAttributes: metadata.itemAttributes,
+                ...estimatedFields(metadata, options),
                 ContainerRef: containerIdParam,
                 ImageRef: imageId,
                 UserRef: userId,
@@ -799,7 +838,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
     async processItemImageUpload(
       file: File,
       itemId: string,
-      userId: string
+      userId: string,
+      options?: AIAnalysisOptions
     ): Promise<ItemUploadResult> {
       // 1. Verify item exists and user has access
       const item = await itemMutator.getById(itemId);
@@ -833,7 +873,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
         const aiResult = await getAIService().analyzeImage(
           imageData,
           categories,
-          this.searchCategories.bind(this)
+          this.searchCategories.bind(this),
+          options
         );
 
         // Verify the result is for a single item
@@ -853,6 +894,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           itemType: aiResult.data.item.itemType,
           itemManufacturer: aiResult.data.item.itemManufacturer,
           itemAttributes: aiResult.data.item.itemAttributes,
+          ...estimatedFields(aiResult.data.item, options),
           ImageRef: image.id,
         });
 
