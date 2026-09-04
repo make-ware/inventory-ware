@@ -122,6 +122,8 @@ export default function EditItemPage() {
               categorySpecific: item.categorySpecific,
               itemType: item.itemType,
               itemManufacturer: item.itemManufacturer,
+              estimatedValue: item.estimatedValue,
+              estimatedCurrency: item.estimatedCurrency,
               itemAttributes: item.itemAttributes,
               ContainerRef: item.ContainerRef,
               ImageRef: item.ImageRef,

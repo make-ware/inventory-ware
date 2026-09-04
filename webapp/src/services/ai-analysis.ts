@@ -92,6 +92,22 @@ export type SearchCategoriesFn = (
   type: CategoryTier
 ) => Promise<string[]>;
 
+export interface AIAnalysisOptions {
+  estimateValue?: boolean;
+  currency?: string;
+}
+
+function valuationInstructions(options?: AIAnalysisOptions): string {
+  if (!options?.estimateValue) return '';
+  const currency = options.currency || 'USD';
+  return `
+VALUATION:
+- Estimate the approximate current resale value of each visible item in ${currency}.
+- Return the amount as a non-negative number in estimatedValue and use ${currency} in estimatedCurrency.
+- This is only a rough estimate based on visible condition and likely model; do not present it as an appraisal.
+`;
+}
+
 /** Renders one tier as a prompt line, with its size so the model can gauge it. */
 function tierLine(label: string, values: string[]): string {
   return values.length > 0
@@ -307,7 +323,8 @@ export interface AIAnalysisService {
   analyzeImage(
     imageData: string,
     existingCategories: CategoryLibrary,
-    searchCategories?: SearchCategoriesFn
+    searchCategories?: SearchCategoriesFn,
+    options?: AIAnalysisOptions
   ): Promise<AnalysisResult>;
 
   /**
@@ -329,7 +346,8 @@ export interface AIAnalysisService {
     imageData: string,
     existingItems: Item[],
     existingCategories: CategoryLibrary,
-    searchCategories?: SearchCategoriesFn
+    searchCategories?: SearchCategoriesFn,
+    options?: AIAnalysisOptions
   ): Promise<ContainerImageMetadata>;
 }
 
@@ -373,7 +391,8 @@ export function createAIAnalysisService(): AIAnalysisService {
     async analyzeImage(
       imageData: string,
       existingCategories: CategoryLibrary,
-      searchCategories?: SearchCategoriesFn
+      searchCategories?: SearchCategoriesFn,
+      options?: AIAnalysisOptions
     ): Promise<AnalysisResult> {
       // First determine the image type
       const imageType = await this.determineImageType(imageData);
@@ -398,6 +417,7 @@ export function createAIAnalysisService(): AIAnalysisService {
           prompt: `Analyze this image of an inventory item. Extract detailed metadata including label, notes, categories, manufacturer, and attributes.
 
 ${categoryContext}
+${valuationInstructions(options)}
 
 Be thorough and specific in your analysis. Include relevant attributes like dimensions, specifications, quantities, colors, or other distinguishing features.
 Return the final result as a structured object.`,
@@ -417,6 +437,7 @@ Return the final result as a structured object.`,
           prompt: `Analyze this image of a container with multiple items. Extract metadata for the container and each visible item inside.
 
 ${categoryContext}
+${valuationInstructions(options)}
 
 For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.
 Return the final result as a structured object.`,
@@ -429,7 +450,8 @@ Return the final result as a structured object.`,
       imageData: string,
       existingItems: Item[],
       existingCategories: CategoryLibrary,
-      searchCategories?: SearchCategoriesFn
+      searchCategories?: SearchCategoriesFn,
+      options?: AIAnalysisOptions
     ): Promise<ContainerImageMetadata> {
       const experimental = getAIConfig().experimentalMode;
 
@@ -478,6 +500,7 @@ This container currently has no items. Analyze all items you see in the image.
         prompt: `Analyze this image of a container with multiple items. Extract metadata for the container and each visible item inside.
 
 ${categoryContext}
+      ${valuationInstructions(options)}
 
 ${existingItemsContext}
 

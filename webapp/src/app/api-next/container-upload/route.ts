@@ -69,6 +69,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const user = pb.authStore.record as {
+      aiEstimateEnabled?: boolean;
+      aiEstimateCurrency?: string;
+    };
+
     // Create service server-side where env vars are available
     const service = createInventoryService(pb);
 
@@ -78,7 +83,11 @@ export async function POST(request: NextRequest) {
       const result = await service.processContainerImageUpload(
         file,
         containerId,
-        userId
+        userId,
+        {
+          estimateValue: user.aiEstimateEnabled === true,
+          currency: user.aiEstimateCurrency || 'USD',
+        }
       );
 
       log.info('container image processed', {

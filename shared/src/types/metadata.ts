@@ -29,6 +29,16 @@ export const ItemMetadataSchema = z.object({
   itemManufacturer: z
     .string()
     .describe('Specific brand or manufacturer of item'),
+  estimatedValue: z
+    .number()
+    .min(0)
+    .optional()
+    .describe('Approximate current resale value, only when requested'),
+  estimatedCurrency: z
+    .string()
+    .length(3)
+    .optional()
+    .describe('ISO 4217 currency code for estimatedValue'),
   itemAttributes: z
     .array(ItemAttributeSchema)
     .describe('Array of key-value pairs for item-specific attributes'),

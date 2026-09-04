@@ -146,6 +146,14 @@ export function ItemCard({
             {item.itemManufacturer}
           </p>
         )}
+        {item.estimatedValue !== undefined && item.estimatedCurrency && (
+          <p className="text-sm font-medium mt-2">
+            Approx. {item.estimatedCurrency}{' '}
+            {new Intl.NumberFormat(undefined, {
+              maximumFractionDigits: 2,
+            }).format(item.estimatedValue)}
+          </p>
+        )}
         {item.itemNotes && (
           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
             {item.itemNotes}

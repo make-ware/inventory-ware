@@ -54,6 +54,8 @@ const BASE_DEFAULTS: ItemUpdateFormValues = {
   categorySpecific: '',
   itemType: '',
   itemManufacturer: '',
+  estimatedValue: undefined,
+  estimatedCurrency: undefined,
   itemAttributes: [],
   ImageRef: undefined,
   boundingBox: undefined,
@@ -222,6 +224,58 @@ export function ItemUpdateForm({
             </FormItem>
           )}
         />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="estimatedValue"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Estimated Value</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(event) =>
+                      field.onChange(
+                        event.target.value === ''
+                          ? undefined
+                          : Number(event.target.value)
+                      )
+                    }
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription>Approximate value, not an appraisal</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="estimatedCurrency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Currency</FormLabel>
+                <FormControl>
+                  <Input
+                    maxLength={3}
+                    placeholder="USD"
+                    {...field}
+                    value={field.value ?? ''}
+                    onChange={(event) => field.onChange(event.target.value.toUpperCase())}
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription>ISO 4217 code</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FormField

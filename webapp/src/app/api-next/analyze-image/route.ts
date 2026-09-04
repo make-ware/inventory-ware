@@ -54,11 +54,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const user = pb.authStore.record as {
+      aiEstimateEnabled?: boolean;
+      aiEstimateCurrency?: string;
+    };
+
     // Create service server-side where env vars are available
     const service = createInventoryService(pb);
 
     // Process the existing image
-    const result = await service.processExistingImage(imageId, userId);
+    const result = await service.processExistingImage(imageId, userId, {
+      estimateValue: user.aiEstimateEnabled === true,
+      currency: user.aiEstimateCurrency || 'USD',
+    });
 
     log.info('image analyzed', {
       imageId,
