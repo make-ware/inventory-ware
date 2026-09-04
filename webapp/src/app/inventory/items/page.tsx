@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
-import { ImageMutator } from '@project/shared';
+import { ImageMutator, ItemMutator } from '@project/shared';
 import type { Item } from '@project/shared';
 import type { SearchFilters, BulkEditData } from '@/components/inventory';
 import {
@@ -37,6 +37,7 @@ import {
   PenTool,
   CheckSquare,
   X,
+  FileDown,
 } from 'lucide-react';
 import { useUpload } from '@/contexts/upload-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -49,6 +50,7 @@ import {
 } from '@/hooks/use-item-mutations';
 import { useCategoryLibrary } from '@/hooks/use-categories';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { printItemsAsPdf } from '@/services/item-pdf-export';
 
 function ItemsPageContent() {
   const router = useRouter();
@@ -83,6 +85,7 @@ function ItemsPageContent() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Dialog state
   const [createOptionDialog, setCreateOptionDialog] = useState<{
@@ -91,6 +94,7 @@ function ItemsPageContent() {
   }>({ open: false, type: 'item' });
 
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
   // Writes go through mutations, which patch the cache themselves: the row
   // leaves the grid on the click and comes back if the request is refused.
@@ -307,6 +311,55 @@ function ItemsPageContent() {
     }
   };
 
+  const handleExport = async (ids?: string[]) => {
+    setIsExporting(true);
+    try {
+      const items: Item[] = [];
+      if (ids) {
+        const fetchedItems = await Promise.all(
+          ids.map((id) => itemMutator.getById(id, 'ImageRef,ContainerRef'))
+        );
+        items.push(...fetchedItems.filter((item): item is Item => item !== null));
+      } else {
+        let page = 1;
+        let totalPages = 1;
+        do {
+          const result = await itemMutator.search(debouncedQuery, {
+            page,
+            perPage: 100,
+            filters: {
+              categoryFunctional: searchFilters.functional,
+              categorySpecific: searchFilters.specific,
+              itemType: searchFilters.itemType,
+            },
+            sort: sortValue,
+            expand: 'ImageRef,ContainerRef',
+          });
+          items.push(...result.items);
+          totalPages = result.totalPages;
+          page += 1;
+        } while (page <= totalPages);
+      }
+
+      if (items.length === 0) {
+        toast.info('There are no items to export');
+        return;
+      }
+      printItemsAsPdf(
+        items.map((item) => ({
+          ...item,
+          exportContainerLabel: item.expand?.ContainerRef?.containerLabel,
+        }))
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to export PDF'
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
       handlePageChange(totalPages);
@@ -376,6 +429,18 @@ function ItemsPageContent() {
             onClick={() => router.push('/inventory/containers')}
           >
             View Containers
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void handleExport()}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4 mr-2" />
+            )}
+            Export Filtered
           </Button>
         </div>
       </div>
@@ -514,6 +579,19 @@ function ItemsPageContent() {
               className="flex-1 sm:flex-none"
             >
               Delete
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void handleExport(Array.from(selectedItems))}
+              disabled={isExporting}
+              className="flex-1 sm:flex-none"
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4 mr-2" />
+              )}
+              PDF
             </Button>
           </div>
         </div>
