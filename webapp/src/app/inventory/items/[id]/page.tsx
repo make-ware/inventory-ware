@@ -12,6 +12,7 @@ import { ItemImageUpload } from '@/components/inventory/item-image-upload';
 import { useItem } from '@/hooks/use-items';
 import { useDeleteItem } from '@/hooks/use-item-mutations';
 import { useContainer } from '@/hooks/use-containers';
+import { printItemsAsPdf } from '@/services/item-pdf-export';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,6 +67,21 @@ export default function ItemDetailPage() {
     }
   };
 
+  const handleExportPdf = () => {
+    try {
+      printItemsAsPdf([
+        {
+          ...item,
+          exportContainerLabel: container?.containerLabel,
+        },
+      ]);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to export PDF'
+      );
+    }
+  };
+
   if (isPending) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -110,6 +126,10 @@ export default function ItemDetailPage() {
           <Button variant="outline" onClick={() => setIsLabelDialogOpen(true)}>
             <Printer className="h-4 w-4 mr-2" />
             Print Label
+          </Button>
+          <Button variant="outline" onClick={handleExportPdf}>
+            <Printer className="h-4 w-4 mr-2" />
+            Export PDF
           </Button>
           <ConfirmButton
             variant="destructive"
