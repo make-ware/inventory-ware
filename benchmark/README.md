@@ -6,6 +6,8 @@ Give it an image and a list of fields you expect the model to get right; it runs
 the **production** analysis path several times, counts how often each field came
 back right, and writes a per-model JSON report that is committed to the repo.
 Change the prompt, rerun, and the diff of `results/<model>.json` is the evidence.
+Reports hold **scores only** — the raw model output is printed as it happens but
+never committed, so that diff is the score delta and nothing else.
 
 ```
 yarn benchmark                                  # every case, 3 runs each
@@ -27,6 +29,11 @@ yarn benchmark --help
   file instead, so a run is reproducible and needs no server.
 - Runs are sequential with a short pause between them, because parallel calls
   are the quickest way to get rate limited.
+- It does **not** persist generated text. A report records the scores, the
+  per-case average and any provider errors; the analyses themselves live only in
+  the console output of the run that produced them. Model output is
+  non-deterministic and long, so committing it would make every rerun a large
+  diff of rewritten prose with the one number that moved buried inside it.
 
 ## Adding a case
 
@@ -111,7 +118,12 @@ analysis type so the path could not resolve.
 
 If a provider call fails, the error is printed verbatim, that run is dropped
 from `total`, the remaining runs are still scored and written, and the command
-exits 1.
+exits 1. Errors are the one piece of free text a report keeps, because they are
+short and they are what explains a `total` lower than `runsPerCase`.
+
+To read what the model actually said, watch the console during a run, or send a
+throwaway report somewhere untracked with `--out /tmp/bm.json` and eyeball it
+there. That is a live question, not something the repo carries.
 
 ## Using it on a prompt change
 
@@ -119,9 +131,10 @@ exits 1.
    `results/`) as the baseline.
 2. Change the prompt in `ai-analysis.ts`.
 3. `yarn benchmark` again on your branch and commit the updated report.
-4. The diff of `results/<model>.json` is the argument for the PR. `scores[]`
-   shows which fields moved; `runs[]` holds the raw model output for each run,
-   so you can read what actually changed without paying for another run.
+4. The diff of `results/<model>.json` is the argument for the PR: `scores[]`
+   shows which fields moved and by how many runs, and there is nothing else in
+   the file to read past. If you want to see *why* a field moved, the console
+   output of step 3 has the analyses that produced it — a report will not.
 
 Reports are keyed by model — `results/<model>.json`, with anything outside
 `[A-Za-z0-9._-]` replaced by `-` — so two models never overwrite each other and
@@ -144,7 +157,7 @@ are worth comparing.
 ```
 benchmark/
   cases/            one JSON file per case, plus images/
-  results/          committed reports, one per model
+  results/          committed reports, one per model — scores, no raw output
   src/
     types.ts        Zod case schemas + report types
     image.ts        file → data: URL (mime sniff, 5MB cap)

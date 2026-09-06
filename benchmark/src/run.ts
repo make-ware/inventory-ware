@@ -344,6 +344,10 @@ async function main(): Promise<number> {
       }
     }
 
+    // `runs` stays in memory for the scorer and the console table, but never
+    // reaches the report: raw model output is non-deterministic and bulky, so
+    // committing it would bury the score delta — the actual result — in a diff
+    // of regenerated prose.
     const { scores, avgScore } = scoreCase(benchmarkCase, runs);
     const result: CaseResult = {
       name: benchmarkCase.name,
@@ -351,7 +355,6 @@ async function main(): Promise<number> {
       ...(benchmarkCase.description
         ? { description: benchmarkCase.description }
         : {}),
-      runs,
       errors,
       scores,
       avgScore,

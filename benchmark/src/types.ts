@@ -6,7 +6,6 @@
  * made, naming the file and the offending key.
  */
 import { z } from 'zod';
-import type { AnalysisResult } from '@project/shared';
 
 /**
  * The "already in this inventory" vocabulary handed to the prompt. Optional in
@@ -72,12 +71,18 @@ export interface FieldScore {
   note?: string;
 }
 
+/**
+ * What a report records for one case: the scores and nothing else.
+ *
+ * Raw model output is deliberately absent. It is non-deterministic and bulky, so
+ * persisting it would make every rerun a large diff of text nobody compares;
+ * what a prompt change is judged on is the delta in the scores. The runs are
+ * still printed to the console as they happen — see `benchmark/README.md`.
+ */
 export interface CaseResult {
   name: string;
   image: string;
   description?: string;
-  /** Every successful analysis, verbatim, so prompt diffs can be eyeballed. */
-  runs: AnalysisResult[];
   /** Provider errors, one per failed run, surfaced verbatim. */
   errors: string[];
   scores: FieldScore[];
