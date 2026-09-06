@@ -47,6 +47,9 @@ export const ItemInputSchema = z.object({
     .array(ItemAttributeSchema)
     .nullish()
     .transform((v) => v ?? []),
+  // Manual, user-entered only — the AI never writes this field (see
+  // AI_ESTIMATE_VALUE / `suggestedValue` in `shared/src/types/metadata.ts`).
+  estimatedValue: pbOptional(z.number().nonnegative()),
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
   boundingBox: pbOptional(BoundingBoxSchema),
@@ -78,6 +81,7 @@ export const ItemUpdateSchema = z.object({
     .optional(),
   itemManufacturer: z.string().optional(),
   itemAttributes: pbOptional(z.array(ItemAttributeSchema)),
+  estimatedValue: pbOptional(z.number().nonnegative()),
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
   boundingBox: pbOptional(BoundingBoxSchema),
@@ -107,6 +111,7 @@ export const ItemSchema = z
       .transform(slugify),
     itemManufacturer: z.string().default(''),
     itemAttributes: z.array(ItemAttributeSchema).default([]),
+    estimatedValue: z.number().nonnegative().optional(),
     ContainerRef: RelationField({ collection: 'Containers' }).optional(),
     ImageRef: RelationField({ collection: 'Images' }).optional(),
     boundingBox: BoundingBoxSchema.optional(),

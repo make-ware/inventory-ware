@@ -249,6 +249,37 @@ export function ItemCreateForm({
 
         <FormField
           control={form.control}
+          name="estimatedValue"
+          render={({ field: { value, onChange, ...field } }) => (
+            <FormItem>
+              <FormLabel>Estimated Value</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min={0}
+                  step="any"
+                  placeholder="e.g., 150"
+                  value={value ?? ''}
+                  onChange={(e) =>
+                    onChange(
+                      e.target.value === '' ? undefined : e.target.valueAsNumber
+                    )
+                  }
+                  {...field}
+                  disabled={isSubmitting}
+                />
+              </FormControl>
+              <FormDescription>
+                Your own estimate of the item&apos;s value. Manually entered
+                only — never set by AI analysis.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="itemAttributes"
           render={({ field }) => (
             <FormItem>

@@ -189,6 +189,20 @@ export default function ItemDetailPage() {
                 </>
               )}
 
+              {item.estimatedValue !== undefined && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">
+                      Estimated Value
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      ${item.estimatedValue}
+                    </p>
+                  </div>
+                </>
+              )}
+
               {item.itemAttributes && item.itemAttributes.length > 0 && (
                 <>
                   <Separator />

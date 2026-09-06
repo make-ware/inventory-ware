@@ -167,6 +167,7 @@ you want in `.env`:
 | `AI_MODEL` | Override the model for the active provider. |
 | `AI_BASE_URL` | Point at a compatible endpoint (proxy, Azure, local server). |
 | `AI_EXPERIMENTAL_MODE` | `true`/`1`/`yes`/`on` enables the experimental `searchCategories` tool-calling loop. Off by default; costs extra tokens per analysis. |
+| `AI_ESTIMATE_VALUE` | `true`/`1`/`yes`/`on` asks the model for a rough value guess during analysis. Off by default. The guess is a display suggestion only — it is never written to an item; `estimatedValue` is a manual field you fill in yourself. |
 
 If exactly one key is present that provider is selected automatically. An
 unusable `AI_MODEL` falls back to the provider default with a warning; with no

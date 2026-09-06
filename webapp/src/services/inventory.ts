@@ -72,6 +72,36 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 /**
+ * Log any AI value guesses found on an analysis result. `suggestedValue` is
+ * only ever a display suggestion (see AI_ESTIMATE_VALUE) — this is the only
+ * thing done with it server-side, since `ItemInput` below is always built
+ * field-by-field and never includes it, so it can never reach the Items
+ * collection.
+ */
+function logSuggestedValues(result: AnalysisResult, imageId: string): void {
+  if (result.type === 'item') {
+    const value = result.data.item.suggestedValue;
+    if (value !== undefined) {
+      log.info('AI suggested a value estimate (not persisted)', {
+        imageId,
+        itemLabel: result.data.item.itemLabel,
+        suggestedValue: value,
+      });
+    }
+  } else {
+    for (const item of result.data.container.containerItems) {
+      if (item.suggestedValue !== undefined) {
+        log.info('AI suggested a value estimate (not persisted)', {
+          imageId,
+          itemLabel: item.itemLabel,
+          suggestedValue: item.suggestedValue,
+        });
+      }
+    }
+  }
+}
+
+/**
  * Result of processing an image upload
  */
 export interface ProcessImageResult {
@@ -286,12 +316,17 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           );
         }
 
+        logSuggestedValues(result, image.id);
+
         // 5. Create records based on result type
         const items: Item[] = [];
         let container: Container | undefined;
 
         if (result.type === 'item') {
           // Create single item - check if it already exists for this image (safety check)
+          // estimatedValue is deliberately omitted: it is manual/user-entered
+          // only, and result.data.item.suggestedValue (an AI guess, only ever
+          // present when AI_ESTIMATE_VALUE is on) must never be persisted.
           const itemData: ItemInput = {
             itemLabel: result.data.item.itemLabel,
             itemName: result.data.item.itemName,
@@ -534,6 +569,8 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           );
         }
 
+        logSuggestedValues(result, image.id);
+
         // 5. Create records based on result type
         const items: Item[] = [];
         let container: Container | undefined;
@@ -547,6 +584,9 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             `ImageRef="${image.id}"`
           );
 
+          // estimatedValue is deliberately omitted here: it is manual/user-entered
+          // only, and result.data.item.suggestedValue (an AI guess) must never be
+          // persisted.
           const itemData: ItemInput = {
             itemLabel: result.data.item.itemLabel,
             itemName: result.data.item.itemName,
@@ -694,7 +734,20 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           this.searchCategories.bind(this)
         );
 
+        for (const item of aiResult.container.containerItems) {
+          if (item.suggestedValue !== undefined) {
+            log.info('AI suggested a value estimate (not persisted)', {
+              imageId: image.id,
+              itemLabel: item.itemLabel,
+              suggestedValue: item.suggestedValue,
+            });
+          }
+        }
+
         // 8. Convert AI result to ItemMetadata array (handle snake_case to camelCase)
+        // estimatedValue/suggestedValue are deliberately omitted: estimatedValue
+        // is manual/user-entered only, and the AI's suggestedValue guess must
+        // never be persisted.
         const detectedItems: ItemMetadata[] =
           aiResult.container.containerItems.map((item) => ({
             itemLabel: item.itemLabel,
@@ -843,7 +896,11 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
           );
         }
 
-        // 7. Update item's metadata and ImageRef with AI-detected values
+        logSuggestedValues(aiResult, image.id);
+
+        // 7. Update item's metadata and ImageRef with AI-detected values.
+        // estimatedValue is deliberately omitted: it is manual/user-entered
+        // only, and aiResult.data.item.suggestedValue must never be persisted.
         const updatedItem = await itemMutator.update(itemId, {
           itemLabel: aiResult.data.item.itemLabel,
           itemName: aiResult.data.item.itemName,

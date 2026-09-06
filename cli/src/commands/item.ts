@@ -10,7 +10,7 @@ import {
 } from '../query/options.js';
 import { executeQuery, renderQuery } from '../query/run.js';
 import { ITEM_SPEC } from '../query/spec.js';
-import { collectAttr, compact, run } from './shared.js';
+import { collectAttr, compact, parseNonNegativeNumber, run } from './shared.js';
 
 const DETAIL_KEYS = [
   'id',
@@ -22,6 +22,7 @@ const DETAIL_KEYS = [
   'itemType',
   'itemManufacturer',
   'itemAttributes',
+  'estimatedValue',
   'ContainerRef',
   'ImageRef',
   'created',
@@ -36,6 +37,7 @@ interface ItemFlags {
   specific?: string;
   type?: string;
   manufacturer?: string;
+  estimatedValue?: number;
   container?: string;
   image?: string;
   attr?: Array<{ name: string; value: string }>;
@@ -51,6 +53,7 @@ function toInput(flags: ItemFlags) {
     categorySpecific: flags.specific,
     itemType: flags.type,
     itemManufacturer: flags.manufacturer,
+    estimatedValue: flags.estimatedValue,
     ContainerRef: flags.container,
     ImageRef: flags.image,
     itemAttributes: flags.attr,
@@ -137,6 +140,11 @@ export function registerItemCommands(program: Command): void {
     .option('-n, --name <name>', 'item name')
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')
+    .option(
+      '--estimated-value <number>',
+      'estimated monetary value (manual, never AI-written)',
+      (value: string) => parseNonNegativeNumber(value, '--estimated-value')
+    )
     .option('-c, --container <id>', 'container to place the item in')
     .option('-i, --image <id>', 'image to associate')
     .option(
@@ -177,6 +185,11 @@ export function registerItemCommands(program: Command): void {
     .option('-n, --name <name>', 'item name')
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')
+    .option(
+      '--estimated-value <number>',
+      'estimated monetary value (manual, never AI-written)',
+      (value: string) => parseNonNegativeNumber(value, '--estimated-value')
+    )
     .option('-c, --container <id>', 'container to place the item in')
     .option('-i, --image <id>', 'image to associate')
     .option(
