@@ -1,0 +1,26 @@
+{
+  "name": "drill-on-bench",
+  "description": "Cordless power drill, plain background. Placeholder illustration — swap in a real photo before reading anything into the scores.",
+  "image": "cases/images/drill.jpg",
+  "categoryLibrary": {
+    "functional": ["Tools"],
+    "specific": ["Power Tools", "Hand Tools"],
+    "itemType": ["Drill", "Screwdriver"]
+  },
+  "expectations": [
+    { "field": "item.itemType", "expected": ["Drill"] },
+    { "field": "item.categoryFunctional", "expected": ["Tools"] },
+    { "field": "item.categorySpecific", "expected": ["Power Tools"] },
+    {
+      "field": "item.itemAttributes",
+      "expected": ["Color", "Colour"],
+      "note": "attributes are matched as \"name: value\", so a bare name is enough"
+    },
+    { "field": "imageLabel", "expected": ["Drill"] },
+    {
+      "field": "item.itemManufacturer",
+      "expected": ["DeWalt"],
+      "note": "expected to score 0 on the placeholder illustration — it carries no branding. Kept so the report shows what a miss looks like."
+    }
+  ]
+}
