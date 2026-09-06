@@ -27,10 +27,39 @@ export function hasItemValue(
   return value !== null && value !== undefined && value !== 0;
 }
 
+/**
+ * ISO 4217 code validation, shared with the zod schemas in
+ * `shared/src/schema/item.ts` — the repo's validation style is a regex with a
+ * message (see `shared/src/schema/label.ts`), so no allowlist enum here.
+ */
+export const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/;
+
+/** The currency every value falls back to when the item carries none. */
+export const DEFAULT_CURRENCY = 'USD';
+
+/**
+ * The ~10 codes the item forms offer in the currency picker. Anything matching
+ * `CURRENCY_CODE_PATTERN` is still accepted on write (CLI, API) — it just is
+ * not in the picker.
+ */
+export const COMMON_CURRENCIES = [
+  'USD',
+  'EUR',
+  'GBP',
+  'JPY',
+  'CAD',
+  'AUD',
+  'CHF',
+  'CNY',
+  'SEK',
+  'NZD',
+] as const;
+
 /** The subset of an Item this module needs — so callers can pass a whole record. */
 export interface ItemValueFields {
   itemValue?: number | null;
   estimatedValue?: number | null;
+  valueCurrency?: string | null;
 }
 
 /**
@@ -54,4 +83,46 @@ export function getEffectiveItemValue(item: ItemValueFields): number | null {
  */
 export function canAcceptEstimate(item: ItemValueFields): boolean {
   return !hasItemValue(item.itemValue) && hasItemValue(item.estimatedValue);
+}
+
+/**
+ * The currency to display an item's values in. One currency is shared by both
+ * value fields — it is a display concern only, never part of the fallback
+ * between them. Anything that is not a three-letter uppercase code (absent,
+ * `null`, `""` from a pre-migration row, lowercase) resolves to USD.
+ */
+export function resolveItemCurrency(item: {
+  valueCurrency?: string | null;
+}): string {
+  const code = item.valueCurrency;
+  if (typeof code === 'string' && CURRENCY_CODE_PATTERN.test(code))
+    return code;
+  return DEFAULT_CURRENCY;
+}
+
+/**
+ * The one place numbers become money strings: `Intl.NumberFormat` with
+ * currency, so the detail page, cards and any future totals cannot drift
+ * apart on formatting. `null`/`undefined` renders as an em dash (no value
+ * recorded), matching the old detail-page behaviour. An unknown-but-valid
+ * code falls back to USD rather than throwing — `Intl` rejects codes it does
+ * not know (e.g. `ZZZ`), and display must never crash on stored data.
+ */
+export function formatItemValue(
+  value: number | null | undefined,
+  currency: string = DEFAULT_CURRENCY
+): string {
+  if (value === null || value === undefined) return '—';
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: DEFAULT_CURRENCY,
+    }).format(value);
+  }
 }

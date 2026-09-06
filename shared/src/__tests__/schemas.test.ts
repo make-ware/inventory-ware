@@ -140,6 +140,51 @@ describe('PocketBase null json columns (issue #57)', () => {
     expect(result.data?.itemAttributes).toEqual([]);
   });
 
+  it('ItemInputSchema defaults valueCurrency to USD and accepts a valid code', () => {
+    const defaulted = ItemInputSchema.safeParse({
+      ...itemBase,
+      UserRef: 'user123',
+    });
+    expect(defaulted.success).toBe(true);
+    expect(defaulted.data?.valueCurrency).toBe('USD');
+
+    const explicit = ItemInputSchema.safeParse({
+      ...itemBase,
+      UserRef: 'user123',
+      valueCurrency: 'EUR',
+    });
+    expect(explicit.success).toBe(true);
+    expect(explicit.data?.valueCurrency).toBe('EUR');
+  });
+
+  it('ItemInputSchema and ItemUpdateSchema reject a non-ISO currency code', () => {
+    for (const valueCurrency of ['usd', 'US', 'USDD', 'U$D', '']) {
+      expect(
+        ItemInputSchema.safeParse({
+          ...itemBase,
+          UserRef: 'user123',
+          valueCurrency,
+        }).success
+      ).toBe(false);
+      expect(
+        ItemUpdateSchema.safeParse({ ...itemBase, valueCurrency }).success
+      ).toBe(false);
+    }
+  });
+
+  it('ItemUpdateSchema accepts a currency patch and leaves it absent otherwise', () => {
+    const patched = ItemUpdateSchema.safeParse({
+      ...itemBase,
+      valueCurrency: 'GBP',
+    });
+    expect(patched.success).toBe(true);
+    expect(patched.data?.valueCurrency).toBe('GBP');
+
+    const untouched = ItemUpdateSchema.safeParse({ ...itemBase });
+    expect(untouched.success).toBe(true);
+    expect(untouched.data?.valueCurrency).toBeUndefined();
+  });
+
   it('ContainerUpdateSchema accepts null boundingBox and ImageRef', () => {
     const result = ContainerUpdateSchema.safeParse({
       containerLabel: 'Tool Box A',

@@ -134,6 +134,10 @@ export default function EditItemPage() {
               estimatedValue: hasItemValue(item.estimatedValue)
                 ? item.estimatedValue
                 : undefined,
+              // Pre-migration rows read back as `""`; the form's picker
+              // falls back to USD for display, and `undefined` here keeps
+              // the field out of the dirty patch until the user picks one.
+              valueCurrency: item.valueCurrency || undefined,
               ContainerRef: item.ContainerRef,
               ImageRef: item.ImageRef,
               boundingBox: item.boundingBox,

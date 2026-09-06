@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   canAcceptEstimate,
+  formatItemValue,
   getEffectiveItemValue,
   hasItemValue,
+  resolveItemCurrency,
 } from './item-value';
 
 describe('hasItemValue', () => {
@@ -45,6 +47,52 @@ describe('getEffectiveItemValue', () => {
     expect(
       getEffectiveItemValue({ itemValue: null, estimatedValue: undefined })
     ).toBeNull();
+  });
+});
+
+describe('resolveItemCurrency', () => {
+  it('defaults to USD when the item carries no usable code', () => {
+    expect(resolveItemCurrency({})).toBe('USD');
+    expect(resolveItemCurrency({ valueCurrency: null })).toBe('USD');
+    expect(resolveItemCurrency({ valueCurrency: undefined })).toBe('USD');
+    // What a pre-migration row reads back as: a text column has no "unset"
+    // distinct from empty.
+    expect(resolveItemCurrency({ valueCurrency: '' })).toBe('USD');
+    expect(resolveItemCurrency({ valueCurrency: 'usd' })).toBe('USD');
+    expect(resolveItemCurrency({ valueCurrency: 'US' })).toBe('USD');
+  });
+
+  it('passes a valid code through untouched', () => {
+    expect(resolveItemCurrency({ valueCurrency: 'EUR' })).toBe('EUR');
+    expect(resolveItemCurrency({ valueCurrency: 'JPY' })).toBe('JPY');
+  });
+});
+
+describe('formatItemValue', () => {
+  // Assumes an en-US test locale, like the rest of the suite's number output.
+  it('formats USD with the dollar sign and two decimals', () => {
+    expect(formatItemValue(150, 'USD')).toBe('$150.00');
+    expect(formatItemValue(150)).toBe('$150.00');
+  });
+
+  it('formats in the item\'s currency', () => {
+    expect(formatItemValue(150, 'EUR')).toContain('€');
+    expect(formatItemValue(150, 'EUR')).toContain('150');
+    expect(formatItemValue(150, 'GBP')).toContain('£');
+  });
+
+  it('renders an em dash when there is no value recorded', () => {
+    expect(formatItemValue(null, 'USD')).toBe('—');
+    expect(formatItemValue(undefined, 'USD')).toBe('—');
+  });
+
+  it('does not throw on a well-formed but unknown code', () => {
+    // `Intl` renders these with the code as prefix rather than throwing.
+    expect(formatItemValue(150, 'ZZZ')).toContain('150');
+  });
+
+  it('falls back to USD on a malformed code instead of throwing', () => {
+    expect(formatItemValue(150, 'US')).toBe('$150.00');
   });
 });
 

@@ -8,6 +8,8 @@ import {
   getEffectiveItemValue,
   hasItemValue,
   canAcceptEstimate,
+  formatItemValue,
+  resolveItemCurrency,
 } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
@@ -34,16 +36,6 @@ import {
   Printer,
   Check,
 } from 'lucide-react';
-
-/** Values are stored as plain numbers; only the display side formats them. */
-function formatCurrency(value: number | null): string {
-  if (value === null) return '—';
-  return value.toLocaleString(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  });
-}
 
 export default function ItemDetailPage() {
   const router = useRouter();
@@ -230,7 +222,10 @@ export default function ItemDetailPage() {
                   <div>
                     <h3 className="text-sm font-medium mb-1">Value</h3>
                     <p className="text-2xl font-semibold tabular-nums">
-                      {formatCurrency(getEffectiveItemValue(item))}
+                      {formatItemValue(
+                        getEffectiveItemValue(item),
+                        resolveItemCurrency(item)
+                      )}
                     </p>
 
                     {/* Two mutually exclusive cases, so the estimate is never
@@ -256,7 +251,11 @@ export default function ItemDetailPage() {
                     ) : (
                       hasItemValue(item.estimatedValue) && (
                         <p className="mt-1 text-xs text-muted-foreground">
-                          AI estimate: {formatCurrency(item.estimatedValue)}
+                          AI estimate:{' '}
+                          {formatItemValue(
+                            item.estimatedValue,
+                            resolveItemCurrency(item)
+                          )}
                         </p>
                       )
                     )}

@@ -5,8 +5,28 @@ import {
 } from 'pocketbase-zod-schema';
 import { z } from 'zod';
 import { BoundingBoxSchema } from '../types/bounding-box.js';
+import { CURRENCY_CODE_PATTERN, DEFAULT_CURRENCY } from '../utils/item-value.js';
 import { pbOptional } from '../utils/pb-optional.js';
 import { slugify } from '../utils/slugify.js';
+
+// One currency shared by both value fields — never one per field. The AI
+// prompt still guesses a bare number; this applies at display.
+const valueCurrencyInput = z
+  .string()
+  .regex(
+    CURRENCY_CODE_PATTERN,
+    'Currency must be a 3-letter ISO 4217 code (e.g. USD)'
+  )
+  .optional()
+  .default(DEFAULT_CURRENCY);
+const valueCurrencyPatch = pbOptional(
+  z
+    .string()
+    .regex(
+      CURRENCY_CODE_PATTERN,
+      'Currency must be a 3-letter ISO 4217 code (e.g. USD)'
+    )
+);
 
 // Schema for individual item attributes (key-value pairs)
 export const ItemAttributeSchema = z.object({
@@ -55,6 +75,7 @@ export const ItemInputSchema = z.object({
   // overwrite it on re-analysis. Editable by hand too, for a fuzzy number the
   // user does not want to promote to `itemValue`.
   estimatedValue: pbOptional(z.number().nonnegative()),
+  valueCurrency: valueCurrencyInput,
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
   boundingBox: pbOptional(BoundingBoxSchema),
@@ -88,6 +109,7 @@ export const ItemUpdateSchema = z.object({
   itemAttributes: pbOptional(z.array(ItemAttributeSchema)),
   itemValue: pbOptional(z.number().nonnegative()),
   estimatedValue: pbOptional(z.number().nonnegative()),
+  valueCurrency: valueCurrencyPatch,
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
   boundingBox: pbOptional(BoundingBoxSchema),
@@ -125,6 +147,18 @@ export const ItemSchema = z
     // alike as "no value recorded".
     itemValue: z.number().nonnegative().optional(),
     estimatedValue: z.number().nonnegative().optional(),
+    // Always present on paper: new writes carry it via the input default
+    // above. Pre-migration rows read back as `""` (a text column has no
+    // "unset" distinct from empty), so display goes through
+    // `resolveItemCurrency`, which treats that as USD.
+    valueCurrency: z
+      .string()
+      .regex(
+        CURRENCY_CODE_PATTERN,
+        'Currency must be a 3-letter ISO 4217 code (e.g. USD)'
+      )
+      .optional()
+      .default(DEFAULT_CURRENCY),
     ContainerRef: RelationField({ collection: 'Containers' }).optional(),
     ImageRef: RelationField({ collection: 'Images' }).optional(),
     boundingBox: BoundingBoxSchema.optional(),

@@ -85,6 +85,20 @@ export function parseNonNegativeNumber(value: string, name: string): number {
   return parsed;
 }
 
+/**
+ * ISO 4217 code argParser for `--currency`. Uppercased before validation so
+ * `--currency usd` works; the schema re-validates on the way in.
+ */
+export function parseCurrencyCode(value: string, name: string): string {
+  const code = value.trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(code)) {
+    throw new InvalidArgumentError(
+      `Invalid ${name} "${value}". Expected a 3-letter ISO 4217 code (e.g. USD).`
+    );
+  }
+  return code;
+}
+
 /** Drop undefined entries so PocketBase is not sent explicit nulls. */
 export function compact<T extends Record<string, unknown>>(
   input: T

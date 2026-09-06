@@ -56,6 +56,7 @@ const ITEM_HEADINGS = {
   itemAttributes: 'ATTRIBUTES',
   itemValue: 'VALUE',
   estimatedValue: 'ESTIMATE',
+  valueCurrency: 'CURRENCY',
   ContainerRef: 'CONTAINER',
   ImageRef: 'IMAGE',
   created: 'CREATED',

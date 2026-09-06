@@ -10,11 +10,20 @@ import {
   type ItemUpdate,
   type CategoryLibrary,
   formatCategoryLabel,
+  COMMON_CURRENCIES,
+  DEFAULT_CURRENCY,
 } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Form,
   FormControl,
@@ -60,6 +69,7 @@ const BASE_DEFAULTS: ItemUpdateFormValues = {
   // sends to clear one (see getEffectiveItemValue).
   itemValue: undefined,
   estimatedValue: undefined,
+  valueCurrency: undefined,
   ImageRef: undefined,
   boundingBox: undefined,
 };
@@ -384,6 +394,42 @@ export function ItemUpdateForm({
             )}
           />
         </div>
+
+        {/* `?? DEFAULT_CURRENCY` is display-only: an untouched picker shows
+            USD without dirtying the field, so pre-migration rows (whose
+            stored value is `""`) are not rewritten until the user picks
+            one. */}
+        <FormField
+          control={form.control}
+          name="valueCurrency"
+          render={({ field }) => (
+            <FormItem className="max-w-xs">
+              <FormLabel>Currency</FormLabel>
+              <Select
+                value={field.value ?? DEFAULT_CURRENCY}
+                onValueChange={field.onChange}
+                disabled={isSubmitting}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {COMMON_CURRENCIES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                One currency for both value fields above.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}

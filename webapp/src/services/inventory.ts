@@ -19,6 +19,10 @@ import type {
   AnalysisResult,
   ItemInput,
 } from '@project/shared';
+// AI analysis never guesses a currency. AI-built ItemInputs spell out the
+// schema default explicitly — `ItemInput` is the schema's output type, so the
+// key is required even though `parse` would fill it. See `aiEstimatedValuePatch`.
+import { DEFAULT_CURRENCY } from '@project/shared';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('inventory');
@@ -366,6 +370,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             itemManufacturer: result.data.item.itemManufacturer,
             itemAttributes: result.data.item.itemAttributes,
             ...aiEstimatedValuePatch(result.data.item.suggestedValue),
+            valueCurrency: DEFAULT_CURRENCY,
             ImageRef: image.id,
             UserRef: userId,
           };
@@ -432,6 +437,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               itemManufacturer: itemMetadata.itemManufacturer,
               itemAttributes: itemMetadata.itemAttributes,
               ...aiEstimatedValuePatch(itemMetadata.suggestedValue),
+              valueCurrency: DEFAULT_CURRENCY,
               ContainerRef: container.id,
               ImageRef: image.id,
               UserRef: userId,
@@ -627,6 +633,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
             itemManufacturer: result.data.item.itemManufacturer,
             itemAttributes: result.data.item.itemAttributes,
             ...aiEstimatedValuePatch(result.data.item.suggestedValue),
+            valueCurrency: DEFAULT_CURRENCY,
             ImageRef: image.id,
             UserRef: userId,
           };
@@ -684,6 +691,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
               itemManufacturer: itemMetadata.itemManufacturer,
               itemAttributes: itemMetadata.itemAttributes,
               ...aiEstimatedValuePatch(itemMetadata.suggestedValue),
+              valueCurrency: DEFAULT_CURRENCY,
               ContainerRef: container.id,
               ImageRef: image.id,
               UserRef: userId,
@@ -809,6 +817,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
                 itemManufacturer: metadata.itemManufacturer,
                 itemAttributes: metadata.itemAttributes,
                 ...aiEstimatedValuePatch(metadata.suggestedValue),
+                valueCurrency: DEFAULT_CURRENCY,
                 ImageRef: imageId,
                 UserRef: userId,
               };
@@ -829,6 +838,7 @@ export function createInventoryService(pb: TypedPocketBase): InventoryService {
                 itemManufacturer: metadata.itemManufacturer,
                 itemAttributes: metadata.itemAttributes,
                 ...aiEstimatedValuePatch(metadata.suggestedValue),
+                valueCurrency: DEFAULT_CURRENCY,
                 ContainerRef: containerIdParam,
                 ImageRef: imageId,
                 UserRef: userId,

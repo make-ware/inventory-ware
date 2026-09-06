@@ -213,6 +213,7 @@ export interface ItemsRecord {
 })[];
   itemValue?: number;
   estimatedValue?: number;
+  valueCurrency?: string;
   ContainerRef?: string;
   ImageRef?: string;
   boundingBox?: {
