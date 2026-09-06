@@ -211,6 +211,7 @@ export interface ItemsRecord {
   name: string;
   value: string;
 })[];
+  itemValue?: number;
   estimatedValue?: number;
   ContainerRef?: string;
   ImageRef?: string;

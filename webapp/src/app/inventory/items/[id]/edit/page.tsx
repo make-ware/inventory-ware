@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { formatPocketBaseError } from '@project/shared';
+import { formatPocketBaseError, hasItemValue } from '@project/shared';
 import type { ItemInput } from '@project/shared';
 import { useAuth } from '@/hooks/use-auth';
 import { useItem } from '@/hooks/use-items';
@@ -123,6 +123,17 @@ export default function EditItemPage() {
               itemType: item.itemType,
               itemManufacturer: item.itemManufacturer,
               itemAttributes: item.itemAttributes,
+              // Both value fields have to be listed: this whitelist is what
+              // the form opens with, so an omitted one shows blank and the
+              // user cannot see what is stored. `hasItemValue` filters out
+              // PocketBase's 0-for-unset, which would otherwise open the
+              // field showing a value the item does not have.
+              itemValue: hasItemValue(item.itemValue)
+                ? item.itemValue
+                : undefined,
+              estimatedValue: hasItemValue(item.estimatedValue)
+                ? item.estimatedValue
+                : undefined,
               ContainerRef: item.ContainerRef,
               ImageRef: item.ImageRef,
               boundingBox: item.boundingBox,

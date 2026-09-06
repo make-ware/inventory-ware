@@ -247,36 +247,69 @@ export function ItemCreateForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="estimatedValue"
-          render={({ field: { value, onChange, ...field } }) => (
-            <FormItem>
-              <FormLabel>Estimated Value</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  min={0}
-                  step="any"
-                  placeholder="e.g., 150"
-                  value={value ?? ''}
-                  onChange={(e) =>
-                    onChange(
-                      e.target.value === '' ? undefined : e.target.valueAsNumber
-                    )
-                  }
-                  {...field}
-                  disabled={isSubmitting}
-                />
-              </FormControl>
-              <FormDescription>
-                Your own estimate of the item&apos;s value. Manually entered
-                only — never set by AI analysis.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="itemValue"
+            render={({ field: { value, onChange, ...field } }) => (
+              <FormItem>
+                <FormLabel>Value</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="e.g., 150"
+                    value={value ?? ''}
+                    onChange={(e) =>
+                      onChange(
+                        e.target.value === '' ? 0 : e.target.valueAsNumber
+                      )
+                    }
+                    {...field}
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription>
+                  What the item is worth, as you&apos;d stand behind it. Never
+                  written by AI analysis.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="estimatedValue"
+            render={({ field: { value, onChange, ...field } }) => (
+              <FormItem>
+                <FormLabel>Estimated Value</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="e.g., 150"
+                    value={value ?? ''}
+                    onChange={(e) =>
+                      onChange(
+                        e.target.value === '' ? 0 : e.target.valueAsNumber
+                      )
+                    }
+                    {...field}
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription>
+                  A rough guess. AI analysis overwrites this field when
+                  AI_ESTIMATE_VALUE is on.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

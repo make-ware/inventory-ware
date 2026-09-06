@@ -47,8 +47,13 @@ export const ItemInputSchema = z.object({
     .array(ItemAttributeSchema)
     .nullish()
     .transform((v) => v ?? []),
-  // Manual, user-entered only — the AI never writes this field (see
-  // AI_ESTIMATE_VALUE / `suggestedValue` in `shared/src/types/metadata.ts`).
+  // The authoritative value: manual, user-entered only. No AI path ever writes
+  // it — see `webapp/src/services/inventory.ts`.
+  itemValue: pbOptional(z.number().nonnegative()),
+  // The suggested value: AI image analysis writes it when AI_ESTIMATE_VALUE is
+  // on (from `suggestedValue` in `shared/src/types/metadata.ts`) and may
+  // overwrite it on re-analysis. Editable by hand too, for a fuzzy number the
+  // user does not want to promote to `itemValue`.
   estimatedValue: pbOptional(z.number().nonnegative()),
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
@@ -81,6 +86,7 @@ export const ItemUpdateSchema = z.object({
     .optional(),
   itemManufacturer: z.string().optional(),
   itemAttributes: pbOptional(z.array(ItemAttributeSchema)),
+  itemValue: pbOptional(z.number().nonnegative()),
   estimatedValue: pbOptional(z.number().nonnegative()),
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
@@ -111,6 +117,13 @@ export const ItemSchema = z
       .transform(slugify),
     itemManufacturer: z.string().default(''),
     itemAttributes: z.array(ItemAttributeSchema).default([]),
+    // Both stay `.optional()` rather than `.default(0)`: PocketBase already
+    // guarantees the key is present on every record it returns (a number
+    // column has no "unset" — it reads back as `0`), so the only records
+    // missing it are ones built locally in tests. Read them through
+    // `getEffectiveItemValue`, which treats `0`, `null` and `undefined`
+    // alike as "no value recorded".
+    itemValue: z.number().nonnegative().optional(),
     estimatedValue: z.number().nonnegative().optional(),
     ContainerRef: RelationField({ collection: 'Containers' }).optional(),
     ImageRef: RelationField({ collection: 'Images' }).optional(),

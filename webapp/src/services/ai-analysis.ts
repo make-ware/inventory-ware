@@ -104,9 +104,9 @@ function tierLine(label: string, values: string[]): string {
  * also fill in `suggestedValue`. Kept separate from the category context: it
  * is off by default and unrelated to category reuse.
  *
- * The guess is surfaced to the user as a suggestion only — it is never
- * written to the Items collection, which only ever stores a value the user
- * typed in themselves.
+ * The guess is persisted to the item's `estimatedValue`, which is the
+ * *suggested* value and may be overwritten on every re-analysis. It never
+ * reaches `itemValue`, the authoritative number only a human writes.
  */
 const ESTIMATE_VALUE_PROMPT = `
 VALUE ESTIMATE (OPTIONAL):

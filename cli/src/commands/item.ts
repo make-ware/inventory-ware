@@ -22,6 +22,7 @@ const DETAIL_KEYS = [
   'itemType',
   'itemManufacturer',
   'itemAttributes',
+  'itemValue',
   'estimatedValue',
   'ContainerRef',
   'ImageRef',
@@ -37,6 +38,7 @@ interface ItemFlags {
   specific?: string;
   type?: string;
   manufacturer?: string;
+  itemValue?: number;
   estimatedValue?: number;
   container?: string;
   image?: string;
@@ -53,6 +55,7 @@ function toInput(flags: ItemFlags) {
     categorySpecific: flags.specific,
     itemType: flags.type,
     itemManufacturer: flags.manufacturer,
+    itemValue: flags.itemValue,
     estimatedValue: flags.estimatedValue,
     ContainerRef: flags.container,
     ImageRef: flags.image,
@@ -141,8 +144,13 @@ export function registerItemCommands(program: Command): void {
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')
     .option(
+      '--item-value <number>',
+      'authoritative value (manual only, never AI-written)',
+      (value: string) => parseNonNegativeNumber(value, '--item-value')
+    )
+    .option(
       '--estimated-value <number>',
-      'estimated monetary value (manual, never AI-written)',
+      'suggested value (AI analysis may overwrite this)',
       (value: string) => parseNonNegativeNumber(value, '--estimated-value')
     )
     .option('-c, --container <id>', 'container to place the item in')
@@ -186,8 +194,13 @@ export function registerItemCommands(program: Command): void {
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')
     .option(
+      '--item-value <number>',
+      'authoritative value (manual only, never AI-written)',
+      (value: string) => parseNonNegativeNumber(value, '--item-value')
+    )
+    .option(
       '--estimated-value <number>',
-      'estimated monetary value (manual, never AI-written)',
+      'suggested value (AI analysis may overwrite this)',
       (value: string) => parseNonNegativeNumber(value, '--estimated-value')
     )
     .option('-c, --container <id>', 'container to place the item in')

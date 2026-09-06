@@ -33,8 +33,8 @@ export const ItemMetadataSchema = z.object({
     .array(ItemAttributeSchema)
     .describe('Array of key-value pairs for item-specific attributes'),
   // Only populated when AI_ESTIMATE_VALUE is on. A rough, image-only guess at
-  // resale/replacement value — never written to the Items collection, shown as
-  // a suggestion only.
+  // resale/replacement value. It is saved to the item's `estimatedValue` (the
+  // suggested value) and never to `itemValue` (the authoritative one).
   suggestedValue: z
     .number()
     .min(0)

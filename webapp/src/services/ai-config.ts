@@ -56,9 +56,9 @@ interface BaseConfig {
   experimentalMode: boolean;
   /**
    * Opt-in prompt augmentation asking the model for a rough value guess —
-   * see AI_ESTIMATE_VALUE. The guess is surfaced as a suggestion only and is
-   * never written to the Items collection; `estimatedValue` on Item is a
-   * manual, user-entered field.
+   * see AI_ESTIMATE_VALUE. The guess is saved to the item's `estimatedValue`
+   * (the suggested value, which re-analysis may overwrite). `itemValue`, the
+   * authoritative value, stays manual and is never written by an AI path.
    */
   estimateValue: boolean;
   /** Non-fatal misconfiguration notes, logged once per process by getAIConfig. */

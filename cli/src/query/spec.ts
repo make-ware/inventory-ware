@@ -54,6 +54,8 @@ const ITEM_HEADINGS = {
   categoryFunctional: 'FUNCTIONAL',
   categorySpecific: 'SPECIFIC',
   itemAttributes: 'ATTRIBUTES',
+  itemValue: 'VALUE',
+  estimatedValue: 'ESTIMATE',
   ContainerRef: 'CONTAINER',
   ImageRef: 'IMAGE',
   created: 'CREATED',
