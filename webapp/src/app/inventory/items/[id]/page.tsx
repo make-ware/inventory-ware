@@ -12,6 +12,7 @@ import { ItemImageUpload } from '@/components/inventory/item-image-upload';
 import { useItem } from '@/hooks/use-items';
 import { useDeleteItem } from '@/hooks/use-item-mutations';
 import { useContainer } from '@/hooks/use-containers';
+import { useItemPdfExport } from '@/hooks/use-item-pdf-export';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,7 @@ import {
   Image as ImageIcon,
   Copy,
   Printer,
+  FileDown,
 } from 'lucide-react';
 
 export default function ItemDetailPage() {
@@ -37,6 +39,7 @@ export default function ItemDetailPage() {
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
 
   const deleteItem = useDeleteItem();
+  const { isExporting, exportItems } = useItemPdfExport();
 
   const { item, isPending, isError, isMissing } = useItem(itemId);
   // The container is a secondary read: it only names the button below, so its
@@ -89,7 +92,7 @@ export default function ItemDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Inventory
         </Button>
-        {/* Two-up on phones so four actions never push past the viewport. */}
+        {/* Two-up on phones so the actions never push past the viewport. */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <Button
             variant="outline"
@@ -110,6 +113,22 @@ export default function ItemDetailPage() {
           <Button variant="outline" onClick={() => setIsLabelDialogOpen(true)}>
             <Printer className="h-4 w-4 mr-2" />
             Print Label
+          </Button>
+          <Button
+            variant="outline"
+            disabled={isExporting}
+            onClick={() =>
+              exportItems([
+                { ...item, exportContainerLabel: container?.containerLabel },
+              ])
+            }
+          >
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4 mr-2" />
+            )}
+            Export PDF
           </Button>
           <ConfirmButton
             variant="destructive"

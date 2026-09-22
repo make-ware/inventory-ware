@@ -37,11 +37,13 @@ import {
   PenTool,
   CheckSquare,
   X,
+  FileDown,
 } from 'lucide-react';
 import { useUpload } from '@/contexts/upload-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useItemsInfinite } from '@/hooks/use-items';
+import { useItemPdfExport } from '@/hooks/use-item-pdf-export';
 import {
   useBulkDeleteItems,
   useBulkUpdateItems,
@@ -97,6 +99,7 @@ function ItemsPageContent() {
   const deleteItem = useDeleteItem();
   const bulkDeleteItems = useBulkDeleteItems();
   const bulkUpdateItems = useBulkUpdateItems();
+  const { isExporting, exportFiltered, exportSelected } = useItemPdfExport();
 
   // Only the free-text box needs debouncing; the sort and category selects
   // change one discrete step at a time.
@@ -334,6 +337,23 @@ function ItemsPageContent() {
     { label: 'Name (Z-A)', value: '-itemLabel' },
   ];
 
+  // Same three inputs `useItemsInfinite` gets above, so the PDF is the grid.
+  const handleExportFiltered = () =>
+    exportFiltered({
+      userId,
+      q: debouncedQuery,
+      filters: searchFilters,
+      sort: sortValue,
+      sortLabel: sortOptions.find((option) => option.value === sortValue)
+        ?.label,
+    });
+
+  const exportIcon = isExporting ? (
+    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+  ) : (
+    <FileDown className="h-4 w-4 mr-2" />
+  );
+
   if (isAuthLoading || (isLoading && pages.length === 0)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -370,6 +390,14 @@ function ItemsPageContent() {
           >
             <Plus className="h-4 w-4 mr-2" />
             New Item
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportFiltered}
+            disabled={isExporting}
+          >
+            {exportIcon}
+            Export Filtered
           </Button>
           <Button
             variant="outline"
@@ -507,6 +535,15 @@ function ItemsPageContent() {
               className="flex-1 sm:flex-none"
             >
               Edit
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => exportSelected(Array.from(selectedItems))}
+              disabled={isExporting}
+              className="flex-1 sm:flex-none"
+            >
+              {exportIcon}
+              PDF
             </Button>
             <Button
               variant="destructive"
