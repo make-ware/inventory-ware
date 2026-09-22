@@ -5,7 +5,10 @@ import {
 } from 'pocketbase-zod-schema';
 import { z } from 'zod';
 import { BoundingBoxSchema } from '../types/bounding-box.js';
-import { CURRENCY_CODE_PATTERN, DEFAULT_CURRENCY } from '../utils/item-value.js';
+import {
+  CURRENCY_CODE_PATTERN,
+  DEFAULT_CURRENCY,
+} from '../utils/item-value.js';
 import { pbOptional } from '../utils/pb-optional.js';
 import { slugify } from '../utils/slugify.js';
 

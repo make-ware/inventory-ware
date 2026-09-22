@@ -95,8 +95,7 @@ export function resolveItemCurrency(item: {
   valueCurrency?: string | null;
 }): string {
   const code = item.valueCurrency;
-  if (typeof code === 'string' && CURRENCY_CODE_PATTERN.test(code))
-    return code;
+  if (typeof code === 'string' && CURRENCY_CODE_PATTERN.test(code)) return code;
   return DEFAULT_CURRENCY;
 }
 

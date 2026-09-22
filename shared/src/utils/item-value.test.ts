@@ -75,7 +75,7 @@ describe('formatItemValue', () => {
     expect(formatItemValue(150)).toBe('$150.00');
   });
 
-  it('formats in the item\'s currency', () => {
+  it("formats in the item's currency", () => {
     expect(formatItemValue(150, 'EUR')).toContain('€');
     expect(formatItemValue(150, 'EUR')).toContain('150');
     expect(formatItemValue(150, 'GBP')).toContain('£');
