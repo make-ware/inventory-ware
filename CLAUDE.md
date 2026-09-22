@@ -183,6 +183,13 @@ Copy `.env.example` to `.env` at repo root. Keys in use: `POCKETBASE_URL`, `POCK
 ## Releases & CI
 
 Releases are automated via release-please (`.github/workflows/release-please.yml`), which bumps `inventory-ware` per Conventional Commits on the `main` branch. CI runs `ci.yml`; the Docker image is built by `docker-build.yml`. The repo uses Conventional Commit messages (`feat:`, `fix:`, `chore:`, `refactor:` — see recent history).
+PRs are **squash-merged only** (a repository setting: merge and rebase merging
+are disabled), and the squashed commit takes the **PR title** as its message
+with a blank body. So the PR title is what release-please reads — it must be a
+conventional commit line (`feat(items): …`), and it is the one changelog entry
+the PR produces. This is deliberate: with merge commits, GitHub put the PR title
+in the merge commit's body, release-please parsed that as a nested commit, and
+every PR appeared in the changelog once for the merge and once per inner commit.
 
 ## Docs
 
