@@ -16,20 +16,22 @@
     "setup": "node --env-file-if-exists=./.env scripts/setup-pocketbase.js",
     "dev": "concurrently \"yarn workspace @project/webapp dev\" \"yarn workspace @project/shared dev\" \"yarn workspace @project/pb dev\"",
     "build": "yarn workspaces foreach -A -t run build",
-    "test": "yarn workspace @project/shared test && yarn workspace @project/webapp test && yarn workspace @project/cli test",
+    "test": "yarn workspace @project/shared test && yarn workspace @project/webapp test && yarn workspace @project/cli test && yarn run test:benchmark",
+    "test:benchmark": "TSX_TSCONFIG_PATH=benchmark/tsconfig.json node --import tsx --test benchmark/src/scorer.test.ts",
     "test:watch": "concurrently \"yarn workspace @project/shared test:watch\" \"yarn workspace @project/webapp test:watch\" \"yarn workspace @project/cli test:watch\"",
-    "lint:check": "yarn workspaces foreach -A run lint",
-    "lint": "yarn workspaces foreach -A run lint:fix",
-    "typecheck": "yarn workspaces foreach -A -t run typecheck",
-    "format": "yarn workspaces foreach -A run format",
-    "format:check": "yarn workspaces foreach -A run format:check",
+    "lint:check": "yarn workspaces foreach -A run lint && eslint benchmark",
+    "lint": "yarn workspaces foreach -A run lint:fix && eslint benchmark --fix",
+    "typecheck": "yarn workspaces foreach -A -t run typecheck && tsc --noEmit -p benchmark/tsconfig.json",
+    "format": "yarn workspaces foreach -A run format && prettier --write \"benchmark/**/*.{ts,json}\"",
+    "format:check": "yarn workspaces foreach -A run format:check && prettier --check \"benchmark/**/*.{ts,json}\"",
     "precommit": "yarn run format && yarn run lint && yarn run typecheck && yarn run test",
     "clean": "yarn workspaces foreach -R run clean && rm -rf pocketbase/pocketbase",
     "typegen": "yarn workspace @project/shared typegen",
     "db:typegen": "yarn workspace @project/shared typegen",
     "db:migrate": "yarn workspace @project/shared migrate:generate",
     "db:status": "yarn workspace @project/shared migrate:status",
-    "db:start": "yarn workspace @project/pb dev"
+    "db:start": "yarn workspace @project/pb dev",
+    "benchmark": "TSX_TSCONFIG_PATH=benchmark/tsconfig.json node --env-file-if-exists=./.env --import tsx benchmark/src/run.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -38,6 +40,7 @@
     "concurrently": "^10.0.4",
     "eslint": "^10.8.0",
     "prettier": "^3.9.6",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3"
   },
   "engines": {

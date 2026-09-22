@@ -32,6 +32,16 @@ export const ItemMetadataSchema = z.object({
   itemAttributes: z
     .array(ItemAttributeSchema)
     .describe('Array of key-value pairs for item-specific attributes'),
+  // Only populated when AI_ESTIMATE_VALUE is on. A rough, image-only guess at
+  // resale/replacement value. It is saved to the item's `estimatedValue` (the
+  // suggested value) and never to `itemValue` (the authoritative one).
+  suggestedValue: z
+    .number()
+    .min(0)
+    .optional()
+    .describe(
+      'Rough estimated monetary value of the item based solely on its appearance in the image. This is an unreliable guess for display only — never treat it as authoritative.'
+    ),
 });
 
 // Schema for item image metadata (includes image-level fields)

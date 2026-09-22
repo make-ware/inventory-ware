@@ -6,6 +6,7 @@ import { z } from 'zod';
 export * from './hash.js';
 export * from './slugify.js';
 export * from './filter.js';
+export * from './item-value.js';
 export * from './pb-optional.js';
 
 /**

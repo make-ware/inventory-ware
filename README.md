@@ -78,6 +78,7 @@ inventory-ware/
 - `yarn clean` - Clean build artifacts and PocketBase data
 - `yarn install:all` - Install all dependencies
 - `yarn typegen` - Generate TypeScript types from PocketBase schema
+- `yarn benchmark` - Score the AI image analysis against the committed cases (see [benchmark/README.md](benchmark/README.md))
 
 ### PocketBase Commands
 
@@ -167,12 +168,17 @@ you want in `.env`:
 | `AI_MODEL` | Override the model for the active provider. |
 | `AI_BASE_URL` | Point at a compatible endpoint (proxy, Azure, local server). |
 | `AI_EXPERIMENTAL_MODE` | `true`/`1`/`yes`/`on` enables the experimental `searchCategories` tool-calling loop. Off by default; costs extra tokens per analysis. |
+| `AI_ESTIMATE_VALUE` | `true`/`1`/`yes`/`on` asks the model for a rough value guess during analysis, saved to the item's `estimatedValue` (the suggested value; a re-analysis may overwrite it). Off by default. It never writes `itemValue`, the authoritative value you enter yourself. |
 
 If exactly one key is present that provider is selected automatically. An
 unusable `AI_MODEL` falls back to the provider default with a warning; with no
 key configured the app runs normally but the AI routes return
 `503 AI_NOT_CONFIGURED`. `OPENAI_MODEL` and `OPENAI_BASE_URL` remain supported
 as legacy aliases.
+
+Prompt changes are measured with `yarn benchmark`, which runs the production
+analysis path over the committed cases in `benchmark/cases/` and writes a scored
+per-model report to `benchmark/results/`. See [benchmark/README.md](benchmark/README.md).
 
 ### Next.js
 

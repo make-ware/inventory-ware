@@ -100,6 +100,24 @@ function tierLine(label: string, values: string[]): string {
 }
 
 /**
+ * Prompt section appended when AI_ESTIMATE_VALUE is on, asking the model to
+ * also fill in `suggestedValue`. Kept separate from the category context: it
+ * is off by default and unrelated to category reuse.
+ *
+ * The guess is persisted to the item's `estimatedValue`, which is the
+ * *suggested* value and may be overwritten on every re-analysis. It never
+ * reaches `itemValue`, the authoritative number only a human writes.
+ */
+const ESTIMATE_VALUE_PROMPT = `
+VALUE ESTIMATE (OPTIONAL):
+Also fill in 'suggestedValue' with a rough estimate, in US dollars, of the item's resale or replacement value based solely on what is visible in the image. This is a best-effort guess, not an appraisal — if you have no reasonable basis for a number, omit the field rather than inventing one.
+`;
+
+function estimateValuePrompt(): string {
+  return getAIConfig().estimateValue ? ESTIMATE_VALUE_PROMPT : '';
+}
+
+/**
  * Shared preamble telling the model how to name categories and attributes.
  *
  * The ordering matters: the decision ladder comes before the vocabulary so the
@@ -400,6 +418,7 @@ export function createAIAnalysisService(): AIAnalysisService {
 ${categoryContext}
 
 Be thorough and specific in your analysis. Include relevant attributes like dimensions, specifications, quantities, colors, or other distinguishing features.
+${estimateValuePrompt()}
 Return the final result as a structured object.`,
         });
         return { type: 'item', data };
@@ -419,6 +438,7 @@ Return the final result as a structured object.`,
 ${categoryContext}
 
 For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.
+${estimateValuePrompt()}
 Return the final result as a structured object.`,
         });
         return { type: 'container', data };
@@ -482,6 +502,7 @@ ${categoryContext}
 ${existingItemsContext}
 
 For each item in the container, provide detailed metadata including label, categories, manufacturer, and attributes. Be thorough and specific.
+${estimateValuePrompt()}
 Return the final result as a structured object.`,
       });
     },

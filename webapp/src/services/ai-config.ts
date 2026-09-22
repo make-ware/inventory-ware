@@ -54,6 +54,13 @@ interface BaseConfig {
    * unconfigured, which keeps callers from having to narrow the union first.
    */
   experimentalMode: boolean;
+  /**
+   * Opt-in prompt augmentation asking the model for a rough value guess —
+   * see AI_ESTIMATE_VALUE. The guess is saved to the item's `estimatedValue`
+   * (the suggested value, which re-analysis may overwrite). `itemValue`, the
+   * authoritative value, stays manual and is never written by an AI path.
+   */
+  estimateValue: boolean;
   /** Non-fatal misconfiguration notes, logged once per process by getAIConfig. */
   warnings: string[];
 }
@@ -218,6 +225,16 @@ function resolveExperimentalMode(env: NodeJS.ProcessEnv): boolean {
 }
 
 /**
+ * Read the value-estimate flag. Same truthy set and same fail-safe-off
+ * behaviour as AI_EXPERIMENTAL_MODE — an unrecognised value should not switch
+ * on prompt behaviour the operator did not ask for.
+ */
+function resolveEstimateValue(env: NodeJS.ProcessEnv): boolean {
+  const raw = read(env, 'AI_ESTIMATE_VALUE');
+  return raw !== undefined && TRUTHY_FLAG_VALUES.has(raw.toLowerCase());
+}
+
+/**
  * Resolve the effective AI configuration from an env record.
  *
  * Misconfiguration is tiered: an unusable model id degrades to the provider
@@ -232,6 +249,7 @@ export function resolveAIConfig(env: NodeJS.ProcessEnv): ResolvedAIConfig {
   const model = resolveModel(env, provider, !!baseURL, warnings);
   const apiKey = resolveApiKey(env, provider);
   const experimentalMode = resolveExperimentalMode(env);
+  const estimateValue = resolveEstimateValue(env);
 
   if (!apiKey) {
     return {
@@ -239,6 +257,7 @@ export function resolveAIConfig(env: NodeJS.ProcessEnv): ResolvedAIConfig {
       provider,
       model,
       experimentalMode,
+      estimateValue,
       reason: 'missing_api_key',
       warnings,
     };
@@ -249,6 +268,7 @@ export function resolveAIConfig(env: NodeJS.ProcessEnv): ResolvedAIConfig {
     provider,
     model,
     experimentalMode,
+    estimateValue,
     apiKey,
     warnings,
     ...(baseURL ? { baseURL } : {}),
