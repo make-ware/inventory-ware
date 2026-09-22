@@ -1,21 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
 import { formatCategoryLabel } from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
-import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
+import { PrintDialog } from '@/components/inventory/print-dialog';
 import { ItemImageUpload } from '@/components/inventory/item-image-upload';
 import { useItem } from '@/hooks/use-items';
 import { useDeleteItem } from '@/hooks/use-item-mutations';
 import { useContainer } from '@/hooks/use-containers';
-import {
-  formatPrintLabel,
-  useItemPdfExport,
-} from '@/hooks/use-item-pdf-export';
+import type { PrintSource } from '@/lib/print-sources';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +28,6 @@ import {
   Image as ImageIcon,
   Copy,
   Printer,
-  FileDown,
 } from 'lucide-react';
 
 export default function ItemDetailPage() {
@@ -39,15 +35,19 @@ export default function ItemDetailPage() {
   const params = useParams();
   const itemId = params.id as string;
 
-  const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const deleteItem = useDeleteItem();
-  const { isExporting, exportItems } = useItemPdfExport();
-
   const { item, isPending, isError, isMissing } = useItem(itemId);
   // The container is a secondary read: it only names the button below, so its
   // own failure hides that button rather than taking the page down.
   const { container } = useContainer(item?.ContainerRef);
+
+  // The one record this page shows, offered to the same dialog the lists use.
+  const printSource = useMemo<PrintSource>(
+    () => ({ entity: 'item', load: async () => (item ? [item] : []) }),
+    [item]
+  );
 
   // A missing item and a failed request are the same dead end here: there is
   // no page to render, so say so once and go back to the inventory.
@@ -113,25 +113,9 @@ export default function ItemDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button variant="outline" onClick={() => setIsLabelDialogOpen(true)}>
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="h-4 w-4 mr-2" />
-            Print Label
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isExporting}
-            onClick={() =>
-              exportItems([
-                { ...item, exportContainerLabel: container?.containerLabel },
-              ])
-            }
-          >
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <FileDown className="h-4 w-4 mr-2" />
-            )}
-            {formatPrintLabel('Item')}
+            Print
           </Button>
           <ConfirmButton
             variant="destructive"
@@ -144,11 +128,10 @@ export default function ItemDetailPage() {
         </div>
       </div>
 
-      <LabelGeneratorDialog
-        open={isLabelDialogOpen}
-        onOpenChange={setIsLabelDialogOpen}
-        target={item}
-        targetType="item"
+      <PrintDialog
+        open={isPrintOpen}
+        onOpenChange={setIsPrintOpen}
+        source={printSource}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

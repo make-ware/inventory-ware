@@ -11,8 +11,9 @@ import type { ReactNode } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import type { Container, Item } from '@project/shared';
 import { PrintDialog } from '../print-dialog';
-import type { ExportFilteredOptions } from '@/hooks/use-item-pdf-export';
+import type { PrintSource } from '@/lib/print-sources';
 
 const getList = vi.fn();
 const getOne = vi.fn();
@@ -51,7 +52,7 @@ const win = {
   document: { open: vi.fn(), write: vi.fn(), close: vi.fn() },
 };
 
-function makeItem(id: string) {
+function makeItem(id: string): Item {
   return {
     id,
     itemLabel: `Item ${id}`,
@@ -61,15 +62,31 @@ function makeItem(id: string) {
     created: '2026-01-01T00:00:00Z',
     updated: '2026-01-01T00:00:00Z',
     UserRef: 'u1',
-  };
+  } as Item;
 }
 
-const filteredQuery: ExportFilteredOptions = {
-  userId: 'u1',
-  q: '',
-  filters: {},
-  sort: '-created',
-};
+function makeContainer(id: string): Container {
+  return {
+    id,
+    containerLabel: `Container ${id}`,
+    containerNotes: '',
+    created: '2026-01-01T00:00:00Z',
+    updated: '2026-01-01T00:00:00Z',
+    UserRef: 'u1',
+  } as Container;
+}
+
+function itemSource(
+  records: Item[] | (() => Promise<Item[]>),
+  extra: Partial<PrintSource> = {}
+): PrintSource {
+  return {
+    entity: 'item',
+    title: 'Selected items',
+    load: typeof records === 'function' ? records : async () => records,
+    ...extra,
+  } as PrintSource;
+}
 
 function wrapper({ children }: { children: ReactNode }) {
   const client = new QueryClient({
@@ -78,18 +95,12 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-function renderDialog(selectedIds: string[], onOpenChange = vi.fn()) {
-  render(
-    <PrintDialog
-      open
-      onOpenChange={onOpenChange}
-      entity="items"
-      selectedIds={selectedIds}
-      filteredQuery={filteredQuery}
-    />,
+function renderDialog(source: PrintSource, onOpenChange = vi.fn()) {
+  const view = render(
+    <PrintDialog open onOpenChange={onOpenChange} source={source} />,
     { wrapper }
   );
-  return { onOpenChange };
+  return { ...view, onOpenChange };
 }
 
 function openSelect(name: RegExp) {
@@ -118,7 +129,15 @@ function labelResponse(id: string) {
 }
 
 function printButton() {
-  return screen.getByRole('button', { name: /^print$/i });
+  return screen.getByRole('button', { name: /^print( \[\d+\])?$/i });
+}
+
+function row(name: string) {
+  return screen.getByRole('checkbox', { name });
+}
+
+async function rowsLoaded(name: string) {
+  await waitFor(() => expect(row(name)).toBeVisible());
 }
 
 describe('PrintDialog', () => {
@@ -134,14 +153,13 @@ describe('PrintDialog', () => {
 
   beforeEach(() => {
     getOne.mockReset();
-    getOne.mockImplementation(async (id: string) => makeItem(id));
     getList.mockReset();
     getList.mockResolvedValue({
       page: 1,
-      perPage: 1,
-      totalItems: 4,
-      totalPages: 4,
-      items: [makeItem('f1')],
+      perPage: 100,
+      totalItems: 0,
+      totalPages: 0,
+      items: [],
     });
     fetchMock.mockReset();
     fetchMock.mockImplementation(async (_url: string, init: RequestInit) =>
@@ -157,61 +175,104 @@ describe('PrintDialog', () => {
     vi.unstubAllGlobals();
   });
 
-  it('preselects the selection when there is one', async () => {
-    renderDialog(['a', 'b']);
+  it('offers every record checked, with the count', async () => {
+    renderDialog(itemSource([makeItem('a'), makeItem('b'), makeItem('c')]));
 
-    expect(
-      screen.getByRole('combobox', { name: /applies to/i })
-    ).toHaveTextContent('Selected (2)');
+    expect(screen.getByTestId('print-list-loading')).toBeInTheDocument();
+    await rowsLoaded('Item a');
+
+    for (const id of ['a', 'b', 'c']) {
+      expect(row(`Item ${id}`)).toHaveAttribute('aria-checked', 'true');
+    }
+    expect(screen.getByText('3 of 3 selected')).toBeVisible();
+    expect(printButton()).toHaveTextContent('Print [3]');
     expect(printButton()).toBeEnabled();
-    await waitFor(() => expect(screen.getByText('+1 more page')).toBeVisible());
-  });
-
-  it('falls back to the filtered set, with Selected disabled, when nothing is selected', async () => {
-    renderDialog([]);
-
-    expect(
-      screen.getByRole('combobox', { name: /applies to/i })
-    ).toHaveTextContent('Filtered set');
-    expect(printButton()).toBeEnabled();
-
-    openSelect(/applies to/i);
-    expect(
-      screen.getByRole('option', { name: 'Selected (0)' })
-    ).toHaveAttribute('aria-disabled', 'true');
     await waitFor(() =>
-      expect(screen.getByText('+3 more pages')).toBeVisible()
+      expect(screen.getByText('+2 more pages')).toBeVisible()
     );
   });
 
-  it('disables Print with a hint when Selected is chosen with nothing selected', async () => {
-    const { rerender } = render(
-      <PrintDialog
-        open
-        onOpenChange={vi.fn()}
-        entity="items"
-        selectedIds={['a']}
-        filteredQuery={filteredQuery}
-      />,
-      { wrapper }
+  it('unchecking a record drops it from the count and the print', async () => {
+    const { onOpenChange } = renderDialog(
+      itemSource([makeItem('a'), makeItem('b'), makeItem('c')])
     );
-    // The selection is cleared while the dialog is open on "Selected".
-    rerender(
-      <PrintDialog
-        open
-        onOpenChange={vi.fn()}
-        entity="items"
-        selectedIds={[]}
-        filteredQuery={filteredQuery}
-      />
-    );
+    await rowsLoaded('Item b');
 
+    fireEvent.click(row('Item b'));
+
+    expect(row('Item b')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText('2 of 3 selected')).toBeVisible();
+    expect(printButton()).toHaveTextContent('Print [2]');
+    await waitFor(() => expect(screen.getByText('+1 more page')).toBeVisible());
+
+    fireEvent.click(printButton());
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+    const html = writtenHtml();
+    expect(html.match(/class="page"/g)).toHaveLength(2);
+    expect(html).toContain('Item a');
+    expect(html).toContain('Item c');
+    expect(html).not.toContain('Item b');
+    expect(html).toContain('<title>Selected items</title>');
+    expect(html).toContain('<dt>Items</dt><dd>2</dd>');
+  });
+
+  it('the header checkbox clears and restores the whole list', async () => {
+    renderDialog(itemSource([makeItem('a'), makeItem('b')]));
+    await rowsLoaded('Item a');
+    const all = screen.getByRole('checkbox', { name: 'Select all items' });
+    expect(all).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(all);
+
+    expect(screen.getByText('0 of 2 selected')).toBeVisible();
+    expect(printButton()).toHaveTextContent('Print');
     expect(printButton()).toBeDisabled();
-    expect(screen.getByText('Select items first')).toBeVisible();
+    expect(screen.getByText('Nothing selected')).toBeVisible();
+    expect(row('Item a')).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(row('Item a'));
+    expect(all).toHaveAttribute('aria-checked', 'mixed');
+    expect(screen.getByText('1 of 2 selected')).toBeVisible();
+
+    fireEvent.click(all);
+    expect(screen.getByText('2 of 2 selected')).toBeVisible();
+    expect(printButton()).toBeEnabled();
+  });
+
+  it('says so when the source has nothing', async () => {
+    renderDialog(itemSource([]));
+
+    await waitFor(() =>
+      expect(screen.getByText('No items to print')).toBeVisible()
+    );
+    expect(screen.getByText('0 of 0 selected')).toBeVisible();
+    expect(screen.getByText('Nothing to print')).toBeVisible();
+    expect(printButton()).toBeDisabled();
+  });
+
+  it('offers a retry when the source fails', async () => {
+    const load = vi
+      .fn<() => Promise<Item[]>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([makeItem('a')]);
+    renderDialog(itemSource(load));
+
+    await waitFor(() =>
+      expect(screen.getByText('Couldn’t load items')).toBeVisible()
+    );
+    expect(printButton()).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+
+    await rowsLoaded('Item a');
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('1 of 1 selected')).toBeVisible();
   });
 
   it('shows Format only for labels', async () => {
-    renderDialog(['a']);
+    renderDialog(itemSource([makeItem('a')]));
+    await rowsLoaded('Item a');
 
     expect(screen.queryByRole('combobox', { name: /format/i })).toBeNull();
     choose(/what/i, /^labels$/i);
@@ -222,41 +283,60 @@ describe('PrintDialog', () => {
     expect(screen.queryByRole('combobox', { name: /format/i })).toBeNull();
   });
 
-  it('prints one label per selected item as a single job', async () => {
-    const { onOpenChange } = renderDialog(['a', 'b', 'c']);
+  it('prints one label per checked record, for the source’s entity, as a single job', async () => {
+    const { onOpenChange } = renderDialog({
+      entity: 'container',
+      load: async () => [
+        makeContainer('a'),
+        makeContainer('b'),
+        makeContainer('c'),
+      ],
+    });
+    await rowsLoaded('Container a');
     choose(/what/i, /^labels$/i);
 
-    // The preview renders the first target's label.
+    // The preview renders the first checked target's label.
     await waitFor(() =>
       expect(screen.getByTestId('label-preview').innerHTML).toContain(
         'data-id="a"'
       )
     );
     expect(screen.getByText('+2 more labels')).toBeVisible();
+
+    fireEvent.click(row('Container a'));
+    await waitFor(() =>
+      expect(screen.getByTestId('label-preview').innerHTML).toContain(
+        'data-id="b"'
+      )
+    );
+    expect(screen.getByText('+1 more label')).toBeVisible();
     fetchMock.mockClear();
 
     fireEvent.click(printButton());
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
     expect(window.open).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    for (const [index, id] of ['a', 'b', 'c'].entries()) {
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [index, id] of ['b', 'c'].entries()) {
       const [url, init] = fetchMock.mock.calls[index];
       expect(url).toBe('/api-next/labels/generate');
       expect(init.headers.Authorization).toBe('Bearer mock-token');
       expect(JSON.parse(init.body)).toEqual({
         targetId: id,
-        targetType: 'item',
+        targetType: 'container',
         format: 'shipping-4x6',
       });
     }
     const html = writtenHtml();
-    expect(html.match(/class="label"/g)).toHaveLength(3);
+    expect(html.match(/class="label"/g)).toHaveLength(2);
     expect(html).toContain('size: 4in 6in');
   });
 
   it('stops at the first failed label and closes the window', async () => {
-    const { onOpenChange } = renderDialog(['a', 'b', 'c']);
+    const { onOpenChange } = renderDialog(
+      itemSource([makeItem('a'), makeItem('b'), makeItem('c')])
+    );
+    await rowsLoaded('Item a');
     choose(/what/i, /^labels$/i);
     await waitFor(() =>
       expect(screen.getByTestId('label-preview')).toBeVisible()
@@ -283,7 +363,8 @@ describe('PrintDialog', () => {
 
   it('reports a blocked pop-up', async () => {
     vi.spyOn(window, 'open').mockReturnValue(null);
-    renderDialog(['a']);
+    renderDialog(itemSource([makeItem('a')]));
+    await rowsLoaded('Item a');
     choose(/what/i, /^labels$/i);
 
     fireEvent.click(printButton());
@@ -295,16 +376,23 @@ describe('PrintDialog', () => {
     );
   });
 
-  it('prints a summary page per selected item', async () => {
-    const { onOpenChange } = renderDialog(['a', 'b']);
+  it('re-runs the source and forgets its choices when reopened', async () => {
+    const load = vi.fn(async () => [makeItem('a'), makeItem('b')]);
+    const source = itemSource(load);
+    const { rerender } = renderDialog(source);
+    await rowsLoaded('Item a');
+    fireEvent.click(row('Item b'));
+    choose(/what/i, /^labels$/i);
+    expect(screen.getByText('1 of 2 selected')).toBeVisible();
 
-    fireEvent.click(printButton());
+    rerender(
+      <PrintDialog open={false} onOpenChange={vi.fn()} source={source} />
+    );
+    rerender(<PrintDialog open onOpenChange={vi.fn()} source={source} />);
 
-    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
-    expect(getOne).toHaveBeenCalledWith('a', expect.anything());
-    expect(getOne).toHaveBeenCalledWith('b', expect.anything());
-    const html = writtenHtml();
-    expect(html.match(/class="item-page"/g)).toHaveLength(2);
-    expect(html).toContain('Selected items (2)');
+    await rowsLoaded('Item b');
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('2 of 2 selected')).toBeVisible();
+    expect(screen.queryByRole('combobox', { name: /format/i })).toBeNull();
   });
 });

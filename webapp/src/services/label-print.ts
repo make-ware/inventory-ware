@@ -4,17 +4,18 @@
  * The label SVG is rendered server-side by `POST /api-next/labels/generate`
  * (one target per request); this module fetches it and builds the print
  * document around one or more of them. Printing works the same way as the
- * item export in `@/services/item-pdf-export`: a window opened inside the
+ * summary export in `@/services/print-summary`: a window opened inside the
  * click, written once every SVG is in hand, that prints itself on load.
  *
  * Deliberately not re-exported from the `@/services` barrel — it touches
  * `window` via its callers and needs the client's auth token.
  */
-import { escapeHtml } from '@/services/item-pdf-export';
+import type { LabelTargetType } from '@project/shared';
+import { escapeHtml } from '@/services/print-summary';
 
 export type LabelFormat = 'shipping-4x6' | 'address-30x100' | 'qr-only';
 
-export type LabelTargetType = 'item' | 'container';
+export type { LabelTargetType };
 
 export const DEFAULT_LABEL_FORMAT: LabelFormat = 'shipping-4x6';
 

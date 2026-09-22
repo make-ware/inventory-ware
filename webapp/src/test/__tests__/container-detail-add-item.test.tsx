@@ -44,8 +44,8 @@ vi.mock('@/components/inventory', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/inventory/label-generator-dialog', () => ({
-  LabelGeneratorDialog: () => null,
+vi.mock('@/components/inventory/print-dialog', () => ({
+  PrintDialog: () => null,
 }));
 vi.mock('@/components/inventory/container-image-upload', () => ({
   ContainerImageUpload: () => null,

@@ -106,5 +106,11 @@ describe('LabelMutator', () => {
 
       expect(mockGetList.mock.calls[0][2].filter).toBe('ContainerRef="def"');
     });
+
+    it('filters by ImageRef for images', async () => {
+      await mutator.listForTarget('image', 'ghi');
+
+      expect(mockGetList.mock.calls[0][2].filter).toBe('ImageRef="ghi"');
+    });
   });
 });

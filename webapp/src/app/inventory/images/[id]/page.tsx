@@ -12,6 +12,8 @@ import { useImage } from '@/hooks/use-images';
 import { useItemsByImage } from '@/hooks/use-items';
 import { useContainersByImage } from '@/hooks/use-containers';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { PrintDialog } from '@/components/inventory/print-dialog';
+import type { PrintSource } from '@/lib/print-sources';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +31,7 @@ import {
   XCircle,
   Clock,
   AlertCircle,
+  Printer,
 } from 'lucide-react';
 
 export default function ImageDetailPage() {
@@ -38,6 +41,7 @@ export default function ImageDetailPage() {
   const queryClient = useQueryClient();
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
   // Set the moment the delete lands, so the "image is gone" the invalidation
   // below turns up reads as the delete rather than as a failed load.
   const [isDeleted, setIsDeleted] = useState(false);
@@ -51,6 +55,12 @@ export default function ImageDetailPage() {
   const { image, isPending, isError, isMissing } = useImage(imageId);
   const { items } = useItemsByImage(imageId);
   const { containers } = useContainersByImage(imageId);
+
+  // The one record this page shows, offered to the same dialog the lists use.
+  const printSource = useMemo<PrintSource>(
+    () => ({ entity: 'image', load: async () => (image ? [image] : []) }),
+    [image]
+  );
 
   // Analysis creates at most one of each per image, and the page only offers a
   // link to it.
@@ -218,12 +228,23 @@ export default function ImageDetailPage() {
             )}
           </Button>
 
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
+          </Button>
+
           <Button variant="destructive" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-2" />
             Delete
           </Button>
         </div>
       </div>
+
+      <PrintDialog
+        open={isPrintOpen}
+        onOpenChange={setIsPrintOpen}
+        source={printSource}
+      />
 
       {/* Status Alert */}
       <Alert

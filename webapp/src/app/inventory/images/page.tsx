@@ -9,8 +9,15 @@ import type { Image } from '@project/shared';
 import { useAuth } from '@/hooks/use-auth';
 import { useImages } from '@/hooks/use-images';
 import { qk } from '@/lib/query';
-import { ImageCard, PaginationControls } from '@/components/inventory';
+import {
+  ImageCard,
+  PaginationControls,
+  PrintDialog,
+} from '@/components/inventory';
+import { formatPrintLabel } from '@/hooks/use-print';
+import type { PrintSource } from '@/lib/print-sources';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -20,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Search } from 'lucide-react';
+import { CheckSquare, Loader2, Printer, Search, X } from 'lucide-react';
 
 const IMAGES_PER_PAGE = 24;
 
@@ -48,6 +55,18 @@ function ImagesPageContent() {
   const [processingImages, setProcessingImages] = useState<Set<string>>(
     new Set()
   );
+
+  // Bulk Selection State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+
+  // The dialog and the source it was opened with; the source is fixed at the
+  // click so a later selection change cannot swap what an open dialog offers.
+  const [print, setPrint] = useState<{
+    open: boolean;
+    source: PrintSource;
+  } | null>(null);
+
   const { confirm } = useConfirm();
 
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
@@ -183,6 +202,66 @@ function ImagesPageContent() {
     return imageMutator.getFileUrl(image);
   };
 
+  const toggleSelectionMode = () => {
+    setIsSelectionMode((prev) => {
+      if (prev) {
+        setSelectedImages(new Set());
+      }
+      return !prev;
+    });
+  };
+
+  const toggleImageSelection = (id: string) => {
+    setSelectedImages((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // A `Set` keeps insertion order, so a print follows the selection order.
+  const selectedIds = Array.from(selectedImages);
+  const selectedCount = selectedIds.length;
+
+  // The dialog is handed a source, never told where it came from: the
+  // selection when there is one, otherwise the filtered set. The library is
+  // already in memory (see `useImages`), so both sources resolve at once.
+  const openPrint = (source: PrintSource) => setPrint({ open: true, source });
+  const printSelection = () => {
+    const byId = new Map(images.map((image) => [image.id, image]));
+    const selected = selectedIds.flatMap((id) => byId.get(id) ?? []);
+    openPrint({
+      entity: 'image',
+      title: 'Selected images',
+      load: async () => selected,
+    });
+  };
+  const printList = () => {
+    if (selectedCount > 0) {
+      printSelection();
+      return;
+    }
+    const filters = [
+      imageTypeFilter !== 'all' && { label: 'Type', value: imageTypeFilter },
+      statusFilter !== 'all' && { label: 'Status', value: statusFilter },
+    ].filter((filter) => filter !== false);
+    const records = filteredImages;
+    openPrint({
+      entity: 'image',
+      title: 'Images',
+      scope: {
+        query: searchQuery.trim() || undefined,
+        filters,
+        sortLabel: 'Created (Newest)',
+      },
+      load: async () => records,
+    });
+  };
+
   const handlePageChange = useCallback((newPage: number) => {
     setCurrentPage(newPage);
   }, []);
@@ -213,14 +292,31 @@ function ImagesPageContent() {
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8 relative">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Images</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
             Manage your images ({filteredImages.length} of {images.length}{' '}
             total)
           </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+          <Button
+            variant={isSelectionMode ? 'secondary' : 'outline'}
+            onClick={toggleSelectionMode}
+          >
+            {isSelectionMode ? (
+              <X className="h-4 w-4 mr-2" />
+            ) : (
+              <CheckSquare className="h-4 w-4 mr-2" />
+            )}
+            {isSelectionMode ? 'Cancel Selection' : 'Select Images'}
+          </Button>
+          <Button variant="outline" onClick={printList}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
+          </Button>
         </div>
       </div>
 
@@ -284,6 +380,9 @@ function ImagesPageContent() {
                 onDelete={() => handleDeleteImage(image.id)}
                 onProcess={() => handleProcessImage(image.id)}
                 isProcessing={processingImages.has(image.id)}
+                isSelectionMode={isSelectionMode}
+                isSelected={selectedImages.has(image.id)}
+                onToggleSelect={() => toggleImageSelection(image.id)}
               />
             ))}
           </div>
@@ -294,6 +393,30 @@ function ImagesPageContent() {
             onPageChange={handlePageChange}
           />
         </>
+      )}
+
+      {selectedCount > 0 && (
+        <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 bg-background border rounded-lg shadow-lg p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-50 max-w-[calc(100%-2rem)] sm:max-w-none">
+          <span className="font-medium text-sm sm:text-base">
+            {selectedCount} selected
+          </span>
+          <Button
+            variant="outline"
+            onClick={printSelection}
+            className="w-full sm:w-auto"
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            {formatPrintLabel('Images', selectedCount)}
+          </Button>
+        </div>
+      )}
+
+      {print && (
+        <PrintDialog
+          open={print.open}
+          onOpenChange={(open) => setPrint((prev) => prev && { ...prev, open })}
+          source={print.source}
+        />
       )}
     </div>
   );

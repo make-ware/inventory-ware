@@ -1,8 +1,20 @@
 import type { ListResult } from 'pocketbase';
-import { type Label, type LabelInput, LabelInputSchema } from '../index';
+import {
+  type Label,
+  type LabelInput,
+  LabelInputSchema,
+  type LabelTargetType,
+} from '../index';
 import type { TypedPocketBase } from '../types';
 import { eq } from '../utils/filter';
 import { BaseMutator, type ListQuery, TypedRecordService } from './base';
+
+/** The relation a label of each target type is filed under. */
+export const LABEL_TARGET_FIELDS = {
+  item: 'ItemRef',
+  container: 'ContainerRef',
+  image: 'ImageRef',
+} as const satisfies Record<LabelTargetType, keyof Label>;
 
 const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const ID_LENGTH = 15;
@@ -49,14 +61,14 @@ export class LabelMutator extends BaseMutator<Label, LabelInput> {
   }
 
   /**
-   * List the labels generated for one item or container, newest first.
+   * List the labels generated for one item, container or image, newest first.
    */
   async listForTarget(
-    targetType: 'item' | 'container',
+    targetType: LabelTargetType,
     targetId: string,
     query: ListQuery = {}
   ): Promise<ListResult<Label>> {
-    const field = targetType === 'item' ? 'ItemRef' : 'ContainerRef';
+    const field = LABEL_TARGET_FIELDS[targetType];
     const extraFilter =
       query.filter === undefined
         ? []

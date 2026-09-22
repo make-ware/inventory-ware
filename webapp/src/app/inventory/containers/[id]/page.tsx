@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ItemCard } from '@/components/inventory';
 import { useConfirm, ConfirmButton } from '@/components/ui/confirm-dialog';
-import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
+import { PrintDialog } from '@/components/inventory/print-dialog';
 import { ContainerImageUpload } from '@/components/inventory/container-image-upload';
 import { CleanupPromptDialog } from '@/components/inventory/cleanup-prompt-dialog';
 import { createInventoryService, type CleanupActionRequest } from '@/services';
@@ -25,6 +25,7 @@ import {
   useRemoveItemFromContainer,
 } from '@/hooks/use-item-mutations';
 import { qk } from '@/lib/query';
+import type { PrintSource } from '@/lib/print-sources';
 import { AsyncCombobox } from '@/components/ui/async-combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -53,7 +54,7 @@ export default function ContainerDetailPage() {
   const [showAssigned, setShowAssigned] = useState(false);
   // Bumped after each add, to reload the picker from page 1 (see below).
   const [addNonce, setAddNonce] = useState(0);
-  const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
   const [isCleanupDialogOpen, setIsCleanupDialogOpen] = useState(false);
   const [unmatchedItems, setUnmatchedItems] = useState<Item[]>([]);
   const { confirm } = useConfirm();
@@ -78,6 +79,15 @@ export default function ContainerDetailPage() {
     totalItems: containerItemCount,
     isError: isItemsError,
   } = useItemsByContainer(containerId);
+
+  // The one record this page shows, offered to the same dialog the lists use.
+  const printSource = useMemo<PrintSource>(
+    () => ({
+      entity: 'container',
+      load: async () => (container ? [container] : []),
+    }),
+    [container]
+  );
   /**
    * One page of candidate items for the picker.
    *
@@ -298,9 +308,9 @@ export default function ContainerDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button variant="outline" onClick={() => setIsLabelDialogOpen(true)}>
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="h-4 w-4 mr-2" />
-            Print Label
+            Print
           </Button>
           <ConfirmButton
             variant="destructive"
@@ -313,11 +323,10 @@ export default function ContainerDetailPage() {
         </div>
       </div>
 
-      <LabelGeneratorDialog
-        open={isLabelDialogOpen}
-        onOpenChange={setIsLabelDialogOpen}
-        target={container}
-        targetType="container"
+      <PrintDialog
+        open={isPrintOpen}
+        onOpenChange={setIsPrintOpen}
+        source={printSource}
       />
 
       <CleanupPromptDialog
