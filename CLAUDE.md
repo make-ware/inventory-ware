@@ -139,6 +139,28 @@ the one compound write, and the order is load-bearing: read *all* of its items,
 clear each `ContainerRef` (with `''`; an `undefined` field never reaches
 PocketBase's JSON body), then delete the record — PocketBase does not cascade.
 
+**Printing: one dialog, handed a source.** Every Print button in the app
+opens `webapp/src/components/inventory/print-dialog.tsx`, which prints either
+a full-page summary or QR labels for items, containers or images. It takes a
+`PrintSource` (`webapp/src/lib/print-sources.ts`): an entity plus a `load()`
+that resolves the records to offer. The dialog runs it once per opening,
+shows the result as a checklist (everything checked, with a count) and
+previews the first checked record; it never knows whether the records were
+a selection, the grid's filtered set or a detail page's one record, and it
+must not grow a selected/all switch — that choice is the caller's. List pages
+build sources with `itemsQuerySource`/`containersQuerySource` (which walk
+every page of the grid's own query) or `itemsByIdSource`/`containersByIdSource`
+in `webapp/src/hooks/use-print.ts`; detail pages pass `load: async () =>
+[record]`. `usePrint` runs the jobs: each opens its window *before* its
+first `await` (a later `window.open` is a blocked pop-up), and a summary is
+hydrated first — an item's container label, a container's contents, an
+image's analysis results — so the HTML in
+`webapp/src/services/print-summary.ts` stays a pure function of its input.
+Labels come from `POST /api-next/labels/generate`, one request per target;
+the Labels collection files each under `ItemRef`/`ContainerRef`/`ImageRef`
+(`LABEL_TARGET_FIELDS` in `shared`), so adding a label target means a new
+relation there, not a new route.
+
 **Context providers.** Two are left: `webapp/src/contexts/auth-context.tsx` and
 `upload-context.tsx`. The upload context owns the multi-file upload queue
 (including clearing/cancelling) surfaced by

@@ -10,20 +10,34 @@ import {
 } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
-import { ImageMutator } from '@project/shared';
+import { ContainerMutator, ImageMutator } from '@project/shared';
 import type { Container } from '@project/shared';
 import {
   ContainerCard,
   PaginationControls,
+  PrintDialog,
   SearchInput,
   SortSelect,
 } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Loader2, Plus, ArrowLeft, CheckSquare, X } from 'lucide-react';
+import {
+  Loader2,
+  Plus,
+  ArrowLeft,
+  CheckSquare,
+  Printer,
+  X,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useContainersInfinite } from '@/hooks/use-containers';
+import {
+  containersByIdSource,
+  containersQuerySource,
+  formatPrintLabel,
+} from '@/hooks/use-print';
+import type { PrintSource } from '@/lib/print-sources';
 import {
   useBulkDeleteContainers,
   useDeleteContainer,
@@ -55,7 +69,15 @@ function ContainersPageContent() {
     new Set()
   );
 
+  // The dialog and the source it was opened with; the source is fixed at the
+  // click so a later selection change cannot swap what an open dialog offers.
+  const [print, setPrint] = useState<{
+    open: boolean;
+    source: PrintSource;
+  } | null>(null);
+
   const imageMutator = useMemo(() => new ImageMutator(pb), []);
+  const containerMutator = useMemo(() => new ContainerMutator(pb), []);
   const { confirm } = useConfirm();
 
   // Both delete paths detach the container's items before removing it; see
@@ -239,6 +261,30 @@ function ContainersPageContent() {
     { label: 'Name (A-Z)', value: '+containerLabel' },
     { label: 'Name (Z-A)', value: '-containerLabel' },
   ];
+  const sortLabel = sortOptions.find(
+    (option) => option.value === sortValue
+  )?.label;
+
+  // A `Set` keeps insertion order, so a print follows the selection order.
+  const selectedIds = Array.from(selectedContainers);
+  const selectedCount = selectedIds.length;
+
+  // The dialog is handed a source, never told where it came from: the
+  // selection when there is one, otherwise the grid's whole filtered set.
+  const openPrint = (source: PrintSource) => setPrint({ open: true, source });
+  const printSelection = () =>
+    openPrint(containersByIdSource(containerMutator, selectedIds));
+  const printList = () =>
+    selectedCount > 0
+      ? printSelection()
+      : openPrint(
+          containersQuerySource(containerMutator, {
+            userId,
+            q: debouncedQuery,
+            sort: sortValue,
+            sortLabel,
+          })
+        );
 
   if (isAuthLoading || (isLoading && pages.length === 0)) {
     return (
@@ -286,6 +332,10 @@ function ContainersPageContent() {
           >
             <Plus className="h-4 w-4 mr-2" />
             New Container
+          </Button>
+          <Button variant="outline" onClick={printList}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
           </Button>
         </div>
       </div>
@@ -364,6 +414,14 @@ function ContainersPageContent() {
           </span>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button
+              variant="outline"
+              onClick={printSelection}
+              className="flex-1 sm:flex-none"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              {formatPrintLabel('Containers', selectedCount)}
+            </Button>
+            <Button
               variant="destructive"
               onClick={handleBulkDelete}
               className="flex-1 sm:flex-none"
@@ -372,6 +430,14 @@ function ContainersPageContent() {
             </Button>
           </div>
         </div>
+      )}
+
+      {print && (
+        <PrintDialog
+          open={print.open}
+          onOpenChange={(open) => setPrint((prev) => prev && { ...prev, open })}
+          source={print.source}
+        />
       )}
     </div>
   );

@@ -241,6 +241,7 @@ export interface LabelsRecord {
   collectionName: "Labels";
   ItemRef?: string;
   ContainerRef?: string;
+  ImageRef?: string;
   format: string;
   data?: string;
 }
@@ -249,6 +250,7 @@ export interface LabelsResponse extends LabelsRecord {
   expand?: {
     ItemRef?: ItemsResponse;
     ContainerRef?: ContainersResponse;
+    ImageRef?: ImagesResponse;
   };
 }
 

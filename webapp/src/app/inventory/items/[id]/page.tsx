@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
 import {
@@ -14,11 +14,12 @@ import {
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
-import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
+import { PrintDialog } from '@/components/inventory/print-dialog';
 import { ItemImageUpload } from '@/components/inventory/item-image-upload';
 import { useItem } from '@/hooks/use-items';
 import { useDeleteItem, useUpdateItem } from '@/hooks/use-item-mutations';
 import { useContainer } from '@/hooks/use-containers';
+import type { PrintSource } from '@/lib/print-sources';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,7 +43,7 @@ export default function ItemDetailPage() {
   const params = useParams();
   const itemId = params.id as string;
 
-  const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
 
   const deleteItem = useDeleteItem();
   const updateItem = useUpdateItem();
@@ -51,6 +52,12 @@ export default function ItemDetailPage() {
   // The container is a secondary read: it only names the button below, so its
   // own failure hides that button rather than taking the page down.
   const { container } = useContainer(item?.ContainerRef);
+
+  // The one record this page shows, offered to the same dialog the lists use.
+  const printSource = useMemo<PrintSource>(
+    () => ({ entity: 'item', load: async () => (item ? [item] : []) }),
+    [item]
+  );
 
   // A missing item and a failed request are the same dead end here: there is
   // no page to render, so say so once and go back to the inventory.
@@ -116,7 +123,7 @@ export default function ItemDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Inventory
         </Button>
-        {/* Two-up on phones so four actions never push past the viewport. */}
+        {/* Two-up on phones so the actions never push past the viewport. */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
           <Button
             variant="outline"
@@ -134,9 +141,9 @@ export default function ItemDetailPage() {
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button variant="outline" onClick={() => setIsLabelDialogOpen(true)}>
+          <Button variant="outline" onClick={() => setIsPrintOpen(true)}>
             <Printer className="h-4 w-4 mr-2" />
-            Print Label
+            Print
           </Button>
           <ConfirmButton
             variant="destructive"
@@ -149,11 +156,10 @@ export default function ItemDetailPage() {
         </div>
       </div>
 
-      <LabelGeneratorDialog
-        open={isLabelDialogOpen}
-        onOpenChange={setIsLabelDialogOpen}
-        target={item}
-        targetType="item"
+      <PrintDialog
+        open={isPrintOpen}
+        onOpenChange={setIsPrintOpen}
+        source={printSource}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

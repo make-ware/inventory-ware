@@ -7,6 +7,7 @@ const FIXED_LABEL_ID = 'testlabelid1234';
 
 const mockItemGetById = vi.fn();
 const mockContainerGetById = vi.fn();
+const mockImageGetById = vi.fn();
 const mockLabelCreate = vi.fn();
 
 vi.mock('qrcode', () => ({
@@ -24,8 +25,16 @@ vi.mock('@project/shared', () => ({
   ContainerMutator: class {
     getById = mockContainerGetById;
   },
+  ImageMutator: class {
+    getById = mockImageGetById;
+  },
   LabelMutator: class {
     create = mockLabelCreate;
+  },
+  LABEL_TARGET_FIELDS: {
+    item: 'ItemRef',
+    container: 'ContainerRef',
+    image: 'ImageRef',
   },
   generateLabelId: () => FIXED_LABEL_ID,
 }));
@@ -63,7 +72,61 @@ describe('generateLabel', () => {
       id: 'cont0123456789a',
       containerLabel: 'Garage shelf',
     });
+    mockImageGetById.mockResolvedValue({
+      id: 'img00123456789a',
+      file: 'garage_abc123.jpg',
+    });
     mockLabelCreate.mockImplementation(async (input) => ({ ...input }));
+  });
+
+  describe('targets', () => {
+    it('files an item label under ItemRef and points its QR at the item page', async () => {
+      const { svg } = await generateLabel({
+        targetId: 'item0123456789a',
+        targetType: 'item',
+        format: 'qr-only',
+        pb,
+      });
+      expect(svg).toContain('QR');
+      expect(mockLabelCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: FIXED_LABEL_ID,
+          ItemRef: 'item0123456789a',
+        })
+      );
+      expect(mockLabelCreate.mock.calls[0][0]).not.toHaveProperty(
+        'ContainerRef'
+      );
+    });
+
+    it('labels an image by file name, filed under ImageRef', async () => {
+      const { svg } = await generateLabel({
+        targetId: 'img00123456789a',
+        targetType: 'image',
+        format: 'shipping-4x6',
+        pb,
+      });
+      expect(svg).toContain('IMAGE');
+      expect(svg).toContain('garage_abc123.jpg');
+      expect(mockLabelCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ImageRef: 'img00123456789a',
+          format: 'shipping-4x6',
+        })
+      );
+    });
+
+    it('rejects a missing image', async () => {
+      mockImageGetById.mockResolvedValue(null);
+      await expect(
+        generateLabel({
+          targetId: 'nope',
+          targetType: 'image',
+          format: 'qr-only',
+          pb,
+        })
+      ).rejects.toThrow('Image not found');
+    });
   });
 
   describe('shipping-4x6', () => {

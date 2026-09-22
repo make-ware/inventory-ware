@@ -76,6 +76,20 @@ export const qk = {
    */
   imageById: (id: string) => ['images', 'byId', id] as const,
 
+  /**
+   * The records the print dialog offers for one opening. `session` is bumped
+   * each time the dialog opens, so every opening re-runs its source; the
+   * query is dropped as soon as the dialog closes.
+   */
+  printCandidates: (entity: string, session: number) =>
+    ['print', 'candidates', entity, session] as const,
+  /** One record with everything its summary page needs, for the preview. */
+  printPreview: (entity: string, id: string) =>
+    ['print', 'preview', entity, id] as const,
+  /** One rendered label SVG, as `/api-next/labels/generate` returns it. */
+  labelPreview: (targetType: string, targetId: string, format: string) =>
+    ['labels', targetType, targetId, format] as const,
+
   /** Prefix covering the category library; invalidate it after an item write. */
   categoriesPrefix: () => ['categories'] as const,
   categories: (userId: string) => ['categories', userId] as const,

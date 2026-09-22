@@ -5,6 +5,13 @@ import {
 } from 'pocketbase-zod-schema';
 import { z } from 'zod';
 
+/**
+ * What a label can be printed for. Each value has a matching `<Type>Ref`
+ * relation below, and the QR code points at `/inventory/<type>s/<id>`.
+ */
+export const LABEL_TARGET_TYPES = ['item', 'container', 'image'] as const;
+export type LabelTargetType = (typeof LABEL_TARGET_TYPES)[number];
+
 // Define the Zod schema for label input (for creating new labels)
 // `id` may be supplied explicitly: the Labels collection forbids updates
 // (updateRule: null), so callers that embed the record id in the stored data
@@ -16,6 +23,7 @@ export const LabelInputSchema = z.object({
     .optional(),
   ItemRef: RelationField({ collection: 'Items' }).optional(),
   ContainerRef: RelationField({ collection: 'Containers' }).optional(),
+  ImageRef: RelationField({ collection: 'Images' }).optional(),
   format: z.string().min(1, 'Format is required'),
   data: z.string().optional(),
 });
@@ -24,16 +32,18 @@ export const LabelInputSchema = z.object({
 export const LabelUpdateSchema = z.object({
   ItemRef: RelationField({ collection: 'Items' }).optional(),
   ContainerRef: RelationField({ collection: 'Containers' }).optional(),
+  ImageRef: RelationField({ collection: 'Images' }).optional(),
   format: z.string().min(1, 'Format is required').optional(),
   data: z.string().optional(),
 });
 
 // Database schema for the complete label record
-// This includes the item/container relationships and timestamps
+// This includes the item/container/image relationships and timestamps
 export const LabelSchema = z
   .object({
     ItemRef: RelationField({ collection: 'Items' }).optional(),
     ContainerRef: RelationField({ collection: 'Containers' }).optional(),
+    ImageRef: RelationField({ collection: 'Images' }).optional(),
     format: z.string().min(1, 'Format is required'),
     data: z.string().optional(),
   })
@@ -62,6 +72,8 @@ export const LabelCollection = defineCollection({
     'CREATE INDEX `idx_item_labels` ON `labels` (`ItemRef`)',
     // Index on container for efficient container-based queries
     'CREATE INDEX `idx_container_labels` ON `labels` (`ContainerRef`)',
+    // Index on image for efficient image-based queries
+    'CREATE INDEX `idx_image_labels` ON `labels` (`ImageRef`)',
     // Index on created field for chronological sorting
     'CREATE INDEX `idx_created_labels` ON `labels` (`created`)',
   ],

@@ -26,7 +26,7 @@ import {
   eq,
   isUnrepresentableFilterValue,
 } from '@project/shared';
-import type { Item } from '@project/shared';
+import type { Item, ItemSearchFilters } from '@project/shared';
 import type { SearchFilters } from '@/components/inventory';
 import pb from '@/lib/pocketbase-client';
 import { qk, seedFromListCache } from '@/lib/query';
@@ -63,11 +63,36 @@ export interface UseItemsInfiniteOptions {
  * which is the same query as `{}` but a different object; spelling every field
  * out keeps the key (and the devtools view of it) stable either way.
  */
-function normaliseFilters(filters?: SearchFilters): SearchFilters {
+export function normaliseFilters(filters?: SearchFilters): SearchFilters {
   return {
     functional: filters?.functional || undefined,
     specific: filters?.specific || undefined,
     itemType: filters?.itemType || undefined,
+  };
+}
+
+/**
+ * The filter and sort half of the items grid's `ItemMutator.search()` call.
+ *
+ * The grid and the PDF export both spread this, adding only their own
+ * `page`/`perPage`/`expand`, so an export can never drift from what the grid
+ * shows for the same URL state.
+ */
+export function buildItemSearchOptions({
+  filters,
+  sort = '-created',
+}: {
+  filters?: SearchFilters;
+  sort?: string;
+}): { filters: ItemSearchFilters; sort: string } {
+  const normalised = normaliseFilters(filters);
+  return {
+    filters: {
+      categoryFunctional: normalised.functional,
+      categorySpecific: normalised.specific,
+      itemType: normalised.itemType,
+    },
+    sort,
   };
 }
 
@@ -157,14 +182,9 @@ export function useItemsInfinite({
     enabled: !!userId && !isRejectedQuery,
     fetchPage: (page) =>
       itemMutator.search(q, {
+        ...buildItemSearchOptions({ filters: normalisedFilters, sort }),
         page,
         perPage: ITEMS_PER_PAGE,
-        filters: {
-          categoryFunctional: normalisedFilters.functional,
-          categorySpecific: normalisedFilters.specific,
-          itemType: normalisedFilters.itemType,
-        },
-        sort,
         expand: 'ImageRef',
       }),
     spec,

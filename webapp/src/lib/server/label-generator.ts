@@ -1,16 +1,18 @@
 import QRCode from 'qrcode';
-import type { TypedPocketBase } from '@project/shared';
+import type { LabelTargetType, TypedPocketBase } from '@project/shared';
 import {
   ItemMutator,
   ContainerMutator,
+  ImageMutator,
   LabelMutator,
+  LABEL_TARGET_FIELDS,
   generateLabelId,
 } from '@project/shared';
 import { escapeXml, fitTextLines, renderTextElement } from './svg-text';
 
 interface GenerateLabelOptions {
   targetId: string;
-  targetType: 'item' | 'container';
+  targetType: LabelTargetType;
   format: string;
   pb: TypedPocketBase;
 }
@@ -27,21 +29,24 @@ export async function generateLabel({
   pb,
 }: GenerateLabelOptions): Promise<GenerateLabelResult> {
   // 1. Fetch target data
-  const itemMutator = new ItemMutator(pb);
-  const containerMutator = new ContainerMutator(pb);
-
   let rawLabelText = '';
   let subText = '';
   if (targetType === 'item') {
-    const item = await itemMutator.getById(targetId);
+    const item = await new ItemMutator(pb).getById(targetId);
     if (!item) throw new Error('Item not found');
     rawLabelText = item.itemLabel || item.itemName || 'Item';
     subText = item.id;
-  } else {
-    const container = await containerMutator.getById(targetId);
+  } else if (targetType === 'container') {
+    const container = await new ContainerMutator(pb).getById(targetId);
     if (!container) throw new Error('Container not found');
     rawLabelText = container.containerLabel || 'Container';
     subText = container.id;
+  } else {
+    // An image has no name of its own, so the label carries its file name.
+    const image = await new ImageMutator(pb).getById(targetId);
+    if (!image) throw new Error('Image not found');
+    rawLabelText = image.file || 'Image';
+    subText = image.id;
   }
 
   // 2. Pre-generate the record id. Labels are immutable (updateRule: null),
@@ -151,8 +156,7 @@ export async function generateLabel({
   const labelMutator = new LabelMutator(pb);
   const labelRecord = await labelMutator.create({
     id: labelId,
-    ItemRef: targetType === 'item' ? targetId : undefined,
-    ContainerRef: targetType === 'container' ? targetId : undefined,
+    [LABEL_TARGET_FIELDS[targetType]]: targetId,
     format: format,
     data: fullSvg,
   });

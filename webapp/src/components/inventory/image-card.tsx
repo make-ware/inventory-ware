@@ -4,6 +4,8 @@ import { ImageWithLoader } from '@/components/image/image-with-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 import {
   Edit,
   Trash2,
@@ -24,6 +26,9 @@ interface ImageCardProps {
   onClick?: () => void;
   onProcess?: () => void;
   isProcessing?: boolean;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export function ImageCard({
@@ -34,7 +39,18 @@ export function ImageCard({
   onClick,
   onProcess,
   isProcessing = false,
+  isSelectionMode,
+  isSelected,
+  onToggleSelect,
 }: ImageCardProps) {
+  const handleClick = () => {
+    if (isSelectionMode && onToggleSelect) {
+      onToggleSelect();
+    } else if (onClick) {
+      onClick();
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -88,13 +104,32 @@ export function ImageCard({
 
   return (
     <Card
-      className="cursor-pointer hover:shadow-md transition-shadow"
-      onClick={onClick}
+      className={cn(
+        'cursor-pointer hover:shadow-md transition-shadow relative',
+        isSelected && 'ring-2 ring-primary'
+      )}
+      onClick={handleClick}
     >
+      {isSelectionMode && (
+        <div
+          className="absolute top-2 left-2 z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelect?.()}
+            aria-label={`Select ${image.file}`}
+          />
+        </div>
+      )}
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <CardTitle className="text-lg mb-1">Image</CardTitle>
+            <CardTitle
+              className={cn('text-lg mb-1', isSelectionMode && 'ml-6')}
+            >
+              Image
+            </CardTitle>
             <Badge
               variant={getStatusColor(status)}
               className="flex items-center gap-1 w-fit"
@@ -103,50 +138,52 @@ export function ImageCard({
               {status}
             </Badge>
           </div>
-          <div className="flex gap-1">
-            {onProcess && canRequeue(status) && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onProcess();
-                }}
-                disabled={isProcessing}
-                title="Process image"
-              >
-                {isProcessing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-            {onEdit && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          {!isSelectionMode && (
+            <div className="flex gap-1">
+              {onProcess && canRequeue(status) && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onProcess();
+                  }}
+                  disabled={isProcessing}
+                  title="Process image"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
+              {onEdit && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>

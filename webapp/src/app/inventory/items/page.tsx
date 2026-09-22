@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import pb from '@/lib/pocketbase-client';
-import { ImageMutator } from '@project/shared';
+import { ImageMutator, ItemMutator } from '@project/shared';
 import type { Item } from '@project/shared';
 import type { SearchFilters, BulkEditData } from '@/components/inventory';
 import {
@@ -18,6 +18,7 @@ import {
   ItemCard,
   BulkEditDialog,
   PaginationControls,
+  PrintDialog,
   SortSelect,
 } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
@@ -37,11 +38,19 @@ import {
   PenTool,
   CheckSquare,
   X,
+  Printer,
 } from 'lucide-react';
 import { useUpload } from '@/contexts/upload-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useItemsInfinite } from '@/hooks/use-items';
+import {
+  formatPrintLabel,
+  itemsByIdSource,
+  itemsQuerySource,
+} from '@/hooks/use-print';
+import type { ItemQueryOptions } from '@/hooks/use-print';
+import type { PrintSource } from '@/lib/print-sources';
 import {
   useBulkDeleteItems,
   useBulkUpdateItems,
@@ -49,6 +58,13 @@ import {
 } from '@/hooks/use-item-mutations';
 import { useCategoryLibrary } from '@/hooks/use-categories';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+
+const SORT_OPTIONS = [
+  { label: 'Created (Newest)', value: '-created' },
+  { label: 'Created (Oldest)', value: '+created' },
+  { label: 'Name (A-Z)', value: '+itemLabel' },
+  { label: 'Name (Z-A)', value: '-itemLabel' },
+];
 
 function ItemsPageContent() {
   const router = useRouter();
@@ -83,6 +99,12 @@ function ItemsPageContent() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
+  // The dialog and the source it was opened with; the source is fixed at the
+  // click so a later selection change cannot swap what an open dialog offers.
+  const [print, setPrint] = useState<{
+    open: boolean;
+    source: PrintSource;
+  } | null>(null);
 
   // Dialog state
   const [createOptionDialog, setCreateOptionDialog] = useState<{
@@ -97,6 +119,7 @@ function ItemsPageContent() {
   const deleteItem = useDeleteItem();
   const bulkDeleteItems = useBulkDeleteItems();
   const bulkUpdateItems = useBulkUpdateItems();
+  const itemMutator = useMemo(() => new ItemMutator(pb), []);
 
   // Only the free-text box needs debouncing; the sort and category selects
   // change one discrete step at a time.
@@ -327,12 +350,35 @@ function ItemsPageContent() {
     input.click();
   };
 
-  const sortOptions = [
-    { label: 'Created (Newest)', value: '-created' },
-    { label: 'Created (Oldest)', value: '+created' },
-    { label: 'Name (A-Z)', value: '+itemLabel' },
-    { label: 'Name (Z-A)', value: '-itemLabel' },
-  ];
+  const sortLabel = SORT_OPTIONS.find(
+    (option) => option.value === sortValue
+  )?.label;
+
+  // Same three inputs `useItemsInfinite` gets above, so the PDF is the grid.
+  const filteredQuery = useMemo<ItemQueryOptions>(
+    () => ({
+      userId,
+      q: debouncedQuery,
+      filters: searchFilters,
+      sort: sortValue,
+      sortLabel,
+    }),
+    [userId, debouncedQuery, searchFilters, sortValue, sortLabel]
+  );
+
+  // A `Set` keeps insertion order, so the PDF follows the selection order.
+  const selectedIds = useMemo(() => Array.from(selectedItems), [selectedItems]);
+  const selectedCount = selectedIds.length;
+
+  // The dialog is handed a source, never told where it came from: the
+  // selection when there is one, otherwise the grid's whole filtered set.
+  const openPrint = (source: PrintSource) => setPrint({ open: true, source });
+  const printSelection = () =>
+    openPrint(itemsByIdSource(itemMutator, selectedIds));
+  const printList = () =>
+    selectedCount > 0
+      ? printSelection()
+      : openPrint(itemsQuerySource(itemMutator, filteredQuery));
 
   if (isAuthLoading || (isLoading && pages.length === 0)) {
     return (
@@ -371,6 +417,10 @@ function ItemsPageContent() {
             <Plus className="h-4 w-4 mr-2" />
             New Item
           </Button>
+          <Button variant="outline" onClick={printList}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
+          </Button>
           <Button
             variant="outline"
             onClick={() => router.push('/inventory/containers')}
@@ -395,7 +445,7 @@ function ItemsPageContent() {
             <SortSelect
               value={sortValue}
               onValueChange={setSortValue}
-              options={sortOptions}
+              options={SORT_OPTIONS}
               className="w-full"
             />
           </div>
@@ -509,6 +559,14 @@ function ItemsPageContent() {
               Edit
             </Button>
             <Button
+              variant="outline"
+              onClick={printSelection}
+              className="flex-1 sm:flex-none"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              {formatPrintLabel('Items', selectedCount)}
+            </Button>
+            <Button
               variant="destructive"
               onClick={handleBulkDelete}
               className="flex-1 sm:flex-none"
@@ -526,6 +584,14 @@ function ItemsPageContent() {
         onConfirm={handleBulkEditConfirm}
         categories={categories}
       />
+
+      {print && (
+        <PrintDialog
+          open={print.open}
+          onOpenChange={(open) => setPrint((prev) => prev && { ...prev, open })}
+          source={print.source}
+        />
+      )}
     </div>
   );
 }

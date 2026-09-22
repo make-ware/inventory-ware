@@ -5,13 +5,14 @@ import {
 } from '@/lib/pocketbase-server';
 import { generateLabel } from '@/lib/server/label-generator';
 import { createLogger, errorMessage } from '@/lib/logger';
+import { LABEL_TARGET_TYPES } from '@project/shared';
 import { z } from 'zod';
 
 const log = createLogger('api-next/labels/generate');
 
 const requestSchema = z.object({
   targetId: z.string(),
-  targetType: z.enum(['item', 'container']),
+  targetType: z.enum(LABEL_TARGET_TYPES),
   format: z.enum(['shipping-4x6', 'address-30x100', 'qr-only']),
 });
 
