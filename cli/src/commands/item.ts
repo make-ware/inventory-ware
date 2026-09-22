@@ -10,7 +10,13 @@ import {
 } from '../query/options.js';
 import { executeQuery, renderQuery } from '../query/run.js';
 import { ITEM_SPEC } from '../query/spec.js';
-import { collectAttr, compact, run } from './shared.js';
+import {
+  collectAttr,
+  compact,
+  parseCurrencyCode,
+  parseNonNegativeNumber,
+  run,
+} from './shared.js';
 
 const DETAIL_KEYS = [
   'id',
@@ -22,6 +28,9 @@ const DETAIL_KEYS = [
   'itemType',
   'itemManufacturer',
   'itemAttributes',
+  'itemValue',
+  'estimatedValue',
+  'valueCurrency',
   'ContainerRef',
   'ImageRef',
   'created',
@@ -36,6 +45,9 @@ interface ItemFlags {
   specific?: string;
   type?: string;
   manufacturer?: string;
+  itemValue?: number;
+  estimatedValue?: number;
+  currency?: string;
   container?: string;
   image?: string;
   attr?: Array<{ name: string; value: string }>;
@@ -51,6 +63,9 @@ function toInput(flags: ItemFlags) {
     categorySpecific: flags.specific,
     itemType: flags.type,
     itemManufacturer: flags.manufacturer,
+    itemValue: flags.itemValue,
+    estimatedValue: flags.estimatedValue,
+    valueCurrency: flags.currency,
     ContainerRef: flags.container,
     ImageRef: flags.image,
     itemAttributes: flags.attr,
@@ -137,6 +152,21 @@ export function registerItemCommands(program: Command): void {
     .option('-n, --name <name>', 'item name')
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')
+    .option(
+      '--item-value <number>',
+      'authoritative value (manual only, never AI-written)',
+      (value: string) => parseNonNegativeNumber(value, '--item-value')
+    )
+    .option(
+      '--estimated-value <number>',
+      'suggested value (AI analysis may overwrite this)',
+      (value: string) => parseNonNegativeNumber(value, '--estimated-value')
+    )
+    .option(
+      '--currency <code>',
+      'ISO 4217 currency for the value fields (default USD)',
+      (value: string) => parseCurrencyCode(value, '--currency')
+    )
     .option('-c, --container <id>', 'container to place the item in')
     .option('-i, --image <id>', 'image to associate')
     .option(
@@ -177,6 +207,21 @@ export function registerItemCommands(program: Command): void {
     .option('-n, --name <name>', 'item name')
     .option('--notes <notes>', 'free-form notes')
     .option('--manufacturer <name>', 'manufacturer')
+    .option(
+      '--item-value <number>',
+      'authoritative value (manual only, never AI-written)',
+      (value: string) => parseNonNegativeNumber(value, '--item-value')
+    )
+    .option(
+      '--estimated-value <number>',
+      'suggested value (AI analysis may overwrite this)',
+      (value: string) => parseNonNegativeNumber(value, '--estimated-value')
+    )
+    .option(
+      '--currency <code>',
+      'ISO 4217 currency for the value fields (default USD)',
+      (value: string) => parseCurrencyCode(value, '--currency')
+    )
     .option('-c, --container <id>', 'container to place the item in')
     .option('-i, --image <id>', 'image to associate')
     .option(

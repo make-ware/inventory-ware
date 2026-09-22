@@ -5,8 +5,31 @@ import {
 } from 'pocketbase-zod-schema';
 import { z } from 'zod';
 import { BoundingBoxSchema } from '../types/bounding-box.js';
+import {
+  CURRENCY_CODE_PATTERN,
+  DEFAULT_CURRENCY,
+} from '../utils/item-value.js';
 import { pbOptional } from '../utils/pb-optional.js';
 import { slugify } from '../utils/slugify.js';
+
+// One currency shared by both value fields — never one per field. The AI
+// prompt still guesses a bare number; this applies at display.
+const valueCurrencyInput = z
+  .string()
+  .regex(
+    CURRENCY_CODE_PATTERN,
+    'Currency must be a 3-letter ISO 4217 code (e.g. USD)'
+  )
+  .optional()
+  .default(DEFAULT_CURRENCY);
+const valueCurrencyPatch = pbOptional(
+  z
+    .string()
+    .regex(
+      CURRENCY_CODE_PATTERN,
+      'Currency must be a 3-letter ISO 4217 code (e.g. USD)'
+    )
+);
 
 // Schema for individual item attributes (key-value pairs)
 export const ItemAttributeSchema = z.object({
@@ -47,6 +70,15 @@ export const ItemInputSchema = z.object({
     .array(ItemAttributeSchema)
     .nullish()
     .transform((v) => v ?? []),
+  // The authoritative value: manual, user-entered only. No AI path ever writes
+  // it — see `webapp/src/services/inventory.ts`.
+  itemValue: pbOptional(z.number().nonnegative()),
+  // The suggested value: AI image analysis writes it when AI_ESTIMATE_VALUE is
+  // on (from `suggestedValue` in `shared/src/types/metadata.ts`) and may
+  // overwrite it on re-analysis. Editable by hand too, for a fuzzy number the
+  // user does not want to promote to `itemValue`.
+  estimatedValue: pbOptional(z.number().nonnegative()),
+  valueCurrency: valueCurrencyInput,
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
   boundingBox: pbOptional(BoundingBoxSchema),
@@ -78,6 +110,9 @@ export const ItemUpdateSchema = z.object({
     .optional(),
   itemManufacturer: z.string().optional(),
   itemAttributes: pbOptional(z.array(ItemAttributeSchema)),
+  itemValue: pbOptional(z.number().nonnegative()),
+  estimatedValue: pbOptional(z.number().nonnegative()),
+  valueCurrency: valueCurrencyPatch,
   ContainerRef: pbOptional(RelationField({ collection: 'Containers' })),
   ImageRef: pbOptional(RelationField({ collection: 'Images' })),
   boundingBox: pbOptional(BoundingBoxSchema),
@@ -107,6 +142,26 @@ export const ItemSchema = z
       .transform(slugify),
     itemManufacturer: z.string().default(''),
     itemAttributes: z.array(ItemAttributeSchema).default([]),
+    // Both stay `.optional()` rather than `.default(0)`: PocketBase already
+    // guarantees the key is present on every record it returns (a number
+    // column has no "unset" — it reads back as `0`), so the only records
+    // missing it are ones built locally in tests. Read them through
+    // `getEffectiveItemValue`, which treats `0`, `null` and `undefined`
+    // alike as "no value recorded".
+    itemValue: z.number().nonnegative().optional(),
+    estimatedValue: z.number().nonnegative().optional(),
+    // Always present on paper: new writes carry it via the input default
+    // above. Pre-migration rows read back as `""` (a text column has no
+    // "unset" distinct from empty), so display goes through
+    // `resolveItemCurrency`, which treats that as USD.
+    valueCurrency: z
+      .string()
+      .regex(
+        CURRENCY_CODE_PATTERN,
+        'Currency must be a 3-letter ISO 4217 code (e.g. USD)'
+      )
+      .optional()
+      .default(DEFAULT_CURRENCY),
     ContainerRef: RelationField({ collection: 'Containers' }).optional(),
     ImageRef: RelationField({ collection: 'Images' }).optional(),
     boundingBox: BoundingBoxSchema.optional(),

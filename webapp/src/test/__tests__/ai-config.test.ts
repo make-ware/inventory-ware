@@ -274,6 +274,66 @@ describe('resolveAIConfig', () => {
       expect(config.experimentalMode).toBe(true);
     });
   });
+
+  describe('estimate value', () => {
+    it.each(['true', '1', 'yes', 'on'])(
+      'enables the value-estimate prompt for %s',
+      (value) => {
+        const config = resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_ESTIMATE_VALUE: value })
+        );
+
+        expect(config.estimateValue).toBe(true);
+      }
+    );
+
+    it('tolerates surrounding whitespace and casing', () => {
+      expect(
+        resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_ESTIMATE_VALUE: '  TRUE  ' })
+        ).estimateValue
+      ).toBe(true);
+    });
+
+    it('defaults to off when unset or blank', () => {
+      expect(
+        resolveAIConfig(env({ OPENAI_API_KEY: 'sk-test' })).estimateValue
+      ).toBe(false);
+      expect(
+        resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_ESTIMATE_VALUE: '   ' })
+        ).estimateValue
+      ).toBe(false);
+    });
+
+    it.each(['false', '0', 'maybe'])(
+      'stays off for %s, without warning',
+      (value) => {
+        const config = resolveAIConfig(
+          env({ OPENAI_API_KEY: 'sk-test', AI_ESTIMATE_VALUE: value })
+        );
+
+        expect(config.estimateValue).toBe(false);
+        expect(config.warnings).toEqual([]);
+      }
+    );
+
+    it('is readable without a credential, so callers need not narrow first', () => {
+      const config = resolveAIConfig(env({ AI_ESTIMATE_VALUE: 'true' }));
+
+      expect(config.configured).toBe(false);
+      expect(config.estimateValue).toBe(true);
+    });
+
+    it('is independent of AI_EXPERIMENTAL_MODE', () => {
+      const config = resolveAIConfig(
+        env({ OPENAI_API_KEY: 'sk-test', AI_ESTIMATE_VALUE: 'true' })
+      );
+
+      expect(config.estimateValue).toBe(true);
+      expect(config.experimentalMode).toBe(false);
+    });
+  });
 });
 
 describe('AIConfigError', () => {

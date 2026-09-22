@@ -10,11 +10,20 @@ import {
   type ItemUpdate,
   type CategoryLibrary,
   formatCategoryLabel,
+  COMMON_CURRENCIES,
+  DEFAULT_CURRENCY,
 } from '@project/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Combobox } from '@/components/ui/combobox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Form,
   FormControl,
@@ -55,6 +64,12 @@ const BASE_DEFAULTS: ItemUpdateFormValues = {
   itemType: '',
   itemManufacturer: '',
   itemAttributes: [],
+  // `undefined` rather than 0: an untouched field must stay out of the dirty
+  // patch. PocketBase reads an unset value back as 0, so 0 is what the user
+  // sends to clear one (see getEffectiveItemValue).
+  itemValue: undefined,
+  estimatedValue: undefined,
+  valueCurrency: undefined,
   ImageRef: undefined,
   boundingBox: undefined,
 };
@@ -311,6 +326,106 @@ export function ItemUpdateForm({
                 />
               </FormControl>
               <FormDescription>Brand or manufacturer name</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="itemValue"
+            render={({ field: { value, onChange, ...field } }) => (
+              <FormItem>
+                <FormLabel>Value</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="e.g., 150"
+                    value={value ?? ''}
+                    onChange={(e) =>
+                      onChange(
+                        e.target.value === '' ? 0 : e.target.valueAsNumber
+                      )
+                    }
+                    {...field}
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription>
+                  What the item is worth, as you&apos;d stand behind it. Never
+                  written by AI analysis.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="estimatedValue"
+            render={({ field: { value, onChange, ...field } }) => (
+              <FormItem>
+                <FormLabel>Estimated Value</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="e.g., 150"
+                    value={value ?? ''}
+                    onChange={(e) =>
+                      onChange(
+                        e.target.value === '' ? 0 : e.target.valueAsNumber
+                      )
+                    }
+                    {...field}
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormDescription>
+                  A rough guess. AI analysis overwrites this field when
+                  AI_ESTIMATE_VALUE is on.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* `?? DEFAULT_CURRENCY` is display-only: an untouched picker shows
+            USD without dirtying the field, so pre-migration rows (whose
+            stored value is `""`) are not rewritten until the user picks
+            one. */}
+        <FormField
+          control={form.control}
+          name="valueCurrency"
+          render={({ field }) => (
+            <FormItem className="max-w-xs">
+              <FormLabel>Currency</FormLabel>
+              <Select
+                value={field.value ?? DEFAULT_CURRENCY}
+                onValueChange={field.onChange}
+                disabled={isSubmitting}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {COMMON_CURRENCIES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                One currency for both value fields above.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}

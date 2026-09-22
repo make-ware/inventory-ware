@@ -196,6 +196,7 @@ describe('ItemMutator', () => {
         itemType: 'Hammer',
         itemManufacturer: '',
         itemAttributes: [],
+        valueCurrency: 'USD',
         UserRef: 'user123',
       };
 

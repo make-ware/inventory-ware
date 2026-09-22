@@ -98,6 +98,7 @@ export interface ImageMetadataRecord {
   name: string;
   value: string;
 })[];
+  suggestedValue?: number | undefined;
 };
 };
 } | {
@@ -120,6 +121,7 @@ export interface ImageMetadataRecord {
   name: string;
   value: string;
 })[];
+  suggestedValue?: number | undefined;
 })[];
 };
 };
@@ -209,6 +211,9 @@ export interface ItemsRecord {
   name: string;
   value: string;
 })[];
+  itemValue?: number;
+  estimatedValue?: number;
+  valueCurrency?: string;
   ContainerRef?: string;
   ImageRef?: string;
   boundingBox?: {

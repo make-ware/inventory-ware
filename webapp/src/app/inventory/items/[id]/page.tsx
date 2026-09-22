@@ -3,14 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { CroppedImageViewer } from '@/components/image/cropped-image-viewer';
-import { formatCategoryLabel } from '@project/shared';
+import {
+  formatCategoryLabel,
+  getEffectiveItemValue,
+  hasItemValue,
+  canAcceptEstimate,
+  formatItemValue,
+  resolveItemCurrency,
+} from '@project/shared';
 import { getImageFileUrl } from '@/lib/image-utils';
 import { ItemHistory } from '@/components/inventory/item-history';
 import { ConfirmButton } from '@/components/ui/confirm-dialog';
 import { LabelGeneratorDialog } from '@/components/inventory/label-generator-dialog';
 import { ItemImageUpload } from '@/components/inventory/item-image-upload';
 import { useItem } from '@/hooks/use-items';
-import { useDeleteItem } from '@/hooks/use-item-mutations';
+import { useDeleteItem, useUpdateItem } from '@/hooks/use-item-mutations';
 import { useContainer } from '@/hooks/use-containers';
 
 import { Button } from '@/components/ui/button';
@@ -27,6 +34,7 @@ import {
   Image as ImageIcon,
   Copy,
   Printer,
+  Check,
 } from 'lucide-react';
 
 export default function ItemDetailPage() {
@@ -37,6 +45,7 @@ export default function ItemDetailPage() {
   const [isLabelDialogOpen, setIsLabelDialogOpen] = useState(false);
 
   const deleteItem = useDeleteItem();
+  const updateItem = useUpdateItem();
 
   const { item, isPending, isError, isMissing } = useItem(itemId);
   // The container is a secondary read: it only names the button below, so its
@@ -51,6 +60,24 @@ export default function ItemDetailPage() {
     toast.error('Failed to load item details');
     router.push('/inventory');
   }, [isUnavailable, router]);
+
+  // Promote the AI's estimate to the authoritative value. Only offered when
+  // there is nothing to overwrite (see canAcceptEstimate), so this can never
+  // discard a number the user entered.
+  const handleAcceptEstimate = async () => {
+    if (!item || !hasItemValue(item.estimatedValue)) return;
+    try {
+      await updateItem.mutateAsync({
+        id: item.id,
+        data: { itemValue: item.estimatedValue },
+      });
+      toast.success('Estimate accepted as the item value');
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to accept estimate'
+      );
+    }
+  };
 
   const handleDelete = async () => {
     try {
@@ -185,6 +212,53 @@ export default function ItemDetailPage() {
                     <p className="text-sm text-muted-foreground">
                       {item.itemManufacturer}
                     </p>
+                  </div>
+                </>
+              )}
+
+              {getEffectiveItemValue(item) !== null && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-sm font-medium mb-1">Value</h3>
+                    <p className="text-2xl font-semibold tabular-nums">
+                      {formatItemValue(
+                        getEffectiveItemValue(item),
+                        resolveItemCurrency(item)
+                      )}
+                    </p>
+
+                    {/* Two mutually exclusive cases, so the estimate is never
+                        printed twice: either it *is* the number above (and
+                        wants confirming), or it sits behind an authoritative
+                        one the user already entered. */}
+                    {canAcceptEstimate(item) ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          AI estimate — not confirmed.
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={handleAcceptEstimate}
+                          disabled={updateItem.isPending}
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          Accept estimate
+                        </Button>
+                      </div>
+                    ) : (
+                      hasItemValue(item.estimatedValue) && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          AI estimate:{' '}
+                          {formatItemValue(
+                            item.estimatedValue,
+                            resolveItemCurrency(item)
+                          )}
+                        </p>
+                      )
+                    )}
                   </div>
                 </>
               )}
