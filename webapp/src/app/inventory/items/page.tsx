@@ -43,7 +43,10 @@ import { useUpload } from '@/contexts/upload-context';
 import { useAuth } from '@/hooks/use-auth';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { useItemsInfinite } from '@/hooks/use-items';
-import { useItemPdfExport } from '@/hooks/use-item-pdf-export';
+import {
+  formatPrintLabel,
+  useItemPdfExport,
+} from '@/hooks/use-item-pdf-export';
 import {
   useBulkDeleteItems,
   useBulkUpdateItems,
@@ -348,6 +351,15 @@ function ItemsPageContent() {
         ?.label,
     });
 
+  const selectedCount = selectedItems.size;
+  const printLabel = formatPrintLabel('Items', selectedCount);
+  const printingLabel =
+    selectedCount > 0 ? `Printing [${selectedCount}]…` : 'Printing…';
+  // A `Set` keeps insertion order, so the PDF follows the selection order.
+  const handleExportSelected = () => exportSelected(Array.from(selectedItems));
+  const handlePrint = () =>
+    selectedCount > 0 ? handleExportSelected() : handleExportFiltered();
+
   const exportIcon = isExporting ? (
     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
   ) : (
@@ -393,11 +405,13 @@ function ItemsPageContent() {
           </Button>
           <Button
             variant="outline"
-            onClick={handleExportFiltered}
+            onClick={handlePrint}
             disabled={isExporting}
           >
             {exportIcon}
-            Export Filtered
+            <span aria-live="polite">
+              {isExporting ? printingLabel : printLabel}
+            </span>
           </Button>
           <Button
             variant="outline"
@@ -538,12 +552,12 @@ function ItemsPageContent() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => exportSelected(Array.from(selectedItems))}
+              onClick={handleExportSelected}
               disabled={isExporting}
               className="flex-1 sm:flex-none"
             >
               {exportIcon}
-              PDF
+              {isExporting ? printingLabel : printLabel}
             </Button>
             <Button
               variant="destructive"

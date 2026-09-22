@@ -19,7 +19,11 @@ const win = {
   document: { open: vi.fn(), write: vi.fn(), close: vi.fn() },
 };
 
-import { useItemPdfExport, EXPORT_PAGE_SIZE } from './use-item-pdf-export';
+import {
+  useItemPdfExport,
+  formatPrintLabel,
+  EXPORT_PAGE_SIZE,
+} from './use-item-pdf-export';
 import { buildItemSearchOptions } from './use-items';
 
 function makeItem(id: string, userId = 'u1') {
@@ -143,5 +147,21 @@ describe('exportSelected', () => {
     expect(html.match(/class="item-page"/g)).toHaveLength(2);
     expect(html.indexOf('Item z')).toBeLessThan(html.indexOf('Item a'));
     expect(html).toContain('Selected items (2)');
+  });
+});
+
+describe('formatPrintLabel', () => {
+  it('appends a positive count', () => {
+    expect(formatPrintLabel('Items', 2)).toBe('Print Items [2]');
+  });
+
+  it('omits a missing or zero count', () => {
+    expect(formatPrintLabel('Items')).toBe('Print Items');
+    expect(formatPrintLabel('Items', 0)).toBe('Print Items');
+    expect(formatPrintLabel('Item')).toBe('Print Item');
+  });
+
+  it('works for other entities', () => {
+    expect(formatPrintLabel('Containers', 5)).toBe('Print Containers [5]');
   });
 });

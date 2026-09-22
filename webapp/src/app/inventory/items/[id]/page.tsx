@@ -12,7 +12,10 @@ import { ItemImageUpload } from '@/components/inventory/item-image-upload';
 import { useItem } from '@/hooks/use-items';
 import { useDeleteItem } from '@/hooks/use-item-mutations';
 import { useContainer } from '@/hooks/use-containers';
-import { useItemPdfExport } from '@/hooks/use-item-pdf-export';
+import {
+  formatPrintLabel,
+  useItemPdfExport,
+} from '@/hooks/use-item-pdf-export';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -128,7 +131,7 @@ export default function ItemDetailPage() {
             ) : (
               <FileDown className="h-4 w-4 mr-2" />
             )}
-            Export PDF
+            {formatPrintLabel('Item')}
           </Button>
           <ConfirmButton
             variant="destructive"

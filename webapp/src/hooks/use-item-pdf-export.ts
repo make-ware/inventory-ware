@@ -62,6 +62,14 @@ function summaryFilters(filters?: SearchFilters) {
     .map(([label, value]) => ({ label, value: formatCategoryLabel(value) }));
 }
 
+/** "Print Items [3]", or "Print Items" with no count; entity-agnostic so
+ *  containers/images can reuse it. */
+export function formatPrintLabel(entity: string, count?: number): string {
+  return count !== undefined && count > 0
+    ? `Print ${entity} [${count}]`
+    : `Print ${entity}`;
+}
+
 export function useItemPdfExport() {
   const itemMutator = useMemo(() => new ItemMutator(pb), []);
   const [isExporting, setIsExporting] = useState(false);
