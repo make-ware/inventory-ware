@@ -15,7 +15,12 @@
  * Deliberately not re-exported from the `@/services` barrel — it touches
  * `window` and the client PocketBase singleton.
  */
-import { formatCategoryLabel } from '@project/shared';
+import {
+  formatCategoryLabel,
+  formatItemValue,
+  hasItemValue,
+  resolveItemCurrency,
+} from '@project/shared';
 import type { Container, Image, Item } from '@project/shared';
 import { getExpandedImageUrl, getImageFileUrl } from '@/lib/image-utils';
 
@@ -130,28 +135,28 @@ export function recordTitle(entity: PrintEntity, record: PrintRecord): string {
 }
 
 /**
- * Estimated-value fields, read only if the record carries them.
- *
- * Nothing in the schema defines these yet; the names are the expected ones,
- * and reading them through a `Partial<Record>` view means their absence is
- * simply "no row", never a type error or a crash.
+ * The item's value rows: the authoritative value and the AI estimate, each
+ * only when recorded (`0` means unset — see `hasItemValue`), formatted in
+ * the item's currency by the same helper the detail page uses.
  */
 export function optionalValueFields(
   item: Item
 ): { label: string; value: string }[] {
-  const view = item as unknown as Partial<
-    Record<'estimatedValue' | 'estimatedValueCurrency', unknown>
-  >;
-  if (!isPresent(view.estimatedValue)) return [];
-  const currency = isPresent(view.estimatedValueCurrency)
-    ? ` ${String(view.estimatedValueCurrency)}`
-    : '';
-  return [
-    {
+  const currency = resolveItemCurrency(item);
+  const rows: { label: string; value: string }[] = [];
+  if (hasItemValue(item.itemValue)) {
+    rows.push({
+      label: 'Value',
+      value: formatItemValue(item.itemValue, currency),
+    });
+  }
+  if (hasItemValue(item.estimatedValue)) {
+    rows.push({
       label: 'Estimated value',
-      value: `${String(view.estimatedValue)}${currency}`,
-    },
-  ];
+      value: formatItemValue(item.estimatedValue, currency),
+    });
+  }
+  return rows;
 }
 
 function field(label: string, value: unknown): string {

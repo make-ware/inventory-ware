@@ -4,6 +4,7 @@ vi.mock('@/lib/pocketbase-client', () => ({
   default: { files: { getURL: () => 'http://localhost:8090/file.png' } },
 }));
 
+import { formatItemValue } from '@project/shared';
 import type { Container, Image, Item } from '@project/shared';
 import {
   buildPreviewHtml,
@@ -197,21 +198,31 @@ describe('buildSummaryHtml', () => {
     expect(full).toContain('Name (Z-A)');
   });
 
-  it('renders estimated value only when the record has one', () => {
-    expect(
-      buildSummaryHtml([{ entity: 'item', record: makeItem() }], header)
-    ).not.toContain('Estimated value');
-    const valued = {
-      ...makeItem(),
-      estimatedValue: 120,
-      estimatedValueCurrency: 'USD',
-    };
+  it('renders value rows only when the record has them', () => {
+    const none = buildSummaryHtml(
+      [
+        {
+          entity: 'item',
+          record: makeItem({ itemValue: 0, estimatedValue: 0 }),
+        },
+      ],
+      header
+    );
+    expect(none).not.toContain('<dt>Value</dt>');
+    expect(none).not.toContain('Estimated value');
+
+    const valued = makeItem({
+      itemValue: 120,
+      estimatedValue: 99.5,
+      valueCurrency: 'EUR',
+    });
     expect(optionalValueFields(valued)).toEqual([
-      { label: 'Estimated value', value: '120 USD' },
+      { label: 'Value', value: formatItemValue(120, 'EUR') },
+      { label: 'Estimated value', value: formatItemValue(99.5, 'EUR') },
     ]);
-    expect(
-      buildSummaryHtml([{ entity: 'item', record: valued }], header)
-    ).toContain('120 USD');
+    const html = buildSummaryHtml([{ entity: 'item', record: valued }], header);
+    expect(html).toContain('<dt>Value</dt>');
+    expect(html).toContain('<dt>Estimated value</dt>');
   });
 
   it('renders a container page with its notes and contents', () => {
