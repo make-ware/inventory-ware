@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.9.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.8.0...inventory-ware-v0.9.0) (2026-09-22)
+
+
+### Features
+
+* **benchmark:** add yarn benchmark harness for LLM image analysis ([142ef42](https://github.com/make-ware/inventory-ware/commit/142ef42dfda39675838211eb7bb9c628b5865801))
+* **benchmark:** add yarn benchmark harness for LLM image analysis ([ff362cd](https://github.com/make-ware/inventory-ware/commit/ff362cd4c00d9cad7b2e9b4d1c7855e22144bb2b))
+* **benchmark:** store scores only, drop raw runs from reports ([ea5d279](https://github.com/make-ware/inventory-ware/commit/ea5d2799eeabac5d7b7e97fb6b5877d1224b4f79))
+* **items:** currency support for value fields ([ad1e617](https://github.com/make-ware/inventory-ware/commit/ad1e617c4fce9672a9d47e98ab2eca1378ab2c41))
+* **items:** dual authoritative/suggested value fields ([8211dac](https://github.com/make-ware/inventory-ware/commit/8211dac9a4790f7fa8340b3abd8810810cab86a9))
+* **items:** dynamic Print Items [N] export labels ([4801f0d](https://github.com/make-ware/inventory-ware/commit/4801f0db0ecdc18c702a8efbe97dfd4d5972a302))
+* **items:** filter-aware PDF export ([eb0281f](https://github.com/make-ware/inventory-ware/commit/eb0281fe26e01fe9b0b6cbbf5108350056b48e33))
+* **items:** filter-aware PDF export ([4d1d42f](https://github.com/make-ware/inventory-ware/commit/4d1d42fa26321c49bffa87b0269eca55953b3d25))
+* **items:** manual estimated value with AI suggestion and currency support ([5cfd181](https://github.com/make-ware/inventory-ware/commit/5cfd181c5ef5aabe36ebf215cac7e9dc6a47bf80))
+* **items:** manual estimatedValue with AI_ESTIMATE_VALUE suggestion flag ([aefa8ca](https://github.com/make-ware/inventory-ware/commit/aefa8ca7f5581362af1a46d35e2e0553f257c6c6))
+* **items:** unified Print dialog for summaries and labels ([a8029fe](https://github.com/make-ware/inventory-ware/commit/a8029fec15fe92773f1ffe65df927e01cdb2a4f4))
+* TanStack Query migration — ship all 7 slices ([c92efdf](https://github.com/make-ware/inventory-ware/commit/c92efdf716fcc343c97d447bf393ef26443807fc))
+* **webapp:** back containers and detail pages with TanStack queries ([97c0d5d](https://github.com/make-ware/inventory-ware/commit/97c0d5d5dea25794a9928ecb128a4050ca13917f))
+* **webapp:** back images and the category library with TanStack queries ([f4f1789](https://github.com/make-ware/inventory-ware/commit/f4f17897aabba98040fa1c7934cd99ab83b3472c))
+* **webapp:** back the items list with a TanStack infinite query ([5024563](https://github.com/make-ware/inventory-ware/commit/50245638703f53282d7ee93520872e27d794dc15))
+* **webapp:** keep the inventory lists live over PocketBase realtime ([3640579](https://github.com/make-ware/inventory-ware/commit/364057913f79c04fcf905f1606b572aaed5d016f))
+* **webapp:** make inventory writes optimistic through TanStack mutations ([b95b39a](https://github.com/make-ware/inventory-ware/commit/b95b39a1d948c20c3b7fe4c1596e20b7373aa7ec))
+
+
+### Bug Fixes
+
+* add protected routes ([a167587](https://github.com/make-ware/inventory-ware/commit/a1675874747318f803d1cabc81548386e223f9e2))
+* create universal printer dialogue ([964a20f](https://github.com/make-ware/inventory-ware/commit/964a20f4ba18fe65fb6270bc5e34fe9021024e1a))
+* **items:** label value fields in item history ([d824f19](https://github.com/make-ware/inventory-ware/commit/d824f19ee28a37c25d4218f8329203a1753ddd20))
+* **print:** read item value fields from the merged schema ([344165e](https://github.com/make-ware/inventory-ware/commit/344165ea91698f3e9e369a0d99743c702193f1ed))
+* **webapp:** restore the async item picker on the container page ([68a54e3](https://github.com/make-ware/inventory-ware/commit/68a54e31b103d3ab185587029016b232481659e8))
+
 ## [0.8.0](https://github.com/make-ware/inventory-ware/compare/inventory-ware-v0.7.0...inventory-ware-v0.8.0) (2026-08-25)
 
 
