@@ -21,7 +21,8 @@ Run from repo root unless noted:
 - `yarn build` — builds all workspaces (shared first, then webapp)
 - `yarn test` — `shared` tests then `webapp` tests (both vitest)
 - `yarn lint` (fix) / `yarn lint:check` / `yarn typecheck` / `yarn format`
-- `yarn precommit` — format + lint + typecheck + test
+- `yarn precommit` — format + lint + typecheck + test (all four also cover `benchmark/`, which is not a workspace)
+- `yarn benchmark` — scores `createAIAnalysisService().analyzeImage` against the committed cases in `benchmark/cases/`, writing a git-tracked per-model report to `benchmark/results/`; the feedback loop for prompt changes in `ai-analysis.ts` (see `benchmark/README.md`). Needs an AI provider key but no PocketBase.
 - `yarn typegen` / `yarn db:typegen` — regenerate `shared/src/pocketbase-types.ts` from the live PocketBase schema (PocketBase must be running)
 - `yarn db:migrate` — generate a `pocketbase-migrate` migration from schema drift
 - `yarn db:status` — check migration status

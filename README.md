@@ -78,6 +78,7 @@ inventory-ware/
 - `yarn clean` - Clean build artifacts and PocketBase data
 - `yarn install:all` - Install all dependencies
 - `yarn typegen` - Generate TypeScript types from PocketBase schema
+- `yarn benchmark` - Score the AI image analysis against the committed cases (see [benchmark/README.md](benchmark/README.md))
 
 ### PocketBase Commands
 
@@ -173,6 +174,10 @@ unusable `AI_MODEL` falls back to the provider default with a warning; with no
 key configured the app runs normally but the AI routes return
 `503 AI_NOT_CONFIGURED`. `OPENAI_MODEL` and `OPENAI_BASE_URL` remain supported
 as legacy aliases.
+
+Prompt changes are measured with `yarn benchmark`, which runs the production
+analysis path over the committed cases in `benchmark/cases/` and writes a scored
+per-model report to `benchmark/results/`. See [benchmark/README.md](benchmark/README.md).
 
 ### Next.js
 

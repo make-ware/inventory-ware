@@ -1,0 +1,6 @@
+{
+  "//": "Not a workspace — this file exists only to mark benchmark/src as ESM for tsx. Scripts live in the root package.json.",
+  "name": "benchmark",
+  "private": true,
+  "type": "module"
+}

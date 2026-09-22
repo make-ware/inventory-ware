@@ -7076,6 +7076,7 @@ __metadata:
     concurrently: "npm:^10.0.4"
     eslint: "npm:^10.8.0"
     prettier: "npm:^3.9.6"
+    tsx: "npm:^4.23.1"
     typescript: "npm:^5.9.3"
   languageName: unknown
   linkType: soft

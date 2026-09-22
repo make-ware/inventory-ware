@@ -1,0 +1,69 @@
+{
+  "model": "gpt-5.4-2026-03-05",
+  "provider": "openai",
+  "experimentalMode": false,
+  "generatedAt": "2026-09-06T00:48:09.502Z",
+  "gitSha": "c92efdf",
+  "runsPerCase": 3,
+  "cases": [
+    {
+      "name": "drill-on-bench",
+      "image": "cases/images/drill.jpg",
+      "description": "Cordless power drill, plain background. Placeholder illustration — swap in a real photo before reading anything into the scores.",
+      "errors": [],
+      "scores": [
+        {
+          "field": "item.itemType",
+          "expected": ["Drill"],
+          "hits": 3,
+          "total": 3,
+          "score": 1
+        },
+        {
+          "field": "item.categoryFunctional",
+          "expected": ["Tools"],
+          "hits": 3,
+          "total": 3,
+          "score": 1
+        },
+        {
+          "field": "item.categorySpecific",
+          "expected": ["Power Tools"],
+          "hits": 3,
+          "total": 3,
+          "score": 1
+        },
+        {
+          "field": "item.itemAttributes",
+          "expected": ["Color", "Colour"],
+          "hits": 3,
+          "total": 3,
+          "score": 1,
+          "note": "attributes are matched as \"name: value\", so a bare name is enough"
+        },
+        {
+          "field": "imageLabel",
+          "expected": ["Drill"],
+          "hits": 3,
+          "total": 3,
+          "score": 1
+        },
+        {
+          "field": "item.itemManufacturer",
+          "expected": ["DeWalt"],
+          "hits": 0,
+          "total": 3,
+          "score": 0,
+          "note": "expected to score 0 on the placeholder illustration — it carries no branding. Kept so the report shows what a miss looks like."
+        }
+      ],
+      "avgScore": 0.8333
+    }
+  ],
+  "overall": {
+    "avgScore": 0.8333,
+    "totalFields": 6,
+    "totalHits": 15,
+    "totalPossible": 18
+  }
+}

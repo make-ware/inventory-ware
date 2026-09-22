@@ -75,3 +75,7 @@ cli/bundle/
 pocketbase/CHANGELOG.md
 pocketbase/LICENSE.md
 pocketbase/pocketbase
+
+# Benchmark reports are deliberately tracked (benchmark/README.md) — keep any
+# future JSON ignore rule from swallowing them.
+!benchmark/results/*.json
