@@ -229,13 +229,33 @@ export function buildItemsExportHtml(
 }
 
 /**
+ * One item's page with no summary header and no print script — the print
+ * dialog's preview. Rendered into a sandboxed iframe, so it can never print.
+ */
+export function buildItemPreviewHtml(item: ExportItem): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(item.itemLabel)}</title>
+  <style>${STYLES} body { padding: 16mm; }</style>
+</head>
+<body>
+  ${renderItem(item)}
+</body>
+</html>`;
+}
+
+/**
  * Open the export window. Call this synchronously inside the click handler,
  * before any `await`, or the browser will treat it as an unsolicited pop-up.
  */
-export function openExportWindow(): Window {
+export function openExportWindow(
+  blockedMessage = POPUP_BLOCKED_MESSAGE
+): Window {
   const win = window.open('', '_blank');
   if (!win) {
-    throw new Error(POPUP_BLOCKED_MESSAGE);
+    throw new Error(blockedMessage);
   }
   win.document.open();
   win.document.write(

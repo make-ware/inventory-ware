@@ -21,6 +21,13 @@ import { Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Item, Container } from '@project/shared';
 import pb from '@/lib/pocketbase-client';
+import {
+  DEFAULT_LABEL_FORMAT,
+  PRINT_POPUP_BLOCKED_MESSAGE,
+  buildLabelsPrintHtml,
+  fetchLabelSvg,
+} from '@/services/label-print';
+import type { LabelFormat } from '@/services/label-print';
 
 interface LabelGeneratorDialogProps {
   open: boolean;
@@ -35,7 +42,7 @@ export function LabelGeneratorDialog({
   target,
   targetType,
 }: LabelGeneratorDialogProps) {
-  const [format, setFormat] = useState('shipping-4x6');
+  const [format, setFormat] = useState<string>(DEFAULT_LABEL_FORMAT);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedSvg, setGeneratedSvg] = useState<string | null>(null);
 
@@ -50,29 +57,13 @@ export function LabelGeneratorDialog({
     if (!target) return;
     setIsGenerating(true);
     try {
-      const res = await fetch('/api-next/labels/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${pb.authStore.token}`,
-        },
-        body: JSON.stringify({
-          targetId: target.id,
-          targetType,
-          format,
-        }),
+      const svg = await fetchLabelSvg({
+        targetId: target.id,
+        targetType,
+        format: format as LabelFormat,
+        token: pb.authStore.token,
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        const detail = body?.reason ?? body?.error;
-        throw new Error(
-          detail
-            ? `Failed to generate label (${res.status}): ${detail}`
-            : `Failed to generate label (${res.status})`
-        );
-      }
-      const data = await res.json();
-      setGeneratedSvg(data.svg);
+      setGeneratedSvg(svg);
     } catch (error) {
       console.error(error);
       toast.error(
@@ -87,42 +78,10 @@ export function LabelGeneratorDialog({
     if (!generatedSvg) return;
     const win = window.open('', '_blank');
     if (!win) {
-      toast.error('Pop-up blocked. Please allow pop-ups to print.');
+      toast.error(PRINT_POPUP_BLOCKED_MESSAGE);
       return;
     }
-
-    // Determine page size CSS based on format
-    let pageStyle = '';
-    if (format === 'shipping-4x6') {
-      pageStyle = '@page { size: 4in 6in; margin: 0; }';
-    } else if (format === 'address-30x100') {
-      pageStyle = '@page { size: 100mm 30mm; margin: 0; }';
-    }
-
-    win.document.write(`
-      <html>
-        <head>
-          <title>Print Label</title>
-          <style>
-            ${pageStyle}
-            body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
-            svg { max-width: 100%; height: auto; }
-            @media print {
-              body { display: block; height: auto; }
-              svg { max-width: none; width: 100%; height: 100%; }
-            }
-          </style>
-        </head>
-        <body>
-          ${generatedSvg}
-          <script>
-            window.onload = () => {
-              window.print();
-            };
-          </script>
-        </body>
-      </html>
-    `);
+    win.document.write(buildLabelsPrintHtml([generatedSvg], format));
     win.document.close();
   };
 

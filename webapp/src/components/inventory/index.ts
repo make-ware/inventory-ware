@@ -16,3 +16,4 @@ export { BulkEditDialog, type BulkEditData } from './bulk-edit-dialog';
 export { PaginationControls } from './pagination-controls';
 export { SearchInput } from './search-input';
 export { SortSelect, type SortOption } from './sort-select';
+export { PrintDialog, type PrintDialogProps } from './print-dialog';

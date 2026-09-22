@@ -19,6 +19,11 @@ interface ItemsListOptions {
   sort: string;
 }
 
+/** What the print dialog is previewing: a selection, or the grid's query. */
+type PrintPreviewScope =
+  | { kind: 'selected'; ids: string[] }
+  | { kind: 'filtered'; q: string; filters: SearchFilters; sort: string };
+
 interface ContainersListOptions {
   q: string;
   sort: string;
@@ -41,6 +46,12 @@ export const qk = {
     ['items', 'infinite', userId, options] as const,
   /** Every item, unpaged — the pool the container "add item" picker draws on. */
   itemsAll: (userId: string) => ['items', 'all', userId] as const,
+  /**
+   * The print dialog's first record and total. Under the items prefix, so a
+   * write that invalidates the lists refreshes an open preview with them.
+   */
+  itemsPrintPreview: (userId: string, scope: PrintPreviewScope) =>
+    ['items', 'printPreview', userId, scope] as const,
   itemById: (id: string) => ['item', id] as const,
   itemsByContainer: (containerId: string) =>
     ['items', 'byContainer', containerId] as const,
@@ -75,6 +86,10 @@ export const qk = {
    * an open detail page follow those invalidations.
    */
   imageById: (id: string) => ['images', 'byId', id] as const,
+
+  /** One rendered label SVG, as `/api-next/labels/generate` returns it. */
+  labelPreview: (targetId: string, format: string) =>
+    ['labels', targetId, format] as const,
 
   /** Prefix covering the category library; invalidate it after an item write. */
   categoriesPrefix: () => ['categories'] as const,

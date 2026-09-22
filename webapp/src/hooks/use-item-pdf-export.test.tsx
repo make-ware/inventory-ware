@@ -150,6 +150,29 @@ describe('exportSelected', () => {
   });
 });
 
+describe('printLabels', () => {
+  it('closes the window and says so when the filtered set is empty', async () => {
+    getList.mockResolvedValue(makePage(1, 0, []));
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useItemPdfExport());
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await result.current.printLabels(
+        { kind: 'filtered', query: { userId: 'u1' } },
+        'shipping-4x6'
+      );
+    });
+
+    expect(ok).toBe(true);
+    expect(win.close).toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith('There are no items to print');
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+});
+
 describe('formatPrintLabel', () => {
   it('appends a positive count', () => {
     expect(formatPrintLabel('Items', 2)).toBe('Print Items [2]');

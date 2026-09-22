@@ -18,6 +18,7 @@ import {
   ItemCard,
   BulkEditDialog,
   PaginationControls,
+  PrintDialog,
   SortSelect,
 } from '@/components/inventory';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ import {
   CheckSquare,
   X,
   FileDown,
+  Printer,
 } from 'lucide-react';
 import { useUpload } from '@/contexts/upload-context';
 import { useAuth } from '@/hooks/use-auth';
@@ -47,6 +49,7 @@ import {
   formatPrintLabel,
   useItemPdfExport,
 } from '@/hooks/use-item-pdf-export';
+import type { ExportFilteredOptions } from '@/hooks/use-item-pdf-export';
 import {
   useBulkDeleteItems,
   useBulkUpdateItems,
@@ -54,6 +57,13 @@ import {
 } from '@/hooks/use-item-mutations';
 import { useCategoryLibrary } from '@/hooks/use-categories';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+
+const SORT_OPTIONS = [
+  { label: 'Created (Newest)', value: '-created' },
+  { label: 'Created (Oldest)', value: '+created' },
+  { label: 'Name (A-Z)', value: '+itemLabel' },
+  { label: 'Name (Z-A)', value: '-itemLabel' },
+];
 
 function ItemsPageContent() {
   const router = useRouter();
@@ -88,6 +98,7 @@ function ItemsPageContent() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
+  const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false);
 
   // Dialog state
   const [createOptionDialog, setCreateOptionDialog] = useState<{
@@ -102,7 +113,7 @@ function ItemsPageContent() {
   const deleteItem = useDeleteItem();
   const bulkDeleteItems = useBulkDeleteItems();
   const bulkUpdateItems = useBulkUpdateItems();
-  const { isExporting, exportFiltered, exportSelected } = useItemPdfExport();
+  const { isExporting, exportSelected } = useItemPdfExport();
 
   // Only the free-text box needs debouncing; the sort and category selects
   // change one discrete step at a time.
@@ -333,32 +344,29 @@ function ItemsPageContent() {
     input.click();
   };
 
-  const sortOptions = [
-    { label: 'Created (Newest)', value: '-created' },
-    { label: 'Created (Oldest)', value: '+created' },
-    { label: 'Name (A-Z)', value: '+itemLabel' },
-    { label: 'Name (Z-A)', value: '-itemLabel' },
-  ];
+  const sortLabel = SORT_OPTIONS.find(
+    (option) => option.value === sortValue
+  )?.label;
 
   // Same three inputs `useItemsInfinite` gets above, so the PDF is the grid.
-  const handleExportFiltered = () =>
-    exportFiltered({
+  const filteredQuery = useMemo<ExportFilteredOptions>(
+    () => ({
       userId,
       q: debouncedQuery,
       filters: searchFilters,
       sort: sortValue,
-      sortLabel: sortOptions.find((option) => option.value === sortValue)
-        ?.label,
-    });
+      sortLabel,
+    }),
+    [userId, debouncedQuery, searchFilters, sortValue, sortLabel]
+  );
 
-  const selectedCount = selectedItems.size;
+  // A `Set` keeps insertion order, so the PDF follows the selection order.
+  const selectedIds = useMemo(() => Array.from(selectedItems), [selectedItems]);
+  const selectedCount = selectedIds.length;
   const printLabel = formatPrintLabel('Items', selectedCount);
   const printingLabel =
     selectedCount > 0 ? `Printing [${selectedCount}]…` : 'Printing…';
-  // A `Set` keeps insertion order, so the PDF follows the selection order.
-  const handleExportSelected = () => exportSelected(Array.from(selectedItems));
-  const handlePrint = () =>
-    selectedCount > 0 ? handleExportSelected() : handleExportFiltered();
+  const handleExportSelected = () => exportSelected(selectedIds);
 
   const exportIcon = isExporting ? (
     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -403,15 +411,9 @@ function ItemsPageContent() {
             <Plus className="h-4 w-4 mr-2" />
             New Item
           </Button>
-          <Button
-            variant="outline"
-            onClick={handlePrint}
-            disabled={isExporting}
-          >
-            {exportIcon}
-            <span aria-live="polite">
-              {isExporting ? printingLabel : printLabel}
-            </span>
+          <Button variant="outline" onClick={() => setIsPrintDialogOpen(true)}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print
           </Button>
           <Button
             variant="outline"
@@ -437,7 +439,7 @@ function ItemsPageContent() {
             <SortSelect
               value={sortValue}
               onValueChange={setSortValue}
-              options={sortOptions}
+              options={SORT_OPTIONS}
               className="w-full"
             />
           </div>
@@ -540,9 +542,15 @@ function ItemsPageContent() {
 
       {selectedItems.size > 0 && (
         <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 bg-background border rounded-lg shadow-lg p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-2 sm:gap-4 z-50 max-w-[calc(100%-2rem)] sm:max-w-none">
-          <span className="font-medium text-sm sm:text-base">
+          <Button
+            variant="ghost"
+            onClick={() => setIsPrintDialogOpen(true)}
+            aria-label="Open print options"
+            className="font-medium text-sm sm:text-base"
+          >
+            <Printer className="h-4 w-4 mr-2" />
             {selectedItems.size} selected
-          </span>
+          </Button>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button
               onClick={() => setIsBulkEditDialogOpen(true)}
@@ -576,6 +584,14 @@ function ItemsPageContent() {
         selectedCount={selectedItems.size}
         onConfirm={handleBulkEditConfirm}
         categories={categories}
+      />
+
+      <PrintDialog
+        entity="items"
+        open={isPrintDialogOpen}
+        onOpenChange={setIsPrintDialogOpen}
+        selectedIds={selectedIds}
+        filteredQuery={filteredQuery}
       />
     </div>
   );
